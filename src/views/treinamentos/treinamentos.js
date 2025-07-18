@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CCard,
   CCardBody,
@@ -55,37 +56,57 @@ const treinamentos = [
 ];
 
 
+
 const Treinamentos = () => {
+  const navigate = useNavigate();
   return (
-    <div style={{ padding: '2rem', background: '#f8f9fa', minHeight: '100vh' }}>
+    <div style={{ padding: '2rem', minHeight: '100vh' }}>
       <h2 style={{ marginBottom: 32, fontWeight: 800, letterSpacing: 0.5, color: '#222' }}>Treinamentos</h2>
+      <style>{`
+        .treinamento-card {
+          border-radius: 18px !important;
+          box-shadow: 0 8px 32px 0 rgba(34, 34, 34, 0.18), 0 1.5px 6px 0 rgba(0,0,0,0.10);
+          border: 1.5px solid transparent !important;
+          transition: border-color 0.2s;
+          position: relative;
+          z-index: 1;
+        }
+        .treinamento-card:hover {
+          border-color: #c2001a !important;
+          z-index: 2;
+        }
+      `}</style>
       <CRow className="g-3">
-        {treinamentos.map((treinamento, idx) => (
-          <CCol key={idx} xs={12} sm={6} lg={4} xl={3}>
-            <CCard className="h-100 border-0" style={{ borderRadius: 18, boxShadow: '0 2px 16px 0 rgba(0,0,0,0.07)' }}>
-              <CCardBody className="d-flex flex-column justify-content-between p-4" style={{ minHeight: 340 }}>
-                <div className="d-flex align-items-center mb-3">
-                  <CAvatar size="lg" color={treinamento.cor} className="me-3">
-                    <CIcon icon={treinamento.icone} size="xl" style={{ color: treinamento.cor === 'primary' ? '#fff' : undefined }} />
-                  </CAvatar>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: 15, color: '#888' }}>{treinamento.categoria}</span>
-                  </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <CCardTitle style={{ fontWeight: 700, fontSize: 20, color: '#222', marginBottom: 10 }}>{treinamento.titulo}</CCardTitle>
-                  <CCardText style={{ color: '#555', fontSize: 15, minHeight: 70 }}>{treinamento.descricao}</CCardText>
-                </div>
-                <div className="d-flex justify-content-end align-items-end mt-4">
-                  <CButton color="primary" href={treinamento.link} style={{ fontWeight: 700, borderRadius: 8, minWidth: 100 }}>Acessar</CButton>
-                </div>
-              </CCardBody>
-            </CCard>
-          </CCol>
-        ))}
+      {treinamentos.map((treinamento, idx) => (
+        <CCol key={idx} xs={12} sm={6} lg={4} xl={3}>
+        <CCard className="h-100 treinamento-card">
+          <CCardBody className="d-flex flex-column justify-content-between p-4" style={{ minHeight: 340 }}>
+          <div className="d-flex align-items-center mb-3">
+            <CAvatar size="lg" color={treinamento.cor} className="me-3">
+            <CIcon icon={treinamento.icone} size="xl" style={{ color: treinamento.cor === 'primary' ? '#fff' : undefined }} />
+            </CAvatar>
+            <div>
+            <span style={{ fontWeight: 600, fontSize: 15, color: '#888' }}>{treinamento.categoria}</span>
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <CCardTitle style={{ fontWeight: 700, fontSize: 20, color: '#222', marginBottom: 10 }}>{treinamento.titulo}</CCardTitle>
+            <CCardText style={{ color: '#555', fontSize: 15, minHeight: 70 }}>{treinamento.descricao}</CCardText>
+          </div>
+          <div className="d-flex justify-content-end align-items-end mt-4">
+            <CButton color="primary" onClick={() => navigate(`/treinamentos/${idx}`)} className="w-100">Acessar</CButton>
+          </div>
+          </CCardBody>
+        </CCard>
+        </CCol>
+      ))}
       </CRow>
     </div>
-  );
+    );
 };
+
+
+// Exporta o array para uso no detalhe
+export { treinamentos };
 
 export default Treinamentos;

@@ -20,13 +20,13 @@ import CIcon from '@coreui/icons-react';
 import { cilSearch, cilXCircle, cilCalendar } from '@coreui/icons';
 
 const Atestados = () => {
-  const [validated, setValidated] = useState(false);
-  const [file, setFile] = useState(null);
-  const [fileError, setFileError] = useState('');
+  const [ validated, setValidated ] = useState(false);
+  const [ file, setFile ] = useState(null);
+  const [ fileError, setFileError ] = useState('');
   const fileInputRef = useRef();
 
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
+    const selectedFile = e.target.files[ 0 ];
     if (selectedFile) {
       if (selectedFile.size > 10 * 1024 * 1024) {
         setFileError('Arquivo excede 10MB.');
@@ -54,7 +54,7 @@ const Atestados = () => {
     if (dataInicio && dias && dias > 0) {
       const data = new Date(dataInicio);
       data.setDate(data.getDate() + dias - 1);
-      const dataFinal = data.toISOString().split('T')[0];
+      const dataFinal = data.toISOString().split('T')[ 0 ];
       document.getElementById('dataFinalAtestado').value = dataFinal;
     } else {
       document.getElementById('dataFinalAtestado').value = '';
@@ -88,87 +88,93 @@ const Atestados = () => {
         <CCol lg={12}>
           <CCard className="shadow mb-4">
             <CCardHeader>
-              <h6 className="m-0 font-weight-bold text-primary">Incluir Atestado Médico:</h6>
+              <h6 className="m-0 font-weight-bold text-primary">Incluir Atestado Médico </h6>
             </CCardHeader>
             <CCardBody>
               <CForm className="needs-validation" noValidate validated={validated} onSubmit={handleSubmit}>
-                <CRow className="g-3">
+                <CRow className="g-4">
+                  {/* Primeira linha: Tipificação, Especificação, CID */}
                   <CCol md={4}>
-                    <CFormLabel htmlFor="tipificacaoAtestado">Tipificação:<span className="text-danger">*</span></CFormLabel>
+                    <CFormLabel htmlFor="tipificacaoAtestado">Tipificação <span className="text-danger">*</span></CFormLabel>
                     <CFormSelect id="tipificacaoAtestado" required defaultValue="">
-                      <option value="" disabled>Selecione a tipificação:</option>
-                      <option value="1">Atestado de Saúde.</option>
-                      <option value="2">Atestado Odontológico.</option>
+                      <option value="" disabled>Selecione a tipificação</option>
+                      <option value="1">Atestado de Saúde</option>
+                      <option value="2">Atestado Odontológico</option>
                     </CFormSelect>
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
                   <CCol md={4}>
-                    <CFormLabel htmlFor="especificacaoAtestado">Especificação:<span className="text-danger">*</span></CFormLabel>
+                    <CFormLabel htmlFor="especificacaoAtestado">Especificação <span className="text-danger">*</span></CFormLabel>
                     <CFormSelect id="especificacaoAtestado" required defaultValue="">
-                      <option value="" disabled>Selecione ou digite a especificação:</option>
-                      <option value="1">Doença.</option>
-                      <option value="2">Acidente de trabalho.</option>
-                      <option value="3">Licença maternidade.</option>
+                      <option value="" disabled>Selecione ou digite a especificação</option>
+                      <option value="1">Doença</option>
+                      <option value="2">Acidente de trabalho</option>
+                      <option value="3">Licença maternidade</option>
                     </CFormSelect>
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
                   <CCol md={4}>
-                    <CFormLabel htmlFor="cidAtestado">CID:</CFormLabel>
+                    <CFormLabel htmlFor="cidAtestado">CID</CFormLabel>
                     <CFormSelect id="cidAtestado" required defaultValue="">
-                      <option value="" disabled>Selecione o CID:</option>
-                      <option value="1">F00 - Transtornos mentais e comportamentais.</option>
-                      <option value="2">F01 - Demência.</option>
-                      <option value="3">F02 - Demência em doenças não classificadas em outra parte.</option>
+                      <option value="" disabled>Selecione o CID</option>
+                      <option value="1">F00 - Transtornos mentais e comportamentais</option>
+                      <option value="2">F01 - Demência</option>
+                      <option value="3">F02 - Demência em doenças não classificadas em outra parte</option>
                     </CFormSelect>
                   </CCol>
+
+                  {/* Segunda linha: Datas e dias */}
                   <CCol md={4}>
-                    <CFormLabel htmlFor="dataInicioAtestado">Data de Início: <span className="text-danger">*</span></CFormLabel>
-                    <CInputGroup>
-                      <CFormInput type="date" id="dataInicioAtestado" required onChange={calcularDataFinal} />
-                      <CButton type="button" color="secondary" title="Data de hoje" onClick={() => {
-                        const today = new Date().toISOString().split('T')[0];
-                        document.getElementById('dataInicioAtestado').value = today;
-                        calcularDataFinal();
-                      }}>
-                        <CIcon icon={cilCalendar} size="md" />
-                      </CButton>
-                      <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
-                    </CInputGroup>
+                    <CFormLabel htmlFor="dataInicioAtestado">Data de Início <span className="text-danger">*</span></CFormLabel>
+                    <CFormInput type="date" id="dataInicioAtestado" required onChange={calcularDataFinal} />
+                    <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
+
                     <small className="form-text text-muted">
                       <span id="diasAtras"></span>
                     </small>
                   </CCol>
-                  <CCol md={4}>
-                    <CFormLabel htmlFor="diasAtestado">Dias de atestado: <span className="text-danger">*</span></CFormLabel>
+                  <CCol md={2}>
+                    <CFormLabel htmlFor="diasAtestado">Dias <span className="text-danger">*</span></CFormLabel>
                     <CFormInput type="number" id="diasAtestado" min="1" max="365" placeholder="Ex: 3" required onChange={calcularDataFinal} />
                     <small className="form-text text-muted">
                       <span id="informacaoDias"></span>
                     </small>
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
-                  <CCol md={4}>
-                    <CFormLabel htmlFor="dataFinalAtestado">Data final:<span className="text-danger">*</span></CFormLabel>
+                  <CCol md={3}>
+                    <CFormLabel htmlFor="dataFinalAtestado">Data final <span className="text-danger">*</span></CFormLabel>
                     <CFormInput type="date" id="dataFinalAtestado" readOnly style={{ backgroundColor: '#e5e7ebb7' }} />
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                     <small className="form-text text-muted">
                       <span id="informacaoDataFinal"></span>
                     </small>
                   </CCol>
-                  <CCol md={4}>
-                    <CFormLabel htmlFor="medicoAtestado">Médico responsável:</CFormLabel>
+
+                  {/* Terceira linha: Médico e CRM */}
+                  <CCol md={3}>
+                    <CFormLabel htmlFor="medicoAtestado">Médico responsável</CFormLabel>
                     <CFormInput type="text" id="medicoAtestado" placeholder="Nome do médico:" required />
                   </CCol>
-                  <CCol md={4}>
-                    <CFormLabel htmlFor="crmMedicoAtestado">CRM do Médico:</CFormLabel>
+                  <CCol md={3}>
+                    <CFormLabel htmlFor="crmMedicoAtestado">CRM do Médico</CFormLabel>
                     <CFormInput type="text" id="crmMedicoAtestado" placeholder="CRM do médico:" />
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
-                  <CCol md={4}>
-                    <CFormLabel htmlFor="justificativaAtestado">Justificativa:</CFormLabel>
-                    <CFormTextarea id="justificativaAtestado" placeholder="Justificativa:" rows={1} />
+
+                  {/* Quarta linha: Justificativa */}
+                  <CCol md={9}>
+                    <CFormLabel htmlFor="justificativaAtestado">Justificativa</CFormLabel>
+                    <CFormTextarea
+                      id="justificativaAtestado"
+                      placeholder="Justificativa:"
+                      rows={3}
+                      required
+                    />
                   </CCol>
+
+                  {/* Quinta linha: Anexo */}
                   <CCol md={12}>
-                    <CFormLabel htmlFor="anexoAtestado">Anexo do Atestado: <span className="text-danger">*</span></CFormLabel>
+                    <CFormLabel htmlFor="anexoAtestado">Anexo do Atestado <span className="text-danger">*</span></CFormLabel>
                     <div className="upload-area border rounded p-3 mb-2" style={{ background: '#f8f9fa' }}>
                       <input
                         type="file"
@@ -183,7 +189,7 @@ const Atestados = () => {
                       {fileError && <div className="invalid-feedback d-block">{fileError}</div>}
                       {!file && (
                         <div className="upload-text text-center mt-2">
-                          <h5>Arraste o arquivo aqui ou <span className="upload-browse">clique para procurar</span></h5>
+                          <h5>Arraste o arquivo aqui ou <span >clique para procurar</span></h5>
                           <p className="upload-formats">PDF, JPG, JPEG, PNG • Máximo 10MB</p>
                         </div>
                       )}
@@ -214,6 +220,8 @@ const Atestados = () => {
                     </div>
                     <div id="infoAnexo" className="mt-2"></div>
                   </CCol>
+
+                  {/* Botão de envio */}
                   <CCol lg={12} className="text-end">
                     <CButton type="submit" color="primary" className="btn-block">
                       <i className="fas fa-save"></i> Enviar Atestado
