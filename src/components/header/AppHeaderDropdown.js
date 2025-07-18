@@ -21,20 +21,24 @@ import {
   cilUser,
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft } from '@coreui/icons'
 
 import avatar8 from './../../assets/images/avatars/8.jpg'
 
 const AppHeaderDropdown = () => {
+  const handleLogout = () => {
+    // Adicione aqui a lógica de logout, por exemplo, limpar tokens e redirecionar
+    console.log('Logout realizado')
+  }
+
   return (
     <CDropdown variant="nav-item">
       <CDropdownToggle placement="bottom-end" className="py-0 pe-0" caret={false}>
         <CAvatar src={avatar8} size="md" />
       </CDropdownToggle>
       <CDropdownMenu className="pt-0" placement="bottom-end">
-        <CDropdownItem>
-          <CIcon icon={cilArrowLeft} size="lg" className="me-2" />
-          Deslogar
+        <CDropdownItem onClick={handleLogout} style={{ cursor: 'pointer' }}>
+          <CIcon icon={cilLockLocked} className="me-2" />
+          Sair
         </CDropdownItem>
       </CDropdownMenu>
     </CDropdown>
