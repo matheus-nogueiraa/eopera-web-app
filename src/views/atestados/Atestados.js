@@ -1,4 +1,6 @@
+
 import React, { useRef, useState } from 'react';
+import './Atestado.css';
 import {
   CCard,
   CCardBody,
@@ -14,6 +16,8 @@ import {
   CFormFeedback,
   CInputGroup,
 } from '@coreui/react';
+import CIcon from '@coreui/icons-react';
+import { cilSearch, cilXCircle, cilCalendar } from '@coreui/icons';
 
 const Atestados = () => {
   const [validated, setValidated] = useState(false);
@@ -41,6 +45,20 @@ const Atestados = () => {
     setFile(null);
     setFileError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Função para calcular a data final
+  const calcularDataFinal = () => {
+    const dataInicio = document.getElementById('dataInicioAtestado').value;
+    const dias = parseInt(document.getElementById('diasAtestado').value, 10);
+    if (dataInicio && dias && dias > 0) {
+      const data = new Date(dataInicio);
+      data.setDate(data.getDate() + dias - 1);
+      const dataFinal = data.toISOString().split('T')[0];
+      document.getElementById('dataFinalAtestado').value = dataFinal;
+    } else {
+      document.getElementById('dataFinalAtestado').value = '';
+    }
   };
 
   const handleSubmit = (event) => {
@@ -106,12 +124,13 @@ const Atestados = () => {
                   <CCol md={4}>
                     <CFormLabel htmlFor="dataInicioAtestado">Data de Início: <span className="text-danger">*</span></CFormLabel>
                     <CInputGroup>
-                      <CFormInput type="date" id="dataInicioAtestado" required />
+                      <CFormInput type="date" id="dataInicioAtestado" required onChange={calcularDataFinal} />
                       <CButton type="button" color="secondary" title="Data de hoje" onClick={() => {
                         const today = new Date().toISOString().split('T')[0];
                         document.getElementById('dataInicioAtestado').value = today;
+                        calcularDataFinal();
                       }}>
-                        <i className="fas fa-calendar-day"></i>
+                        <CIcon icon={cilCalendar} size="md" />
                       </CButton>
                       <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                     </CInputGroup>
@@ -121,7 +140,7 @@ const Atestados = () => {
                   </CCol>
                   <CCol md={4}>
                     <CFormLabel htmlFor="diasAtestado">Dias de atestado: <span className="text-danger">*</span></CFormLabel>
-                    <CFormInput type="number" id="diasAtestado" min="1" max="365" placeholder="Ex: 3" required />
+                    <CFormInput type="number" id="diasAtestado" min="1" max="365" placeholder="Ex: 3" required onChange={calcularDataFinal} />
                     <small className="form-text text-muted">
                       <span id="informacaoDias"></span>
                     </small>
@@ -183,10 +202,10 @@ const Atestados = () => {
                             </div>
                             <div className="file-actions ms-auto">
                               <CButton type="button" color="info" size="sm" className="me-1" onClick={() => window.open(URL.createObjectURL(file))}>
-                                <i className="fas fa-eye"></i>
+                                <CIcon icon={cilSearch} size="lg" />
                               </CButton>
                               <CButton type="button" color="danger" size="sm" onClick={handleRemoveFile}>
-                                <i className="fas fa-times"></i>
+                                <CIcon icon={cilXCircle} size="lg" />
                               </CButton>
                             </div>
                           </div>
@@ -196,7 +215,7 @@ const Atestados = () => {
                     <div id="infoAnexo" className="mt-2"></div>
                   </CCol>
                   <CCol lg={12} className="text-end">
-                    <CButton type="submit" color="success" className="btn-block">
+                    <CButton type="submit" color="primary" className="btn-block">
                       <i className="fas fa-save"></i> Enviar Atestado
                     </CButton>
                   </CCol>
