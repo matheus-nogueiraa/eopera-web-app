@@ -3,6 +3,7 @@ import {
   cilDescription,
   cilEducation,
   cilBarChart,
+  cilVideo
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
@@ -35,6 +36,29 @@ const _nav = [
     to: '/treinamentos',
     icon: <CIcon icon={cilEducation} customClassName="nav-icon" />
   },
+  {
+    component: CNavGroup,
+    name: 'Conteúdos',
+    icon: <CIcon icon={cilVideo} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'Criar Cursos',
+        to: '/criar-cursos',
+      },
+      {
+        component: CNavItem,
+        name: 'Criar Questionários',
+        to: '/criar-questionarios',
+      },
+      {
+        component: CNavItem,
+        name: 'Certificados',
+        to: '/certificados',
+      }
+    ],
+  },
+
 ]
 
 export default _nav
