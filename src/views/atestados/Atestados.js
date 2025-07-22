@@ -332,7 +332,7 @@ const Atestados = () => {
         <CCol lg={12}>
           <CCard className="shadow mb-4">
             <CCardHeader>
-              <h6 className="m-0 font-weight-bold text-primary">Incluir Atestado Médico:</h6>
+              <h6 className="m-0 font-weight-bold text-primary">Incluir Atestado Médico </h6>
             </CCardHeader>
             <CCardBody>
               <CForm
@@ -432,7 +432,6 @@ const Atestados = () => {
                     </small>
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
-
                   {/* Campo de Data Final */}
                   <CCol md={4}>
                     <CFormLabel htmlFor="dataFinalAtestado">
@@ -483,6 +482,7 @@ const Atestados = () => {
                         ref={fileInputRef}
                         onChange={handleFileChange}
                       />
+                  </CCol>
 
                       {!file ? (
                         <div
@@ -673,7 +673,6 @@ const Atestados = () => {
                       )}
                     </div>
                   </CCol>
-
                   <CCol lg={12} className="text-end">
                     <CButton size="md" type="submit" color="primary" className="w-100">
                       Enviar Atestado
