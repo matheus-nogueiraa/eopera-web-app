@@ -21,7 +21,7 @@ const _nav = [
     component: CNavItem,
     name: 'Dashboard',
     to: '/dashboard',
-    icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />
+    icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
   },
   {
     component: CNavTitle,
@@ -37,13 +37,19 @@ const _nav = [
         name: 'Envio de atestado',
         to: '/atestados',
       },
+
+      {
+        component: CNavItem,
+        name: 'Consultar atestados',
+        to: '/atestados/consulta-atestados',
+      },
     ],
   },
   {
     component: CNavItem,
     name: 'Treinamentos',
     to: '/treinamentos',
-    icon: <CIcon icon={cilEducation} customClassName="nav-icon" />
+    icon: <CIcon icon={cilEducation} customClassName="nav-icon" />,
   },
   // {
   //   component: CNavTitle,

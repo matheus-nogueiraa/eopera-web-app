@@ -52,6 +52,7 @@ const Toasts = React.lazy(() => import('./views/notifications/toasts/Toasts'))
 
 
 const Atestados = React.lazy(() => import('./views/atestados/Atestados'))
+const ConsultaAtestados = React.lazy(() => import('./views/atestados/consulta-atestados/ConsultarAtestados'))
 const Widgets = React.lazy(() => import('./views/widgets/Widgets'))
 
 const routes = [
@@ -102,6 +103,7 @@ const routes = [
   { path: '/atestados', name: 'Atestados', element: Atestados },
   { path: '/treinamentos', name: 'Treinamentos', element: Treinamentos },
   { path: '/widgets', name: 'Widgets', element: Widgets },
+  { path: '/atestados/consulta-atestados', name: 'Consultar Atestados', element: ConsultaAtestados }
 ]
 
 export default routes
