@@ -291,14 +291,14 @@ const Atestados = () => {
     })
 
     // Remover classes de validação com um pequeno delay
-   setTimeout(() => {
-     const formElements = document.querySelectorAll('.is-valid, .is-invalid')
-     formElements.forEach((element) => {
-       element.classList.remove('is-valid', 'is-invalid')
-     })
-   }, 100)
+    setTimeout(() => {
+      const formElements = document.querySelectorAll('.is-valid, .is-invalid')
+      formElements.forEach((element) => {
+        element.classList.remove('is-valid', 'is-invalid')
+      })
+    }, 100)
 
-   console.log('📋 Formulário limpo e pronto para novo envio')
+    console.log('📋 Formulário limpo e pronto para novo envio')
   }
 
   return (
@@ -432,6 +432,7 @@ const Atestados = () => {
                     </small>
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
+
                   {/* Campo de Data Final */}
                   <CCol md={4}>
                     <CFormLabel htmlFor="dataFinalAtestado">
@@ -482,197 +483,195 @@ const Atestados = () => {
                         ref={fileInputRef}
                         onChange={handleFileChange}
                       />
+                    </div>
                   </CCol>
 
-                      {!file ? (
-                        <div
-                          className="upload-button-area"
-                          style={{
-                            border: '2px dashed #dee2e6',
-                            borderRadius: '12px',
-                            padding: '20px 20px',
-                            textAlign: 'center',
-                            backgroundColor: '#f8f9fa',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden',
-                          }}
-                          onClick={() => fileInputRef.current?.click()}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            e.currentTarget.style.borderColor = '#ff0000a6'
-                            e.currentTarget.style.backgroundColor = '#e3f2fd'
-                            e.currentTarget.style.transform = 'scale(1.02)'
-                          }}
-                          onDragLeave={(e) => {
-                            e.preventDefault()
-                            e.currentTarget.style.borderColor = '#dee2e6'
-                            e.currentTarget.style.backgroundColor = '#f8f9fa'
-                            e.currentTarget.style.transform = 'scale(1)'
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            e.currentTarget.style.borderColor = '#dee2e6'
-                            e.currentTarget.style.backgroundColor = '#f8f9fa'
-                            e.currentTarget.style.transform = 'scale(1)'
-                            const droppedFile = e.dataTransfer.files[0]
-                            if (droppedFile) {
-                              const allowedTypes = [
-                                'application/pdf',
-                                'image/jpeg',
-                                'image/jpg',
-                                'image/png',
-                              ]
-                              if (!allowedTypes.includes(droppedFile.type)) {
-                                setFileError(
-                                  'Tipo de arquivo não permitido. Use apenas PDF, JPG, JPEG ou PNG.',
-                                )
-                                setFile(null)
-                                return
-                              }
-                              if (droppedFile.size > 10 * 1024 * 1024) {
-                                setFileError('Arquivo excede 10MB.')
-                                setFile(null)
-                              } else {
-                                setFile(droppedFile)
-                                setFileError('')
-                              }
+                  <CCol lg={12}>
+                    {!file ? (
+                      <div
+                        className="upload-button-area"
+                        style={{
+                          border: '2px dashed #dee2e6',
+                          borderRadius: '12px',
+                          padding: '20px 20px',
+                          textAlign: 'center',
+                          backgroundColor: '#f8f9fa',
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.currentTarget.style.borderColor = '#ff0000a6'
+                          e.currentTarget.style.backgroundColor = '#e3f2fd'
+                          e.currentTarget.style.transform = 'scale(1.02)'
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault()
+                          e.currentTarget.style.borderColor = '#dee2e6'
+                          e.currentTarget.style.backgroundColor = '#f8f9fa'
+                          e.currentTarget.style.transform = 'scale(1)'
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.currentTarget.style.borderColor = '#dee2e6'
+                          e.currentTarget.style.backgroundColor = '#f8f9fa'
+                          e.currentTarget.style.transform = 'scale(1)'
+                          const droppedFile = e.dataTransfer.files[0]
+                          if (droppedFile) {
+                            const allowedTypes = [
+                              'application/pdf',
+                              'image/jpeg',
+                              'image/jpg',
+                              'image/png',
+                            ]
+                            if (!allowedTypes.includes(droppedFile.type)) {
+                              setFileError(
+                                'Tipo de arquivo não permitido. Use apenas PDF, JPG, JPEG ou PNG.',
+                              )
+                              setFile(null)
+                              return
                             }
-                          }}
-                        >
-                          {/* Texto principal */}
-                          <div>
-                            <h5 className="mb-3 text-primary fw-bold">Clique ou arraste aqui</h5>
+                            if (droppedFile.size > 10 * 1024 * 1024) {
+                              setFileError('Arquivo excede 10MB.')
+                              setFile(null)
+                            } else {
+                              setFile(droppedFile)
+                              setFileError('')
+                            }
+                          }
+                        }}
+                      >
+                        {/* Texto principal */}
+                        <div>
+                          <h5 className="mb-3 text-primary fw-bold">Clique ou arraste aqui</h5>
 
-                            {/* Botão estilizado */}
-                            <CButton
-                              color="primary"
-                              variant="outline"
-                              size="md"
-                              className="mb-3 px-4 py-2"
-                              style={{
-                                borderRadius: '10px',
-                                fontWeight: 'bold',
-                                transition: 'all 0.3s ease',
-                                border: '2px solid #8f0715',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.transform = 'translateY(-2px)'
-                                e.target.style.boxShadow = '0 6px 20px rgba(148, 1, 1, 0.32)'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.transform = 'translateY(0)'
-                                e.target.style.boxShadow = 'none'
-                              }}
-                            >
-                              Procurar arquivo
-                            </CButton>
-
-                            {/* Informações dos tipos aceitos */}
-                            <div className="d-flex justify-content-center align-items-center flex-wrap gap-3">
-                              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                PDF
-                              </span>
-                              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                JPG
-                              </span>
-                              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                JPEG
-                              </span>
-                              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                PNG
-                              </span>
-                              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                • Até 10MB
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-
-                        /* Arquivo selecionado  */
-                        <div className="selected-file-container">
-                          <div
-                            className="card border-0 shadow-sm"
+                          {/* Botão estilizado */}
+                          <CButton
+                            color="primary"
+                            variant="outline"
+                            size="md"
+                            className="mb-3 px-4 py-2"
                             style={{
-                              background: '#f8f9fa',
                               borderRadius: '10px',
-                              overflow: 'hidden',
+                              fontWeight: 'bold',
+                              transition: 'all 0.3s ease',
+                              border: '2px solid #8f0715',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.transform = 'translateY(-2px)'
+                              e.target.style.boxShadow = '0 6px 20px rgba(148, 1, 1, 0.32)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.transform = 'translateY(0)'
+                              e.target.style.boxShadow = 'none'
                             }}
                           >
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center justify-content-between">
-                                {/* Informações do arquivo */}
-                                <div className="flex-grow-1">
-                                  <div className="d-flex align-items-center mb-1">
-                                    <h6 className="mb-0 text-dark fw-bold me-2">{file.name}</h6>
-                                    <span
-                                      className="badge bg-success"
-                                      style={{ fontSize: '0.7rem' }}
-                                    >
-                                      Carregado
-                                    </span>
-                                  </div>
+                            Procurar arquivo
+                          </CButton>
 
-                                  <div>
-                                    <span className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                      {(file.size / 1024 / 1024).toFixed(2)} MB •{' '}
-                                      {file.type.split('/')[1].toUpperCase()}
-                                    </span>
-                                  </div>
+                          {/* Informações dos tipos aceitos */}
+                          <div className="d-flex justify-content-center align-items-center flex-wrap gap-3">
+                            <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                              PDF
+                            </span>
+                            <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                              JPG
+                            </span>
+                            <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                              JPEG
+                            </span>
+                            <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                              PNG
+                            </span>
+                            <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                              • Até 10MB
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Arquivo selecionado  */
+                      <div className="selected-file-container">
+                        <div
+                          className="card border-0 shadow-sm"
+                          style={{
+                            background: '#f8f9fa',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-center justify-content-between">
+                              {/* Informações do arquivo */}
+                              <div className="flex-grow-1">
+                                <div className="d-flex align-items-center mb-1">
+                                  <h6 className="mb-0 text-dark fw-bold me-2">{file.name}</h6>
+                                  <span className="badge bg-success" style={{ fontSize: '0.7rem' }}>
+                                    Carregado
+                                  </span>
                                 </div>
 
-                                {/* Botões de ação */}
-                                <div className="d-flex gap-2">
-                                  <CButton
-                                    type="button"
-                                    color="info"
-                                    variant="outline"
-                                    size="md"
-                                    onClick={handleViewFile}
-                                    style={{
-                                      fontWeight: 'bold',
-                                      transition: 'all 0.3s ease',
-                                    }}
-                                  >
-                                    Visualizar
-                                  </CButton>
-                                  <CButton
-                                    type="button"
-                                    color="danger"
-                                    variant="outline"
-                                    size="md"
-                                    onClick={handleRemoveFile}
-                                    style={{
-                                      fontWeight: 'bold',
-                                      transition: 'all 0.3s ease',
-                                    }}
-                                  >
-                                    Remover
-                                  </CButton>
+                                <div>
+                                  <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                    {(file.size / 1024 / 1024).toFixed(2)} MB •{' '}
+                                    {file.type.split('/')[1].toUpperCase()}
+                                  </span>
                                 </div>
+                              </div>
+
+                              {/* Botões de ação */}
+                              <div className="d-flex gap-2">
+                                <CButton
+                                  type="button"
+                                  color="info"
+                                  variant="outline"
+                                  size="md"
+                                  onClick={handleViewFile}
+                                  style={{
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.3s ease',
+                                  }}
+                                >
+                                  Visualizar
+                                </CButton>
+                                <CButton
+                                  type="button"
+                                  color="danger"
+                                  variant="outline"
+                                  size="md"
+                                  onClick={handleRemoveFile}
+                                  style={{
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.3s ease',
+                                  }}
+                                >
+                                  Remover
+                                </CButton>
                               </div>
                             </div>
                           </div>
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* Mensagem de erro */}
-                      {fileError && (
-                        <div
-                          className="alert alert-danger mt-3"
-                          style={{
-                            borderRadius: '8px',
-                            border: 'none',
-                            fontSize: '0.9rem',
-                          }}
-                        >
-                          <strong>{fileError}</strong>
-                        </div>
-                      )}
-                    </div>
+                    {/* Mensagem de erro */}
+                    {fileError && (
+                      <div
+                        className="alert alert-danger mt-3"
+                        style={{
+                          borderRadius: '8px',
+                          border: 'none',
+                          fontSize: '0.9rem',
+                        }}
+                      >
+                        <strong>{fileError}</strong>
+                      </div>
+                    )}
                   </CCol>
+
                   <CCol lg={12} className="text-end">
                     <CButton size="md" type="submit" color="primary" className="w-100">
                       Enviar Atestado
