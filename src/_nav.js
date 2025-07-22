@@ -34,7 +34,7 @@ const _nav = [
     items: [
       {
         component: CNavItem,
-        name: 'Envio de atestado',
+        name: 'Enviar atestados',
         to: '/atestados',
       },
 
