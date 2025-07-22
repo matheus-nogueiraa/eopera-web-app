@@ -6,12 +6,14 @@ const TreinamentoDetalhe = React.lazy(() => import('./views/treinamentos/Treinam
 const CriarCursos = React.lazy(() => import('./views/cursos/criarCursos'))
 const CriarQuestionario = React.lazy(() => import('./views/questionarios/criarQuestionario'))
 const Atestados = React.lazy(() => import('./views/atestados/Atestados'))
+const ConsultaAtestados = React.lazy(() => import('./views/atestados/consulta-atestados/ConsultarAtestados'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home' },
   { path: '/dashboard', name: 'Dashboard', element: Dashboard },
   { path: '/atestados', name: 'Atestados', element: Atestados },
   { path: '/treinamentos', name: 'Treinamentos', element: Treinamentos },
+  { path: '/atestados/consulta-atestados', name: 'Consultar Atestados', element: ConsultaAtestados },
   { path: '/treinamentos/:id', name: 'Detalhe do Treinamento', element: TreinamentoDetalhe },
   { path: '/criar-cursos', name: 'Criar Cursos', element: CriarCursos },
   { path: '/criar-questionarios', name: 'Criar Questionários', element: CriarQuestionario },

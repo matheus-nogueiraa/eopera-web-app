@@ -25,8 +25,14 @@ const _nav = [
     items: [
       {
         component: CNavItem,
-        name: 'Envio de atestado',
+        name: 'Enviar atestados',
         to: '/atestados',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Consultar atestados',
+        to: '/atestados/consulta-atestados',
       },
     ],
   },
@@ -34,7 +40,7 @@ const _nav = [
     component: CNavItem,
     name: 'Treinamentos',
     to: '/treinamentos',
-    icon: <CIcon icon={cilEducation} customClassName="nav-icon" />
+    icon: <CIcon icon={cilEducation} customClassName="nav-icon" />,
   },
   {
     component: CNavGroup,
