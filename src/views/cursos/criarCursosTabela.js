@@ -1,6 +1,16 @@
 
 import React from 'react';
-import { CTable, CTableHead, CTableRow, CTableHeaderCell, CTableBody, CTableDataCell, CBadge } from '@coreui/react';
+import {
+  CTable,
+  CTableHead,
+  CTableRow,
+  CTableHeaderCell,
+  CTableBody,
+  CTableDataCell,
+  CBadge,
+  CPagination,
+  CPaginationItem,
+} from '@coreui/react';
 import { CIcon } from '@coreui/icons-react'
 import { cilPencil } from '@coreui/icons'
 
@@ -24,43 +34,56 @@ const dados = [
 
 const CriarConteudoTabela = () => {
   return (
-    <CTable hover responsive bordered align="middle" className="mt-4">
-      <CTableHead color="light">
-      <CTableRow>
-        <CTableHeaderCell>#</CTableHeaderCell>
-        <CTableHeaderCell>Nome</CTableHeaderCell>
-        <CTableHeaderCell>Url do vídeo</CTableHeaderCell>
-        <CTableHeaderCell>Categoria</CTableHeaderCell>
-        <CTableHeaderCell>Status</CTableHeaderCell>
-        <CTableHeaderCell>Ações</CTableHeaderCell>
-      </CTableRow>
-      </CTableHead>
-      <CTableBody>
-      {dados.map((item) => (
-        <CTableRow key={item.id}>
-        <CTableDataCell>{item.id}</CTableDataCell>
-        <CTableDataCell>{item.nome}</CTableDataCell>
-        <CTableDataCell>
-          <a href={item.url} target="_blank" rel="noopener noreferrer">{item.url}</a>
-        </CTableDataCell>
-        <CTableDataCell>{item.categoria}</CTableDataCell>
-        <CTableDataCell>
-          {item.ativo ? (
-          <CBadge color="success">Ativo</CBadge>
-          ) : (
-          <CBadge color="secondary">Inativo</CBadge>
-          )}
-        </CTableDataCell>
-        <CTableDataCell className="text-center">
-          <button className="btn btn-primary btn-sm">
-          <CIcon icon={cilPencil} className="me-1" />
-          Editar
-          </button>
-        </CTableDataCell>
-        </CTableRow>
-      ))}
-      </CTableBody>
-    </CTable>
+    <>
+      <CTable hover responsive bordered align="middle" className="mt-4">
+        <CTableHead color="light">
+          <CTableRow>
+            <CTableHeaderCell>#</CTableHeaderCell>
+            <CTableHeaderCell>Nome</CTableHeaderCell>
+            <CTableHeaderCell>Url do vídeo</CTableHeaderCell>
+            <CTableHeaderCell>Categoria</CTableHeaderCell>
+            <CTableHeaderCell>Status</CTableHeaderCell>
+            <CTableHeaderCell>Ações</CTableHeaderCell>
+          </CTableRow>
+        </CTableHead>
+        <CTableBody>
+          {dados.map((item) => (
+            <CTableRow key={item.id}>
+              <CTableDataCell>{item.id}</CTableDataCell>
+              <CTableDataCell>{item.nome}</CTableDataCell>
+              <CTableDataCell>
+                <a href={item.url} target="_blank" rel="noopener noreferrer">{item.url}</a>
+              </CTableDataCell>
+              <CTableDataCell>{item.categoria}</CTableDataCell>
+              <CTableDataCell>
+                {item.ativo ? (
+                  <CBadge color="success">Ativo</CBadge>
+                ) : (
+                  <CBadge color="secondary">Inativo</CBadge>
+                )}
+              </CTableDataCell>
+              <CTableDataCell className="text-center">
+                <button className="btn btn-primary btn-sm">
+                  <CIcon icon={cilPencil} className="me-1" />
+                  Editar
+                </button>
+              </CTableDataCell>
+            </CTableRow>
+          ))}
+        </CTableBody>
+      </CTable>
+      <div className="d-flex justify-content-end mt-3">
+        <CPagination aria-label="Page navigation example">
+          <CPaginationItem aria-label="Previous">
+            <span aria-hidden="true">&laquo;</span>
+          </CPaginationItem>
+          <CPaginationItem>1</CPaginationItem>
+          <CPaginationItem aria-label="Next">
+            <span aria-hidden="true">&raquo;</span>
+          </CPaginationItem>
+        </CPagination>
+      </div>
+    </>
   );
 };
 
