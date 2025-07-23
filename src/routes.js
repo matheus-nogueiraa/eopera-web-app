@@ -8,7 +8,7 @@ const CriarCursos = React.lazy(() => import('./views/cursos/criarCursos'))
 const CriarQuestionario = React.lazy(() => import('./views/questionarios/criarQuestionario'))
 const Atestados = React.lazy(() => import('./views/atestados/Atestados'))
 const ConsultaAtestados = React.lazy(() => import('./views/atestados/consulta-atestados/ConsultarAtestados'))
-const Certificados = React.lazy(() => import('./views/certificados/certificados'))
+// const Certificados = React.lazy(() => import('./views/certificados/certificados'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home' },
