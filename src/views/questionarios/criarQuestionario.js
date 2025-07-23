@@ -7,6 +7,7 @@ import {
 import CIcon from '@coreui/icons-react';
 import { cilPlus } from '@coreui/icons'
 import CriarQuestionarioModal from './criarQuestionarioModal';
+import CriarQuestionarioTabela from './criarQuestionarioTabela';
 
 const criarQuestionario = () => {
   const [ showModal, setShowModal ] = useState(false);
@@ -38,6 +39,7 @@ const criarQuestionario = () => {
         onSave={() => {
           setShowModal(false);
         }} />
+      <CriarQuestionarioTabela />
     </div>
   )
 }

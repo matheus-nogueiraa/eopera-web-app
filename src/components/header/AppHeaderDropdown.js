@@ -22,18 +22,47 @@ import {
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 
-import avatar8 from './../../assets/images/avatars/8.jpg'
+// Avatar dinâmico, não precisa importar imagem
 
 const AppHeaderDropdown = () => {
+  const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
+  const primeiraLetra = nomeUsuario.charAt(0).toUpperCase();
+  const navigate = window.location ? null : undefined;
   const handleLogout = () => {
-    // Adicione aqui a lógica de logout, por exemplo, limpar tokens e redirecionar
-    console.log('Logout realizado')
-  }
+  localStorage.removeItem('nomeUsuario'); // Limpa nome do usuário
+  window.location.href = '/login';
+}
 
   return (
     <CDropdown variant="nav-item">
-      <CDropdownToggle placement="bottom-end" className="py-0 pe-0" caret={false}>
-        <CAvatar src={avatar8} size="md" />
+      <CDropdownToggle placement="bottom-end" className="py-0 pe-0 d-flex align-items-center gap-2" caret={false}>
+        {nomeUsuario && (
+          <span
+            style={{
+              color: '#212529',
+              fontWeight: '500',
+              fontSize: 16,
+              maxWidth: 180,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              display: 'inline-block',
+              verticalAlign: 'middle',
+            }}
+            title={nomeUsuario}
+          >
+            {nomeUsuario}
+          </span>
+        )}
+        <CAvatar size="md" style={{
+          backgroundColor: '#90171B',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: 22,
+          marginRight: 8,
+        }}>
+          {primeiraLetra || <CIcon icon={cilUser} />}
+        </CAvatar>
       </CDropdownToggle>
       <CDropdownMenu className="pt-0" placement="bottom-end">
         <CDropdownItem onClick={handleLogout} style={{ cursor: 'pointer' }}>

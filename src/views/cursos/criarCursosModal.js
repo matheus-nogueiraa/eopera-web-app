@@ -51,7 +51,7 @@ const CriarConteudoModal = ({ visible, onClose, onSave }) => {
           </CCol>
           <CCol md={2}>
             <>&nbsp;</>
-            <CFormCheck id="flexCheckDefault" label="Ativo?" />
+            <CFormCheck id="flexCheckDefault" label="Ativo?" checked={true} />
           </CCol>
         </CRow>
       </CModalBody>
