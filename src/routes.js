@@ -19,7 +19,7 @@ const routes = [
   { path: '/treinamentos/:id', name: 'Detalhe do Treinamento', element: () => <ProtectedRoute><TreinamentoDetalhe /></ProtectedRoute> },
   { path: '/criar-cursos', name: 'Criar Cursos', element: () => <ProtectedRoute><CriarCursos /></ProtectedRoute> },
   { path: '/criar-questionarios', name: 'Criar Questionários', element: () => <ProtectedRoute><CriarQuestionario /></ProtectedRoute> },
-  { path: '/meus-certificados', name: 'Meus Certificados', element: () => <ProtectedRoute><Certificados /></ProtectedRoute> },
+  // { path: '/meus-certificados', name: 'Meus Certificados', element: () => <ProtectedRoute><Certificados /></ProtectedRoute> },
 ]
 
 export default routes
