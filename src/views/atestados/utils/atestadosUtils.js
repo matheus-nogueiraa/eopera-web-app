@@ -96,7 +96,7 @@ export const calcularDataFinal = () => {
       }
 
       if (finaisDeSemana > 0) {
-        mensagemDias += ` • 📅 ${finaisDeSemana} final${finaisDeSemana === 1 ? '' : 'is'} de semana`
+        mensagemDias += ` • 📅 ${finaisDeSemana} fina${finaisDeSemana === 1 ? 'l' : 'is'} de semana`
       } else {
         mensagemDias += ` • 💼 Nenhum final de semana`
       }
@@ -233,21 +233,4 @@ export const validateFileType = (file) => {
 // Função para validar tamanho do arquivo
 export const validateFileSize = (file, maxSizeInMB = 10) => {
   return file.size <= maxSizeInMB * 1024 * 1024
-}
-
-// Função para coletar dados do formulário
-export const coletarDadosFormulario = (form) => {
-  return {
-    matricula: form.matricula || document.getElementById('matriculaAtestado')?.value || '',
-    cpf: form.cpf || document.getElementById('cpfAtestado')?.value || '',
-    userNome: form.userNome || document.getElementById('nomeAtestado')?.value || '',
-    atestado: document.getElementById('tipificacaoAtestado').value,
-    motivoAfastamento: document.getElementById('especificacaoAtestado').value,
-    dataInicio: document.getElementById('dataInicioAtestado').value,
-    qtdDias: document.getElementById('diasAtestado').value,
-    cid: document.getElementById('cidAtestado').value || '',
-    nomeMedico: document.getElementById('medicoAtestado').value || '',
-    justificativa: document.getElementById('justificativaAtestado').value || '',
-    anexoBase64: form.anexoBase64,
-  }
 }
