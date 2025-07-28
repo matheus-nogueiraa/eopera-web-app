@@ -28,17 +28,17 @@ const Atestados = () => {
   const [isLoading, setIsLoading] = useState(false)
 
   const [form, setForm] = useState({
-    matricula: '008822',
-    cpf: '05620010180',
-    userNome: 'TIAGO PINHEIRO LEMES',
-    atestado: 'Médico',
-    motivoAfastamento: 'Doença',
-    dataInicio: '2025-06-05',
-    qtdDias: 2,
-    cid: 'A01.1',
-    nomeMedico: 'A',
-    justificativa: 'Teste novo Eopera',
-    anexoBase64: 'anexoBase64',
+    matricula: '',
+    cpf: '',
+    userNome: '',
+    atestado: '',
+    motivoAfastamento: '',
+    dataInicio: '',
+    qtdDias: '',
+    cid: '',
+    nomeMedico: '',
+    justificativa: '',
+    anexoBase64: '',
   })
 
   // Hooks necessários
