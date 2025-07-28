@@ -25,7 +25,7 @@ import CIcon from '@coreui/icons-react'
 import { cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@coreui/icons'
 
 const ConsultaAtestados = () => {
-  const [filtros, setFiltros] = useState({
+  const [ filtros, setFiltros ] = useState({
     dataInicio: '',
     dataFim: '',
     status: '',
@@ -37,30 +37,30 @@ const ConsultaAtestados = () => {
   const dataFimRef = useRef(null)
 
   // Estados para paginação
-  const [paginaAtual, setPaginaAtual] = useState(1)
-  const [itensPorPagina] = useState(10)
+  const [ paginaAtual, setPaginaAtual ] = useState(1)
+  const [ itensPorPagina ] = useState(10)
 
   // Estados para dados da API
-  const [atestados, setAtestados] = useState([])
-  const [atestadosFiltrados, setAtestadosFiltrados] = useState([])
-  const [buscaRealizada, setBuscaRealizada] = useState(false)
-  const [carregando, setCarregando] = useState(false)
-  const [erro, setErro] = useState(null)
+  const [ atestados, setAtestados ] = useState([])
+  const [ atestadosFiltrados, setAtestadosFiltrados ] = useState([])
+  const [ buscaRealizada, setBuscaRealizada ] = useState(false)
+  const [ carregando, setCarregando ] = useState(false)
+  const [ erro, setErro ] = useState(null)
 
   // Configurações da API
-  const API_TOKEN = '@k)1qlny;dG!ogXC]us7XB(2LzE{@w'
   const API_BASE_URL = 'https://adm.elcop.eng.br:9000/api'
 
   // Função para buscar atestados da API
-  const buscarAtestadosAPI = async (matricula = '006082') => {
+  const buscarAtestadosAPI = async () => {
+    const matricula = localStorage.getItem('matricula');
     console.log(`Iniciando busca na API para matrícula: ${matricula}`)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/consultarAtestados?matricula=${matricula}`, {
+      const response = await fetch(`/api/consultarAtestados?matricula=${matricula}`, {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${API_TOKEN}`,
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_API_TOKEN}`
         },
       })
 
@@ -132,7 +132,7 @@ const ConsultaAtestados = () => {
   const handleFiltroChange = (campo, valor) => {
     setFiltros((prev) => ({
       ...prev,
-      [campo]: valor,
+      [ campo ]: valor,
     }))
   }
 
@@ -176,7 +176,7 @@ const ConsultaAtestados = () => {
     })
   }
 
-  const buscarAtestados = async () => {
+  const buscarAtestados = async (filtros) => {
     console.log('Buscando atestados com filtros:', filtros)
 
     setCarregando(true)
@@ -254,7 +254,7 @@ const ConsultaAtestados = () => {
         text: 'Cancelado',
       },
     }
-    return statusConfig[status] || { color: 'secondary', icon: null, text: status }
+    return statusConfig[ status ] || { color: 'secondary', icon: null, text: status }
   }
 
   const renderStatus = (status) => {
@@ -412,7 +412,7 @@ const ConsultaAtestados = () => {
                     type="button"
                     color="primary"
                     className="w-100"
-                    onClick={buscarAtestados}
+                    onClick={() => buscarAtestados(filtros)}
                     disabled={carregando}
                   >
                     {carregando ? (
@@ -421,6 +421,16 @@ const ConsultaAtestados = () => {
                       <CIcon icon={cilSearch} className="me-1" />
                     )}
                     {carregando ? 'Buscando...' : 'Buscar'}
+                  </CButton>
+                   <CButton
+                    size="md"
+                    type="button"
+                    color="secondary"
+                    className="w-100 mt-2"
+                    onClick={recarregarDados}
+                    disabled={carregando}
+                  >
+                    teste
                   </CButton>
                 </CCol>
               </CRow>

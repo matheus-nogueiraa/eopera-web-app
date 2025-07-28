@@ -60,6 +60,12 @@ const AppHeaderDropdown = () => {
           fontWeight: 'bold',
           fontSize: 22,
           marginRight: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: '40px',
+          height: 38,
+          width: 38,
         }}>
           {primeiraLetra || <CIcon icon={cilUser} />}
         </CAvatar>

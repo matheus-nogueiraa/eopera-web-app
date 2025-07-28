@@ -146,33 +146,18 @@ export const calcularDataFinal = () => {
   }
 }
 
-// Função para limpar todo o formulário
-export const limparFormulario = (setValidated, setFile, setFileError, setForm, fileInputRef) => {
-  // Resetar states
+// Função para limpar todo o formulário (resetar validação e campos)
+export const limparFormulario = (setValidated, fileInputRef) => {
+  // Resetar validação do formulário
   setValidated(false)
-  setFile(null)
-  setFileError('')
-  setForm({
-    matricula: '',
-    cpf: '',
-    userNome: '',
-    atestado: '',
-    motivoAfastamento: '',
-    dataInicio: '',
-    qtdDias: '',
-    cid: '',
-    nomeMedico: '',
-    justificativa: '',
-    anexoBase64: '',
-  })
 
-  // Limpar campos do formulário usando uma abordagem mais robusta
+  // Resetar todos os campos do formulário
   const formElement = document.querySelector('form')
   if (formElement) {
-    formElement.reset() // Reset completo do formulário
+    formElement.reset()
   }
 
-  // Limpar campos específicos que podem não ser resetados pelo form.reset()
+  // Limpar campos específicos
   const campos = [
     'tipificacaoAtestado',
     'especificacaoAtestado',
@@ -186,12 +171,11 @@ export const limparFormulario = (setValidated, setFile, setFileError, setForm, f
     'cpfAtestado',
     'nomeAtestado',
   ]
-
   campos.forEach((campoId) => {
     const campo = document.getElementById(campoId)
     if (campo) {
       if (campo.type === 'select-one') {
-        campo.selectedIndex = 0 // Reset para primeira opção (disabled)
+        campo.selectedIndex = 0
       } else {
         campo.value = ''
       }
@@ -213,7 +197,7 @@ export const limparFormulario = (setValidated, setFile, setFileError, setForm, f
     }
   })
 
-  // Remover classes de validação com um pequeno delay
+  // Remover classes de validação
   setTimeout(() => {
     const formElements = document.querySelectorAll('.is-valid, .is-invalid')
     formElements.forEach((element) => {
@@ -221,6 +205,7 @@ export const limparFormulario = (setValidated, setFile, setFileError, setForm, f
     })
   }, 100)
 
+  // Log para debug
   console.log('📋 Formulário limpo e pronto para novo envio')
 }
 

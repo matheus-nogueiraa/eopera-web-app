@@ -1,6 +1,4 @@
 // src/services/atestadosService.js
-const API_URL = '/api/enviarAtestado'
-
 export const atestadosService = {
   enviarAtestado: async (dadosAtestado) => {
     try {
@@ -8,7 +6,7 @@ export const atestadosService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer @k)1qlny;dG!ogXC]us7XB(2LzE{@w',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
         body: JSON.stringify(dadosAtestado),
       })
