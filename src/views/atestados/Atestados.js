@@ -27,6 +27,19 @@ const Atestados = () => {
   const [ showSuccessAlert, setShowSuccessAlert ] = useState(false)
   const [ isLoading, setIsLoading ] = useState(false)
 
+  const [form, setForm] = useState({
+    matricula: '',
+    cpf: '',
+    userNome: '',
+    atestado: '',
+    motivoAfastamento: '',
+    dataInicio: '',
+    qtdDias: '',
+    cid: '',
+    nomeMedico: '',
+    justificativa: '',
+    anexoBase64: '',
+  })
 
   // Hooks necessários
   const fileInputRef = useRef(null)

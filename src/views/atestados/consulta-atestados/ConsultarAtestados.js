@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect } from 'react'
-
 import './ConsultarAtestados.css'
 import {
   CCard,
@@ -22,7 +21,9 @@ import {
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@coreui/icons'
+
+import {cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@coreui/icons'
+import { atestadosService } from '../../../services/consultarAtestadosService.js'
 
 const ConsultaAtestados = () => {
   const [filtros, setFiltros] = useState({
@@ -46,58 +47,159 @@ const ConsultaAtestados = () => {
   const [buscaRealizada, setBuscaRealizada] = useState(false)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState(null)
+  const [erroAtestado, setErroAtestado] = useState(null) // Novo estado para erro de atestado
 
-  // Configurações da API
-  const API_TOKEN = '@k)1qlny;dG!ogXC]us7XB(2LzE{@w'
-  const API_BASE_URL = 'https://adm.elcop.eng.br:9000/api'
+  // Função para normalizar os dados da API
+  const normalizarAtestado = (atestadoAPI) => {
+    // Calcular dias entre datas
+    const calcularDias = (inicio, fim) => {
+      if (!inicio || !fim) return 0
+      const dataInicio = new Date(inicio)
+      const dataFim = new Date(fim)
+      const diffTime = Math.abs(dataFim - dataInicio)
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+      return diffDays
+    }
 
-  // Função para buscar atestados da API
-  const buscarAtestadosAPI = async (matricula = '006082') => {
-    console.log(`Iniciando busca na API para matrícula: ${matricula}`)
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/consultarAtestados?matricula=${matricula}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Erro na API: ${response.status} - ${response.statusText}`)
+    // Mapear status da API para status do frontend
+    const mapearStatus = (statusAtestado) => {
+      const statusMap = {
+        success: 'Em Análise',
+        approved: 'Aprovado',
+        rejected: 'Rejeitado',
+        cancelled: 'Cancelado',
       }
+      return statusMap[statusAtestado] || 'Em Análise'
+    }
 
-      const data = await response.json()
-      console.log('Dados recebidos da API:', data)
+    // Mapear motivo baseado no status do atestado
+    const mapearMotivo = (statusAtestado, statusRecebimento, mensagem) => {
+      switch (statusAtestado) {
+        case 'rejected':
+          // Para rejeitado: statusRecebimento tem prioridade, se não houver, usa mensagem
+          return statusRecebimento || mensagem || 'Motivo não informado'
 
-      // Verificar se a resposta tem a estrutura esperada
-      let atestadosArray = []
-      if (Array.isArray(data)) {
-        atestadosArray = data
-      } else if (data && Array.isArray(data.atestados)) {
-        atestadosArray = data.atestados
-      } else if (data && Array.isArray(data.data)) {
-        atestadosArray = data.data
-      } else if (data && data.success && Array.isArray(data.result)) {
-        atestadosArray = data.result
-      } else {
-        console.warn('Estrutura de dados inesperada:', data)
-        atestadosArray = []
+        case 'success':
+        case 'approved':
+          // Para sucesso ou aprovado: usar mensagem
+          return mensagem || 'Atestado processado com sucesso'
+
+        case 'cancelled':
+          // Para cancelado: mensagem padrão
+          return 'Não informado'
+
+        case 'error':
+          // Para erro: definir estado de erro e retornar mensagem
+          setErroAtestado(mensagem || 'Erro não especificado')
+          return mensagem || 'Erro de consulta'
+
+        default:
+          // Para outros casos: tentar statusRecebimento, depois mensagem
+          return statusRecebimento || mensagem || 'Status não identificado'
       }
+    }
 
-      console.log(`${atestadosArray.length} atestados carregados da API`)
-      setAtestados(atestadosArray)
-      return atestadosArray
-    } catch (error) {
-      console.error('Erro ao buscar atestados da API:', error)
-      throw error // Re-throw para que a função chamadora possa tratar
+    return {
+      id: atestadoAPI.numFluig || Math.random().toString(36).substr(2, 9),
+      status: mapearStatus(atestadoAPI.statusAtestado),
+      tipificacao: 'Atestado de Saúde', // Valor padrão baseado no CID
+      especificacao: atestadoAPI.motivo || 'Doença',
+      dias: calcularDias(atestadoAPI.dtInicio, atestadoAPI.dtFim),
+      dataInicio: atestadoAPI.dtInicio,
+      dataFim: atestadoAPI.dtFim,
+      dataInicial: atestadoAPI.dtInicio, // Compatibilidade
+      dataFinal: atestadoAPI.dtFim, // Compatibilidade
+      motivo: mapearMotivo(
+        atestadoAPI.statusAtestado,
+        atestadoAPI.statusRecebimento,
+        atestadoAPI.mensagem,
+      ),
+      cid: atestadoAPI.cid,
+      dtEnvioAtestado: atestadoAPI.dtEnvioAtestado,
+      numFluig: atestadoAPI.numFluig,
+      mensagem: atestadoAPI.mensagem,
     }
   }
 
-  // Carregar atestados ao montar o componente
+  // Função para buscar atestados da API
+  const buscarAtestadosAPI = async () => {
+    const matriculaUsuario = localStorage.getItem('matricula')
+
+    if (!matriculaUsuario) {
+      throw new Error('Usuário não está logado ou matrícula não encontrada.')
+    }
+
+    try {
+      const response = await atestadosService.consultarAtestados(matriculaUsuario)
+      console.log('Dados da API:', response)
+
+      if (response && response.success !== false) {
+        // Normalizar os dados da API
+        const atestadosNormalizados = (response.data || []).map(normalizarAtestado)
+        setAtestados(atestadosNormalizados)
+        return atestadosNormalizados
+      } else {
+        throw new Error('Resposta da API não foi bem-sucedida.')
+      }
+    } catch (error) {
+      console.error('Erro ao buscar atestados da API:', error)
+      throw error
+    }
+  }
+
+  // Verificar se o usuário está logado ao carregar o componente
   useEffect(() => {
-    buscarAtestadosAPI()
+    const verificarLogin = () => {
+      const matriculaUsuario = localStorage.getItem('matricula')
+      const nomeUsuario =
+        localStorage.getItem('nomeUsuario') ||
+        localStorage.getItem('nome') ||
+        localStorage.getItem('userName')
+
+      console.log('Verificação de login:')
+      console.log('Matrícula:', matriculaUsuario)
+      console.log('Nome:', nomeUsuario)
+
+      // Listar todos os itens do localStorage para debug
+      console.log('Todos os itens do localStorage:')
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        const value = localStorage.getItem(key)
+        console.log(`${key}: ${value}`)
+      }
+
+      if (!matriculaUsuario) {
+        // Verificar se há informações de login em outras chaves
+        const chavesAlternativas = ['userMatricula', 'user_matricula', 'matriculaUsuario', 'userId']
+        let encontrouMatricula = false
+
+        for (const chave of chavesAlternativas) {
+          const valor = localStorage.getItem(chave)
+          if (valor) {
+            console.log(`Matrícula encontrada na chave ${chave}:`, valor)
+            localStorage.setItem('matricula', valor)
+            encontrouMatricula = true
+            break
+          }
+        }
+
+        if (!encontrouMatricula) {
+          setErro('Usuário não está logado. Redirecionando para login...')
+          setTimeout(() => {
+            window.location.href = '/login'
+          }, 3000)
+          return
+        }
+      }
+
+      // Carregar atestados automaticamente ao montar o componente
+      buscarAtestadosAPI().catch((error) => {
+        console.error('Erro detalhado:', error)
+        setErro('Erro ao carregar atestados iniciais: ' + error.message)
+      })
+    }
+
+    verificarLogin()
   }, [])
 
   // Função para calcular os itens da página atual
@@ -180,29 +282,53 @@ const ConsultaAtestados = () => {
     console.log('Buscando atestados com filtros:', filtros)
 
     setCarregando(true)
-    setBuscaRealizada(false) // Reset do estado de busca
-    setErro(null) // Limpar erros anteriores
+    setBuscaRealizada(false)
+    setErro(null)
+    setErroAtestado(null) // Limpar erro de atestado anterior
 
     try {
-      // Sempre buscar dados frescos da API ao clicar em "Buscar"
+      // Verificar se o usuário está logado
+      const matriculaUsuario = localStorage.getItem('matricula')
+
+      if (!matriculaUsuario) {
+        throw new Error('Usuário não está logado. Faça login novamente.')
+      }
+
+      // Buscar dados frescos da API
       const dadosFrescos = await buscarAtestadosAPI()
+
+      // Verificar se há algum atestado com erro
+      const atestadosComErro = dadosFrescos.filter(
+        (atestado) => atestado.status === 'Erro de consulta',
+      )
+
+      if (atestadosComErro.length > 0) {
+        // Se há atestados com erro, não mostrar a tabela
+        setBuscaRealizada(true)
+        setAtestadosFiltrados([])
+        return
+      }
 
       // Filtrar os atestados baseado nos filtros aplicados
       const resultados = filtrarAtestados(dadosFrescos, filtros)
       setAtestadosFiltrados(resultados)
 
-      // Definir que a busca foi realizada
       setBuscaRealizada(true)
-
-      // Resetar para a primeira página
       setPaginaAtual(1)
+
+      // Limpar os filtros após busca bem-sucedida
+      setFiltros({
+        dataInicio: '',
+        dataFim: '',
+        status: '',
+      })
 
       console.log(
         `Busca concluída. ${resultados.length} atestados encontrados com os filtros aplicados.`,
       )
     } catch (error) {
       console.error('Erro durante a busca:', error)
-      setErro('Erro ao realizar a busca. Tente novamente.')
+      setErro(error.message || 'Erro ao realizar a busca. Tente novamente.')
       setAtestadosFiltrados([])
       setBuscaRealizada(false)
     } finally {
@@ -220,8 +346,6 @@ const ConsultaAtestados = () => {
       dataInicio: '',
       dataFim: '',
       status: '',
-      tipificacao: '',
-      especificacao: '',
     })
   }
 
@@ -270,24 +394,8 @@ const ConsultaAtestados = () => {
     )
   }
 
-  const visualizarAtestado = (atestado) => {
-    console.log('Visualizando atestado:', atestado)
-    alert(`Visualizando atestado ID: ${atestado.id}`)
-  }
-
   const getMotivoTexto = (atestado) => {
-    switch (atestado.status) {
-      case 'Aprovado':
-        return 'Atestado dentro dos parâmetros'
-      case 'Em Análise':
-        return 'Analisando parâmetros do atestado'
-      case 'Rejeitado':
-        return atestado.motivoRejeicao || atestado.motivo || 'Motivo não informado'
-      case 'Cancelado':
-        return atestado.motivoCancelamento || atestado.motivo || 'Motivo não informado'
-      default:
-        return atestado.motivo || ''
-    }
+    return atestado.motivo || 'Motivo não informado'
   }
 
   // Função para formatar data
@@ -303,7 +411,16 @@ const ConsultaAtestados = () => {
   return (
     <div className="container-fluid">
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 className="h3 mb-0 text-gray-800">Consultar Atestados Enviados</h1>
+        <div>
+          <h1 className="h3 mb-0 text-gray-800">Consultar Atestados Enviados</h1>
+          {/* Debug info - remover em produção */}
+          <small className="text-muted">
+            Matrícula: {localStorage.getItem('matricula') || 'NÃO ENCONTRADA'} | Nome:{' '}
+            {localStorage.getItem('nomeUsuario') ||
+              localStorage.getItem('nome') ||
+              'NÃO ENCONTRADO'}
+          </small>
+        </div>
       </div>
 
       {/* Exibir erro se houver */}
@@ -317,15 +434,13 @@ const ConsultaAtestados = () => {
         <CCol lg={12}>
           <CCard className="shadow mb-4">
             <CCardHeader>
-              <h6 className="m-0 font-weight-bold text-primary">
-                Atestados Encontrados
-                {carregando && <CSpinner size="sm" className="ms-2" />}
-              </h6>
+              <h6 className="m-0 font-weight-bold text-primary">Atestados Encontrados</h6>
             </CCardHeader>
+
             <CCardBody>
               <CRow className="g-3">
                 {/* Filtros de busca */}
-                <CCol md={2}>
+                <CCol md={4}>
                   <CFormLabel htmlFor="status">Status:</CFormLabel>
                   <CFormSelect
                     aria-label="Default select example"
@@ -342,39 +457,8 @@ const ConsultaAtestados = () => {
                   </CFormSelect>
                 </CCol>
 
-                {/* Tipificação de atestado */}
-                <CCol md={3}>
-                  <CFormLabel htmlFor="tipificacao">Tipificação:</CFormLabel>
-                  <CFormSelect
-                    id="tipificacao"
-                    value={filtros.tipificacao}
-                    onChange={(e) => handleFiltroChange('tipificacao', e.target.value)}
-                    disabled={carregando}
-                  >
-                    <option value="">Todas</option>
-                    <option value="Atestado de Saúde">Atestado de Saúde</option>
-                    <option value="Atestado Odontológico">Atestado Odontológico</option>
-                  </CFormSelect>
-                </CCol>
-
-                {/* Especificação do atestado */}
-                <CCol md={3}>
-                  <CFormLabel htmlFor="especificacao">Especificação:</CFormLabel>
-                  <CFormSelect
-                    id="especificacao"
-                    value={filtros.especificacao}
-                    onChange={(e) => handleFiltroChange('especificacao', e.target.value)}
-                    disabled={carregando}
-                  >
-                    <option value="">Todas</option>
-                    <option value="Doença">Doença</option>
-                    <option value="Acidente de trabalho">Acidente de trabalho</option>
-                    <option value="Licença maternidade">Licença maternidade</option>
-                  </CFormSelect>
-                </CCol>
-
                 {/* Filtro de data inicial */}
-                <CCol md={2}>
+                <CCol md={4}>
                   <CFormLabel htmlFor="dataInicio">Data Início:</CFormLabel>
                   <CInputGroup>
                     <CFormInput
@@ -390,7 +474,7 @@ const ConsultaAtestados = () => {
                 </CCol>
 
                 {/* Filtro de data final */}
-                <CCol md={2}>
+                <CCol md={4}>
                   <CFormLabel htmlFor="dataFim">Data Final:</CFormLabel>
                   <CInputGroup>
                     <CFormInput
@@ -423,6 +507,9 @@ const ConsultaAtestados = () => {
                     {carregando ? 'Buscando...' : 'Buscar'}
                   </CButton>
                 </CCol>
+                <span className="text-primary">
+                  *Somente os atestados enviados pelo Eopera serão exibidos!
+                </span>
               </CRow>
               <hr />
 
@@ -436,6 +523,10 @@ const ConsultaAtestados = () => {
                 <div className="text-center py-4">
                   <p className="text-muted">Clique em "Buscar" para visualizar os atestados.</p>
                 </div>
+              ) : erroAtestado ? (
+                <CAlert color="secondary" className="text-center">
+                  <p className="m-0">{erroAtestado}</p>
+                </CAlert>
               ) : atestadosFiltrados.length === 0 ? (
                 <div className="text-center py-4">
                   <p className="text-muted">Nenhum atestado encontrado com os filtros aplicados.</p>
@@ -461,8 +552,9 @@ const ConsultaAtestados = () => {
                           <th>Dias</th>
                           <th>Data Início</th>
                           <th>Data Final</th>
+                          <th>Solicitação</th>
                           <th>Motivo</th>
-                          <th>Anexo</th>
+                          {/* <th>Anexo</th> */}
                         </tr>
                       </thead>
                       <tbody>
@@ -478,8 +570,9 @@ const ConsultaAtestados = () => {
                             <td className="text-center">
                               {formatarData(atestado.dataFim || atestado.dataFinal)}
                             </td>
+                            <td className="text-center">{atestado.numFluig || '-'}</td>
                             <td>{getMotivoTexto(atestado)}</td>
-                            <td className="text-center">
+                            {/* <td className="text-center">
                               <CButton
                                 size="sm"
                                 color="primary"
@@ -490,7 +583,7 @@ const ConsultaAtestados = () => {
                                 <CIcon icon={cilZoomIn} size="sm" />
                                 Visualizar
                               </CButton>
-                            </td>
+                            </td> */}
                           </tr>
                         ))}
                       </tbody>
@@ -545,3 +638,15 @@ const ConsultaAtestados = () => {
 }
 
 export default ConsultaAtestados
+
+// Exemplo de uso
+// import { atestadosService } from './services/consultarAtestadosService.js'
+
+// Consultar atestados com matrícula padrão
+// const atestados = await atestadosService.consultarAtestados()
+
+// Consultar atestados com matrícula específica
+// const atestadosEspecificos = await atestadosService.consultarAtestados('123456')
+
+localStorage.setItem('matricula', '003493')
+localStorage.setItem('nomeUsuario', 'Usuário Teste')

@@ -8,6 +8,27 @@ export const convertToBase64 = (file) => {
   })
 }
 
+// Versão melhorada da função de conversão
+export const convertToBase64WithInfo = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => {
+      const result = reader.result
+      const base64 = result.split(',')[1] // Remove o prefixo data:...;base64,
+
+      resolve({
+        base64,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        originalDataURL: result, // Completo com prefixo, caso precise
+      })
+    }
+    reader.onerror = (error) => reject(error)
+  })
+}
+
 // Função para calcular a data final do atestado
 export const calcularDataFinal = () => {
   const dataInicio = document.getElementById('dataInicioAtestado').value
@@ -233,4 +254,41 @@ export const validateFileType = (file) => {
 // Função para validar tamanho do arquivo
 export const validateFileSize = (file, maxSizeInMB = 10) => {
   return file.size <= maxSizeInMB * 1024 * 1024
+}
+
+// Função para verificar se o base64 é válido
+export const validateBase64 = (base64String) => {
+  try {
+    return btoa(atob(base64String)) === base64String
+  } catch (err) {
+    return false
+  }
+}
+
+// Função para coletar dados do formulário
+export const coletarDadosFormulario = (form) => {
+  return {
+    matricula: form.matricula || document.getElementById('matriculaAtestado')?.value || '',
+    cpf: form.cpf || document.getElementById('cpfAtestado')?.value || '',
+    userNome: form.userNome || document.getElementById('nomeAtestado')?.value || '',
+    atestado: document.getElementById('tipificacaoAtestado').value,
+    motivoAfastamento: document.getElementById('especificacaoAtestado').value,
+    dataInicio: document.getElementById('dataInicioAtestado').value,
+    qtdDias: document.getElementById('diasAtestado').value,
+    cid: document.getElementById('cidAtestado').value || '',
+    nomeMedico: document.getElementById('medicoAtestado').value || '',
+    justificativa: document.getElementById('justificativaAtestado').value || '',
+    anexoBase64: form.anexoBase64,
+  }
+}
+
+// Função para criar URL de visualização
+export const createPreviewURL = (base64, fileType) => {
+  return `data:${fileType};base64,${base64}`
+}
+
+// Exemplo de uso para preview
+const previewFile = (base64, fileType) => {
+  const dataURL = createPreviewURL(base64, fileType)
+  window.open(dataURL, '_blank')
 }
