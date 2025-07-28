@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import './consulta-atestados/ConsultarAtestados.css'
+import '../consulta-atestados/ConsultarAtestados.css'
 import {
   CCard,
   CCardBody,
@@ -23,9 +23,11 @@ import { calcularDataFinal, limparFormulario } from './utils/atestadosUtils'
 import { useFileHandler } from './hooks/useFileHandler'
 
 const Atestados = () => {
+  const [ processInfo, setProcessInfo ] = useState(null)
   const [ validated, setValidated ] = useState(false)
   const [ showSuccessAlert, setShowSuccessAlert ] = useState(false)
   const [ isLoading, setIsLoading ] = useState(false)
+  const [ alertType, setAlertType ] = useState('success')
 
   const [form, setForm] = useState({
     matricula: '',
@@ -49,6 +51,21 @@ const Atestados = () => {
   const enviarAtestado = async (dadosAtestado) => {
     try {
       const resposta = await atestadosService.enviarAtestado(dadosAtestado)
+      if (resposta && resposta.data && resposta.data.idProcess) {
+        setProcessInfo({
+          idProcess: resposta.idProcess,
+          mensagem: resposta.mensagem || 'Atestado enviado com sucesso',
+        })
+        setAlertType('success')
+        setShowSuccessAlert(true)
+      } else {
+        setProcessInfo({
+          idProcess: null,
+          mensagem: resposta.mensagem || 'Erro ao enviar atestado',
+        })
+        setAlertType('danger')
+        setShowSuccessAlert(true)
+      }
       return resposta
     } catch (erro) {
       console.error('Erro ao enviar atestado:', erro)
@@ -60,39 +77,37 @@ const Atestados = () => {
   const handleSubmit = async (event) => {
     event.preventDefault()
     const formElement = event.currentTarget
-    
+    const anexoBase64 = fileInputRef.current?.files[ 0 ] ? await getFileBase64(fileInputRef.current.files[ 0 ]) : ''
+    console.log('Anexo Base64:', anexoBase64)
+
     if (formElement.checkValidity() === false) {
       event.stopPropagation()
       setValidated(true)
       return
     }
-    
+
     setIsLoading(true)
-    
-    const anexoBase64 = fileInputRef.current?.files[0] ? await getFileBase64(fileInputRef.current.files[0]) : ''
-    console.log('Anexo Base64:', anexoBase64)
+
     try {
       const dadosFormulario = {
         matricula: localStorage.getItem('matricula') || '',
         cpf: localStorage.getItem('cpf') || '',
         userNome: localStorage.getItem('nomeUsuario') || '',
-        atestado: document.getElementById('tipificacaoAtestado')?.options[ document.getElementById('tipificacaoAtestado')?.selectedIndex ]?.text || '',
-        motivoAfastamento: document.getElementById('especificacaoAtestado')?.options[ document.getElementById('especificacaoAtestado')?.selectedIndex ]?.text || '',
+        atestado: document.getElementById('tipificacaoAtestado')?.options[document.getElementById('tipificacaoAtestado')?.selectedIndex]?.text || '',
+        motivoAfastamento: document.getElementById('especificacaoAtestado')?.options[document.getElementById('especificacaoAtestado')?.selectedIndex]?.text || '',
         dataInicio: document.getElementById('dataInicioAtestado')?.value || '',
         qtdDias: document.getElementById('diasAtestado')?.value || '',
-        cid: document.getElementById('cidAtestado')?.options[ document.getElementById('cidAtestado')?.selectedIndex ]?.text || '',
+        cid: document.getElementById('cidAtestado')?.options[document.getElementById('cidAtestado')?.selectedIndex]?.text || '',
         nomeMedico: document.getElementById('medicoAtestado')?.value || '',
         justificativa: document.getElementById('justificativaAtestado')?.value || '',
         anexoBase64,
+        nomeAnexo: file?.name || (fileInputRef.current?.files[0]?.name ?? ''),
       }
 
       console.log('Dados do formulário:', dadosFormulario)
 
       await enviarAtestado(dadosFormulario)
-
-      setShowSuccessAlert(true)
-      limparFormulario(formElement, fileInputRef)
-      setValidated(false)
+      limparFormulario(setValidated, fileInputRef)
 
       // Esconder alerta após 5 segundos
       setTimeout(() => setShowSuccessAlert(false), 5000)
@@ -110,9 +125,8 @@ const Atestados = () => {
       const reader = new FileReader()
       reader.onload = () => {
         const result = reader.result
-        // Garante que é um DataURL e extrai a parte base64
         if (typeof result === 'string' && result.includes(',')) {
-          resolve(result.split(',')[1])
+          resolve(result.split(',')[ 1 ])
         } else {
           resolve('')
         }
@@ -129,9 +143,9 @@ const Atestados = () => {
       </div>
 
       {/* Alert de Sucesso com Ícone */}
-      {showSuccessAlert && (
+      {showSuccessAlert && processInfo && (
         <CAlert
-          color="success"
+          color={alertType}
           dismissible
           onClose={() => setShowSuccessAlert(false)}
           className="d-flex align-items-center shadow-sm"
@@ -144,7 +158,8 @@ const Atestados = () => {
         >
           <CIcon icon={cilCheckCircle} className="flex-shrink-0 me-2" width={24} height={24} />
           <div>
-            <strong>Concluído!</strong> Atestado enviado com sucesso.
+            <strong>Concluído!</strong> {processInfo.mensagem}<br />
+            <span>Protocolo: <strong>{processInfo.idProcess}</strong></span>
           </div>
         </CAlert>
       )}

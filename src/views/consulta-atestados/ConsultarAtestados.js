@@ -26,7 +26,7 @@ import {cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@core
 import { atestadosService } from '../../../services/consultarAtestadosService.js'
 
 const ConsultaAtestados = () => {
-  const [filtros, setFiltros] = useState({
+  const [ filtros, setFiltros ] = useState({
     dataInicio: '',
     dataFim: '',
     status: '',
@@ -38,8 +38,8 @@ const ConsultaAtestados = () => {
   const dataFimRef = useRef(null)
 
   // Estados para paginação
-  const [paginaAtual, setPaginaAtual] = useState(1)
-  const [itensPorPagina] = useState(10)
+  const [ paginaAtual, setPaginaAtual ] = useState(1)
+  const [ itensPorPagina ] = useState(10)
 
   // Estados para dados da API
   const [atestados, setAtestados] = useState([])
@@ -68,6 +68,7 @@ const ConsultaAtestados = () => {
         approved: 'Aprovado',
         rejected: 'Rejeitado',
         cancelled: 'Cancelado',
+
       }
       return statusMap[statusAtestado] || 'Em Análise'
     }
@@ -234,7 +235,7 @@ const ConsultaAtestados = () => {
   const handleFiltroChange = (campo, valor) => {
     setFiltros((prev) => ({
       ...prev,
-      [campo]: valor,
+      [ campo ]: valor,
     }))
   }
 
@@ -278,7 +279,7 @@ const ConsultaAtestados = () => {
     })
   }
 
-  const buscarAtestados = async () => {
+  const buscarAtestados = async (filtros) => {
     console.log('Buscando atestados com filtros:', filtros)
 
     setCarregando(true)
@@ -378,7 +379,7 @@ const ConsultaAtestados = () => {
         text: 'Cancelado',
       },
     }
-    return statusConfig[status] || { color: 'secondary', icon: null, text: status }
+    return statusConfig[ status ] || { color: 'secondary', icon: null, text: status }
   }
 
   const renderStatus = (status) => {
@@ -496,7 +497,7 @@ const ConsultaAtestados = () => {
                     type="button"
                     color="primary"
                     className="w-100"
-                    onClick={buscarAtestados}
+                    onClick={() => buscarAtestados(filtros)}
                     disabled={carregando}
                   >
                     {carregando ? (
@@ -505,6 +506,16 @@ const ConsultaAtestados = () => {
                       <CIcon icon={cilSearch} className="me-1" />
                     )}
                     {carregando ? 'Buscando...' : 'Buscar'}
+                  </CButton>
+                   <CButton
+                    size="md"
+                    type="button"
+                    color="secondary"
+                    className="w-100 mt-2"
+                    onClick={recarregarDados}
+                    disabled={carregando}
+                  >
+                    teste
                   </CButton>
                 </CCol>
                 <span className="text-primary">

@@ -86,7 +86,7 @@ const Login = () => {
               <CCard className="p-4">
                 <CCardBody>
                   <CForm onSubmit={handleLogin}>
-                    <CCardImage src="src/assets/images/Elcop academy.png" alt="Elcop Academy" width={80} />
+                    <CCardImage src="src/assets/images/Elcop-academy.png" alt="Elcop Academy" width={80} />
                     <p className="text-body-secondary">Entre com cpf e senha</p>
                     {error && <div style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
                     <CInputGroup className="mb-3">
