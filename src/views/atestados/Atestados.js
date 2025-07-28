@@ -19,13 +19,13 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilCheckCircle } from '@coreui/icons'
 import { atestadosService } from '../../services/atestadosService'
-import { calcularDataFinal, limparFormulario, coletarDadosFormulario } from './utils/atestadosUtils'
+import { calcularDataFinal, limparFormulario } from './utils/atestadosUtils'
 import { useFileHandler } from './hooks/useFileHandler'
 
 const Atestados = () => {
-  const [validated, setValidated] = useState(false)
-  const [showSuccessAlert, setShowSuccessAlert] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [ validated, setValidated ] = useState(false)
+  const [ showSuccessAlert, setShowSuccessAlert ] = useState(false)
+  const [ isLoading, setIsLoading ] = useState(false)
 
   const [form, setForm] = useState({
     matricula: '',
@@ -59,22 +59,39 @@ const Atestados = () => {
   // Função para lidar com o submit do formulário
   const handleSubmit = async (event) => {
     event.preventDefault()
-    const form = event.currentTarget
-
-    if (form.checkValidity() === false) {
+    const formElement = event.currentTarget
+    
+    if (formElement.checkValidity() === false) {
       event.stopPropagation()
       setValidated(true)
       return
     }
-
+    
     setIsLoading(true)
-
+    
+    const anexoBase64 = fileInputRef.current?.files[0] ? await getFileBase64(fileInputRef.current.files[0]) : ''
+    console.log('Anexo Base64:', anexoBase64)
     try {
-      const dadosFormulario = coletarDadosFormulario(form, file)
+      const dadosFormulario = {
+        matricula: localStorage.getItem('matricula') || '',
+        cpf: localStorage.getItem('cpf') || '',
+        userNome: localStorage.getItem('nomeUsuario') || '',
+        atestado: document.getElementById('tipificacaoAtestado')?.options[ document.getElementById('tipificacaoAtestado')?.selectedIndex ]?.text || '',
+        motivoAfastamento: document.getElementById('especificacaoAtestado')?.options[ document.getElementById('especificacaoAtestado')?.selectedIndex ]?.text || '',
+        dataInicio: document.getElementById('dataInicioAtestado')?.value || '',
+        qtdDias: document.getElementById('diasAtestado')?.value || '',
+        cid: document.getElementById('cidAtestado')?.options[ document.getElementById('cidAtestado')?.selectedIndex ]?.text || '',
+        nomeMedico: document.getElementById('medicoAtestado')?.value || '',
+        justificativa: document.getElementById('justificativaAtestado')?.value || '',
+        anexoBase64,
+      }
+
+      console.log('Dados do formulário:', dadosFormulario)
+
       await enviarAtestado(dadosFormulario)
 
       setShowSuccessAlert(true)
-      limparFormulario(form, fileInputRef)
+      limparFormulario(formElement, fileInputRef)
       setValidated(false)
 
       // Esconder alerta após 5 segundos
@@ -85,6 +102,24 @@ const Atestados = () => {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  function getFileBase64(file) {
+    if (!file) return Promise.resolve('')
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result
+        // Garante que é um DataURL e extrai a parte base64
+        if (typeof result === 'string' && result.includes(',')) {
+          resolve(result.split(',')[1])
+        } else {
+          resolve('')
+        }
+      }
+      reader.onerror = (error) => reject(error)
+      reader.readAsDataURL(file)
+    })
   }
 
   return (
@@ -184,10 +219,10 @@ const Atestados = () => {
                         type="date"
                         id="dataInicioAtestado"
                         required
-                        max={new Date().toISOString().split('T')[0]}
+                        max={new Date().toISOString().split('T')[ 0 ]}
                         onChange={calcularDataFinal}
                         onClick={() => {
-                          const today = new Date().toISOString().split('T')[0]
+                          const today = new Date().toISOString().split('T')[ 0 ]
                           document.getElementById('dataInicioAtestado').value = today
                           calcularDataFinal()
                         }}
@@ -267,7 +302,7 @@ const Atestados = () => {
                         accept=".pdf,.jpg,.jpeg,.png"
                         required
                         ref={fileInputRef}
-                        onChange={(e) => handleFileChange(e.target.files[0])}
+                        onChange={(e) => handleFileChange(e.target.files[ 0 ])}
                       />
                     </div>
                   </CCol>
@@ -305,7 +340,7 @@ const Atestados = () => {
                           e.currentTarget.style.borderColor = '#dee2e6'
                           e.currentTarget.style.backgroundColor = '#f8f9fa'
                           e.currentTarget.style.transform = 'scale(1)'
-                          const droppedFile = e.dataTransfer.files[0]
+                          const droppedFile = e.dataTransfer.files[ 0 ]
                           if (droppedFile) {
                             handleFileChange(droppedFile)
                           }
@@ -384,7 +419,7 @@ const Atestados = () => {
                                 <div>
                                   <span className="text-muted" style={{ fontSize: '0.85rem' }}>
                                     {(file.size / 1024 / 1024).toFixed(2)} MB •{' '}
-                                    {file.type.split('/')[1].toUpperCase()}
+                                    {file.type.split('/')[ 1 ].toUpperCase()}
                                   </span>
                                 </div>
                               </div>

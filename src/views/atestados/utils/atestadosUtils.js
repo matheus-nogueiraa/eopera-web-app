@@ -117,7 +117,7 @@ export const calcularDataFinal = () => {
       }
 
       if (finaisDeSemana > 0) {
-        mensagemDias += ` • 📅 ${finaisDeSemana} final${finaisDeSemana === 1 ? '' : 'is'} de semana`
+        mensagemDias += ` • 📅 ${finaisDeSemana} fina${finaisDeSemana === 1 ? 'l' : 'is'} de semana`
       } else {
         mensagemDias += ` • 💼 Nenhum final de semana`
       }

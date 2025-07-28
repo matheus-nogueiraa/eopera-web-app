@@ -6,6 +6,7 @@ import {
   CCard,
   CCardBody,
   CCardGroup,
+  CCardImage,
   CCol,
   CContainer,
   CForm,
@@ -42,15 +43,31 @@ const Login = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer @k)1qlny;dG!ogXC]us7XB(2LzE{@w'
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
         },
         body: JSON.stringify({ cpf, senha }),
       });
       if (response.status === 200) {
-        const result = await response.json();
-        localStorage.setItem('nomeUsuario', result.data.nomeLeiturista);
-        localStorage.setItem('cpf', cpf);
-        localStorage.setItem('matricula', result.data.matricula);
+        // Consulta operador após login
+        try {
+          const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpf}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
+            },
+          });
+          if (operadorResp.status === 200) {
+            const operadorData = await operadorResp.json();
+            if (operadorData.status && operadorData.data) {
+              localStorage.setItem('matricula', operadorData.data.matricula);
+              localStorage.setItem('nomeUsuario', operadorData.data.nome);
+              localStorage.setItem('cpf', operadorData.data.cpf);
+            }
+          }
+        } catch (err) {
+          // Falha ao consultar operador, mas login foi bem-sucedido
+        }
         navigate('/dashboard');
       } else {
         setError('CPF ou senha inválidos.');
@@ -69,7 +86,7 @@ const Login = () => {
               <CCard className="p-4">
                 <CCardBody>
                   <CForm onSubmit={handleLogin}>
-                    <h1>Elcop Academy</h1>
+                    <CCardImage src="src/assets/images/Elcop academy.png" alt="Elcop Academy" width={80} />
                     <p className="text-body-secondary">Entre com cpf e senha</p>
                     {error && <div style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
                     <CInputGroup className="mb-3">
@@ -81,6 +98,7 @@ const Login = () => {
                         autoComplete="username"
                         value={cpf}
                         onChange={e => setCpf(e.target.value)}
+                      
                       />
                     </CInputGroup>
                     <CInputGroup className="mb-4">
@@ -93,11 +111,12 @@ const Login = () => {
                         autoComplete="current-password"
                         value={senha}
                         onChange={e => setSenha(e.target.value)}
+                       
                       />
                     </CInputGroup>
                     <CRow>
                       <CCol xs={12}>
-                        <CButton type="submit" color="primary" className="w-100 py-2 fw-semibold" style={{ fontSize: 18 }}>
+                        <CButton type="submit" color="primary" className="w-100 py-1 fw-semibold" style={{ fontSize: 16 }}>
                           Login
                         </CButton>
                       </CCol>
