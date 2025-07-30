@@ -9,6 +9,7 @@ const CriarQuestionario = React.lazy(() => import('./views/questionarios/criarQu
 const Atestados = React.lazy(() => import('./views/atestados/Atestados'))
 const ConsultaAtestados = React.lazy(() => import('./views/consulta-atestados/ConsultarAtestados'))
 const Certificados = React.lazy(() => import('./views/certificados/Certificados'))
+const Turmas = React.lazy(() => import('./views/turmas/Turmas'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home' },
@@ -20,6 +21,8 @@ const routes = [
   { path: '/criar-cursos', name: 'Criar Cursos', element: () => <ProtectedRoute><CriarCursos /></ProtectedRoute> },
   { path: '/criar-questionarios', name: 'Criar Questionários', element: () => <ProtectedRoute><CriarQuestionario /></ProtectedRoute> },
   { path: '/certificados', name: 'Certificados', element: () => <ProtectedRoute><Certificados /></ProtectedRoute> },
+  { path: '/turmas', name: 'Turmas', element: () => <ProtectedRoute><Turmas /></ProtectedRoute> },
+  // { path: '/meus-certificados', name: 'Meus Certificados', element: () => <ProtectedRoute><Certificados /></ProtectedRoute> },
 ]
 
 export default routes

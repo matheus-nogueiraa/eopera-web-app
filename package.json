@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@coreui/chartjs": "^4.1.0",
-    "@coreui/coreui": "^5.3.1",
+    "@coreui/coreui": "^5.4.1",
     "@coreui/icons": "^3.0.1",
     "@coreui/icons-react": "^2.3.0",
     "@coreui/react": "^5.5.0",
@@ -40,6 +40,7 @@
     "react-konva": "^19.0.7",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.1.5",
+    "react-select": "^5.10.2",
     "redux": "5.0.1",
     "simplebar-react": "^3.3.0"
   },
@@ -59,3 +60,5 @@
   },
   "proxy": "https://adm.elcop.eng.br:9000"
 }
+
+

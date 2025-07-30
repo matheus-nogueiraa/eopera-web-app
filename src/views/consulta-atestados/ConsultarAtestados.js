@@ -22,8 +22,8 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 
-import {cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@coreui/icons'
-import { atestadosService } from '../../services/consultarAtestadosService.js'
+import { cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@coreui/icons'
+import { atestadosService } from '../../../services/consultarAtestadosService.js'
 
 const ConsultaAtestados = () => {
   const [ filtros, setFiltros ] = useState({
@@ -441,6 +441,7 @@ const ConsultaAtestados = () => {
 
             <CCardBody>
               <CRow className="g-3">
+
                 {/* Filtros de busca */}
                 <CCol md={4}>
                   <CFormLabel htmlFor="status">Status:</CFormLabel>
@@ -534,6 +535,7 @@ const ConsultaAtestados = () => {
                 </div>
               ) : (
                 <>
+
                   {/* Informações de resultados */}
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <span className="text-muted">
@@ -555,6 +557,7 @@ const ConsultaAtestados = () => {
                           <th>Data Final</th>
                           <th>Solicitação</th>
                           <th>Motivo</th>
+                          
                           {/* <th>Anexo</th> */}
                         </tr>
                       </thead>
