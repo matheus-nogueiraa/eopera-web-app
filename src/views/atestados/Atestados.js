@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
+import Select from 'react-select'
 import './consulta-atestados/ConsultarAtestados.css'
 import {
   CCard,
@@ -19,31 +20,174 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilCheckCircle } from '@coreui/icons'
 import { atestadosService } from '../../services/atestadosService'
+import { cidService } from '../../services/consultarCidService'
 import { calcularDataFinal, limparFormulario } from './utils/atestadosUtils'
 import { useFileHandler } from './hooks/useFileHandler'
 
 const Atestados = () => {
-  const [ validated, setValidated ] = useState(false)
-  const [ showSuccessAlert, setShowSuccessAlert ] = useState(false)
-  const [ isLoading, setIsLoading ] = useState(false)
+  const [validated, setValidated] = useState(false)
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [selectedCid, setSelectedCid] = useState(null)
 
-  const [form, setForm] = useState({
-    matricula: '',
-    cpf: '',
-    userNome: '',
-    atestado: '',
-    motivoAfastamento: '',
-    dataInicio: '',
-    qtdDias: '',
-    cid: '',
-    nomeMedico: '',
-    justificativa: '',
-    anexoBase64: '',
-  })
+  // Estados para gerenciar os CIDs da API
+  const [cidOptions, setCidOptions] = useState([
+    // Opções de teste temporárias
+    { value: 'A00', label: 'A00 - Cólera', originalData: {} },
+    { value: 'A01', label: 'A01 - Febres tifóide e paratifóide', originalData: {} },
+    { value: 'A02', label: 'A02 - Outras infecções por Salmonella', originalData: {} },
+  ])
+  const [isLoadingCids, setIsLoadingCids] = useState(false)
+  const [cidError, setCidError] = useState(null)
+  const [inputValue, setInputValue] = useState('')
 
   // Hooks necessários
   const fileInputRef = useRef(null)
   const { file, fileError, handleFileChange, handleViewFile, handleRemoveFile } = useFileHandler()
+
+  // Função para buscar CIDs da API
+  const buscarCidsComFiltro = async (termoBusca = '') => {
+    // Só busca se tiver pelo menos 2 caracteres ou se for uma busca inicial
+    if (termoBusca.length < 2 && termoBusca.length > 0) {
+      setCidOptions([])
+      return
+    }
+
+    setIsLoadingCids(true)
+    setCidError(null)
+
+    try {
+      console.log('Buscando CIDs com filtro:', termoBusca)
+      const response = await cidService.consultarCids(termoBusca)
+
+      // DEBUG MELHORADO: Vamos ver exatamente o que está chegando
+      console.log('=== DEBUG COMPLETO CID ===')
+      console.log('Response:', response)
+      console.log('Response.data:', response.data)
+
+      if (response.data && response.data.CID) {
+        console.log('Array CID:', response.data.CID)
+        console.log('Primeiro item:', response.data.CID[0])
+        console.log('Propriedades do primeiro item:', Object.keys(response.data.CID[0]))
+        console.log('Valores do primeiro item:', Object.values(response.data.CID[0]))
+      }
+      console.log('========================')
+
+      if (response.data.CID && response.data.CID.length > 0) {
+        // Filtrar localmente se o service não suportar filtro no backend
+        let cidsFiltrados = response.data.CID
+
+        if (termoBusca && termoBusca.length >= 2) {
+          cidsFiltrados = response.data.CID.filter((cid) => {
+            // Vamos pegar TODAS as propriedades do objeto e procurar por strings
+            const todasPropriedades = Object.values(cid).join(' ').toLowerCase()
+            const termo = termoBusca.toLowerCase()
+            return todasPropriedades.includes(termo)
+          })
+        }
+
+        // Limitar a 50 resultados para performance
+        const cidsLimitados = cidsFiltrados.slice(0, 50)
+
+        // Mapear os dados da API para o formato do react-select
+        const cidsFormatados = cidsLimitados
+          .map((cid, index) => {
+            // Vamos tentar pegar as propriedades mais comuns primeiro
+            const propriedades = Object.keys(cid)
+            console.log(`Item ${index}:`, cid, 'Propriedades:', propriedades)
+
+            // Tentar encontrar o código (geralmente a primeira propriedade ou algo com 'cod', 'id', etc.)
+            let codigo = 'N/A'
+            let descricao = 'Sem descrição'
+
+            // Buscar código
+            for (const prop of propriedades) {
+              if (
+                prop.toLowerCase().includes('cod') ||
+                prop.toLowerCase().includes('id') ||
+                prop.toLowerCase().includes('cid')
+              ) {
+                codigo = cid[prop] || 'N/A'
+                break
+              }
+            }
+
+            // Buscar descrição
+            for (const prop of propriedades) {
+              if (
+                prop.toLowerCase().includes('desc') ||
+                prop.toLowerCase().includes('nome') ||
+                prop.toLowerCase().includes('name')
+              ) {
+                descricao = cid[prop] || 'Sem descrição'
+                break
+              }
+            }
+
+            // Se não encontrou, usar as primeiras propriedades
+            if (codigo === 'N/A' && propriedades.length > 0) {
+              codigo = cid[propriedades[0]] || 'N/A'
+            }
+            if (descricao === 'Sem descrição' && propriedades.length > 1) {
+              descricao = cid[propriedades[1]] || 'Sem descrição'
+            }
+
+            const item = {
+              value: String(codigo),
+              label: `${codigo} - ${descricao}`,
+              originalData: cid,
+            }
+
+            // Verificar se o item é válido
+            if (
+              !item.value ||
+              item.value === 'N/A' ||
+              !item.label ||
+              item.label === 'N/A - Sem descrição'
+            ) {
+              console.warn('Item inválido detectado:', item)
+              return null
+            }
+
+            console.log('Item formatado:', item)
+            return item
+          })
+          .filter(Boolean) // Remove itens nulos
+
+        console.log('Todos os CIDs formatados:', cidsFormatados)
+
+        setCidOptions(cidsFormatados)
+        console.log(
+          `${cidsFormatados.length} CIDs carregados (${cidsFiltrados.length} encontrados)`,
+        )
+      } else {
+        setCidOptions([])
+        console.log('Nenhum CID encontrado na resposta')
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CIDs:', error)
+      setCidError('Erro ao carregar lista de CIDs. Tente novamente.')
+      setCidOptions([])
+    } finally {
+      setIsLoadingCids(false)
+    }
+  }
+
+  // Debounce melhorado
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (inputValue.length >= 2 || inputValue.length === 0) {
+        buscarCidsComFiltro(inputValue)
+      }
+    }, 500) // Aumentei para 500ms para dar mais tempo
+
+    return () => clearTimeout(timeoutId)
+  }, [inputValue])
+
+  // Remover o carregamento inicial automático - só carregar quando o usuário digitar
+  // useEffect(() => {
+  //   buscarCidsComFiltro() // Comentei esta linha
+  // }, [])
 
   // Função para enviar atestado
   const enviarAtestado = async (dadosAtestado) => {
@@ -60,30 +204,40 @@ const Atestados = () => {
   const handleSubmit = async (event) => {
     event.preventDefault()
     const formElement = event.currentTarget
-    
+
+    // Verifica se o formulário é válido
     if (formElement.checkValidity() === false) {
       event.stopPropagation()
       setValidated(true)
       return
     }
-    
+
     setIsLoading(true)
-    
-    const anexoBase64 = fileInputRef.current?.files[0] ? await getFileBase64(fileInputRef.current.files[0]) : ''
-    console.log('Anexo Base64:', anexoBase64)
+
+    const anexoBase64 = fileInputRef.current?.files[0]
+      ? await getFileBase64(fileInputRef.current.files[0])
+      : ''
+
     try {
       const dadosFormulario = {
         matricula: localStorage.getItem('matricula') || '',
         cpf: localStorage.getItem('cpf') || '',
         userNome: localStorage.getItem('nomeUsuario') || '',
-        atestado: document.getElementById('tipificacaoAtestado')?.options[ document.getElementById('tipificacaoAtestado')?.selectedIndex ]?.text || '',
-        motivoAfastamento: document.getElementById('especificacaoAtestado')?.options[ document.getElementById('especificacaoAtestado')?.selectedIndex ]?.text || '',
+        atestado:
+          document.getElementById('tipificacaoAtestado')?.options[
+            document.getElementById('tipificacaoAtestado')?.selectedIndex
+          ]?.text || '',
+        motivoAfastamento:
+          document.getElementById('especificacaoAtestado')?.options[
+            document.getElementById('especificacaoAtestado')?.selectedIndex
+          ]?.text || '',
         dataInicio: document.getElementById('dataInicioAtestado')?.value || '',
         qtdDias: document.getElementById('diasAtestado')?.value || '',
-        cid: document.getElementById('cidAtestado')?.options[ document.getElementById('cidAtestado')?.selectedIndex ]?.text || '',
+        // Para React Select:
+        cid: selectedCid ? selectedCid.label : document.getElementById('cidAtestado')?.value || '',
         nomeMedico: document.getElementById('medicoAtestado')?.value || '',
         justificativa: document.getElementById('justificativaAtestado')?.value || '',
-        anexoBase64,
+        anexo: anexoBase64 || '',
       }
 
       console.log('Dados do formulário:', dadosFormulario)
@@ -91,7 +245,29 @@ const Atestados = () => {
       await enviarAtestado(dadosFormulario)
 
       setShowSuccessAlert(true)
-      limparFormulario(formElement, fileInputRef)
+      setSelectedCid(null) // Limpar seleção do CID
+      setInputValue('') // Limpar input do CID
+
+      //Limpar o formulário
+      document.getElementById('tipificacaoAtestado').value = ''
+      document.getElementById('especificacaoAtestado').value = ''
+      document.getElementById('dataInicioAtestado').value = ''
+      document.getElementById('diasAtestado').value = ''
+      document.getElementById('dataFinalAtestado').value = ''
+      document.getElementById('medicoAtestado').value = ''
+      document.getElementById('justificativaAtestado').value = ''
+      document.getElementById('cidAtestado').value = ''
+
+      //limpar data
+      document.getElementById('diasAtras').textContent = ''
+      document.getElementById('informacaoDias').textContent = ''
+      document.getElementById('informacaoDataFinal').textContent = ''
+
+      //limpar o arquivo
+      handleRemoveFile(fileInputRef)
+
+      // Resetar o estado do formulário
+      formElement.reset()
       setValidated(false)
 
       // Esconder alerta após 5 segundos
@@ -125,7 +301,15 @@ const Atestados = () => {
   return (
     <div className="container-fluid">
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 className="h3 mb-0 text-gray-800">Enviar Atestados</h1>
+        <div>
+          <h1 className="h3 mb-0 text-gray-800">Enviar Atestados</h1>
+          <small className="text-muted">
+            Matrícula: {localStorage.getItem('matricula') || 'NÃO ENCONTRADA'} | Nome:{' '}
+            {localStorage.getItem('nomeUsuario') ||
+              localStorage.getItem('nome') ||
+              'NÃO ENCONTRADO'}
+          </small>
+        </div>
       </div>
 
       {/* Alert de Sucesso com Ícone */}
@@ -146,6 +330,23 @@ const Atestados = () => {
           <div>
             <strong>Concluído!</strong> Atestado enviado com sucesso.
           </div>
+        </CAlert>
+      )}
+
+      {/* Alert de erro para CIDs */}
+      {cidError && (
+        <CAlert color="danger" dismissible onClose={() => setCidError(null)}>
+          <strong>Erro:</strong> {cidError}
+          <CButton
+            color="danger"
+            variant="outline"
+            size="sm"
+            className="ms-2"
+            onClick={() => buscarCidsComFiltro(inputValue)}
+            disabled={isLoadingCids}
+          >
+            {isLoadingCids ? 'Carregando...' : 'Tentar novamente'}
+          </CButton>
         </CAlert>
       )}
 
@@ -194,19 +395,112 @@ const Atestados = () => {
                     <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
 
-                  {/* Seletor de CID */}
+                  {/* Seletor de CID com React Select */}
                   <CCol md={4}>
-                    <CFormLabel htmlFor="cidAtestado">CID:</CFormLabel>
-                    <CFormSelect id="cidAtestado" defaultValue="">
-                      <option value="" disabled>
-                        Selecione o CID:
-                      </option>
-                      <option value="1">F00 - Transtornos mentais e comportamentais.</option>
-                      <option value="2">F01 - Demência.</option>
-                      <option value="3">
-                        F02 - Demência em doenças não classificadas em outra parte.
-                      </option>
-                    </CFormSelect>
+                    <CFormLabel htmlFor="cidAtestado">
+                      CID:
+                      {isLoadingCids && <small className="text-muted ms-2">(Buscando...)</small>}
+                      {cidOptions.length > 0 && !isLoadingCids && (
+                        <small className="text-info ms-2">({cidOptions.length} encontrados)</small>
+                      )}
+                      {inputValue.length > 0 && inputValue.length < 2 && (
+                        <small className="text-warning ms-2">
+                          (Digite pelo menos 2 caracteres)
+                        </small>
+                      )}
+                    </CFormLabel>
+                    <Select
+                      id="cidAtestado"
+                      options={cidOptions}
+                      value={selectedCid}
+                      onChange={(selected) => {
+                        console.log('CID selecionado:', selected)
+                        setSelectedCid(selected)
+                        // Limpar o input após seleção para melhor UX
+                        if (selected) {
+                          setInputValue('')
+                        }
+                      }}
+                      onInputChange={(newValue, { action }) => {
+                        console.log('Input changed:', newValue, action)
+                        if (action === 'input-change') {
+                          setInputValue(newValue)
+                        } else if (action === 'menu-close' && !selectedCid) {
+                          // Manter o valor de input se não há seleção
+                          setInputValue(newValue || '')
+                        }
+                      }}
+                      inputValue={selectedCid ? '' : inputValue}
+                      placeholder={
+                        selectedCid
+                          ? selectedCid.label
+                          : isLoadingCids
+                            ? 'Buscando CIDs...'
+                            : inputValue.length > 0 && inputValue.length < 2
+                              ? 'Digite pelo menos 2 caracteres...'
+                              : cidOptions.length === 0 && inputValue.length >= 2
+                                ? 'Nenhum CID encontrado'
+                                : 'Digite pelo menos 2 caracteres para buscar...'
+                      }
+                      isSearchable={true}
+                      isClearable={true}
+                      isLoading={isLoadingCids}
+                      noOptionsMessage={({ inputValue }) => {
+                        if (!inputValue || inputValue.length < 2) {
+                          return 'Digite pelo menos 2 caracteres para buscar'
+                        }
+                        return 'Nenhum CID encontrado'
+                      }}
+                      loadingMessage={() => 'Buscando CIDs...'}
+                      // Configurações para otimização
+                      filterOption={null} // Desabilita o filtro interno do react-select
+                      // Configurações de comportamento do menu
+                      closeMenuOnSelect={true}
+                      blurInputOnSelect={true}
+                      styles={{
+                        control: (provided, state) => ({
+                          ...provided,
+                          borderColor: state.isFocused ? '#8f0715' : '#dee2e6',
+                          boxShadow: state.isFocused
+                            ? '0 0 0 0.2rem rgba(143, 7, 21, 0.25)'
+                            : 'none',
+                          '&:hover': {
+                            borderColor: '#8f0715',
+                          },
+                          minHeight: '38px',
+                        }),
+                        option: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: state.isSelected
+                            ? '#8f0715'
+                            : state.isFocused
+                              ? '#f8f9fa'
+                              : 'white',
+                          color: state.isSelected ? 'white' : '#333',
+                          '&:hover': {
+                            backgroundColor: state.isSelected ? '#8f0715' : '#f8f9fa',
+                          },
+                          cursor: 'pointer',
+                        }),
+                        placeholder: (provided) => ({
+                          ...provided,
+                          color: '#6c757d',
+                        }),
+                        menu: (provided) => ({
+                          ...provided,
+                          zIndex: 9999,
+                        }),
+                        menuList: (provided) => ({
+                          ...provided,
+                          maxHeight: 200, // Limita altura do menu
+                        }),
+                      }}
+                    />
+                    {cidError && (
+                      <small className="text-danger">
+                        Erro ao carregar CIDs. Tente digitar novamente.
+                      </small>
+                    )}
                   </CCol>
 
                   {/* Campos de Data e Dias */}
@@ -219,10 +513,10 @@ const Atestados = () => {
                         type="date"
                         id="dataInicioAtestado"
                         required
-                        max={new Date().toISOString().split('T')[ 0 ]}
+                        max={new Date().toISOString().split('T')[0]}
                         onChange={calcularDataFinal}
                         onClick={() => {
-                          const today = new Date().toISOString().split('T')[ 0 ]
+                          const today = new Date().toISOString().split('T')[0]
                           document.getElementById('dataInicioAtestado').value = today
                           calcularDataFinal()
                         }}
@@ -292,7 +586,11 @@ const Atestados = () => {
                     <CFormLabel htmlFor="anexoAtestado">
                       Anexo do Atestado: <span className="text-danger">*</span>
                     </CFormLabel>
-
+                    {validated && !file && (
+                      <div className="alert alert-danger" role="alert">
+                        O anexo do atestado é obrigatório.
+                      </div>
+                    )}
                     {/* Área de anexo do atestado*/}
                     <div className="upload-container mb-3">
                       <input
@@ -302,7 +600,7 @@ const Atestados = () => {
                         accept=".pdf,.jpg,.jpeg,.png"
                         required
                         ref={fileInputRef}
-                        onChange={(e) => handleFileChange(e.target.files[ 0 ])}
+                        onChange={(e) => handleFileChange(e.target.files[0])}
                       />
                     </div>
                   </CCol>
@@ -325,7 +623,7 @@ const Atestados = () => {
                         onClick={() => fileInputRef.current?.click()}
                         onDragOver={(e) => {
                           e.preventDefault()
-                          e.currentTarget.style.borderColor = '#ff0000a6'
+                          e.currentTarget.style.borderColor = '#7a0202a6'
                           e.currentTarget.style.backgroundColor = '#e3f2fd'
                           e.currentTarget.style.transform = 'scale(1.02)'
                         }}
@@ -340,7 +638,7 @@ const Atestados = () => {
                           e.currentTarget.style.borderColor = '#dee2e6'
                           e.currentTarget.style.backgroundColor = '#f8f9fa'
                           e.currentTarget.style.transform = 'scale(1)'
-                          const droppedFile = e.dataTransfer.files[ 0 ]
+                          const droppedFile = e.dataTransfer.files[0]
                           if (droppedFile) {
                             handleFileChange(droppedFile)
                           }
@@ -419,7 +717,7 @@ const Atestados = () => {
                                 <div>
                                   <span className="text-muted" style={{ fontSize: '0.85rem' }}>
                                     {(file.size / 1024 / 1024).toFixed(2)} MB •{' '}
-                                    {file.type.split('/')[ 1 ].toUpperCase()}
+                                    {file.type.split('/')[1].toUpperCase()}
                                   </span>
                                 </div>
                               </div>

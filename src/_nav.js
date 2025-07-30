@@ -4,7 +4,9 @@ import {
   cilEducation,
   cilBarChart,
   cilVideo,
-  cilBadge
+  cilBadge,
+  cilGroup,
+  cilPeople,
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
@@ -13,7 +15,7 @@ const _nav = [
     component: CNavItem,
     name: 'Dashboard',
     to: '/dashboard',
-    icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />
+    icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
   },
   {
     component: CNavTitle,
@@ -43,13 +45,13 @@ const _nav = [
     to: '/treinamentos',
     icon: <CIcon icon={cilEducation} customClassName="nav-icon" />,
   },
-   {
+  {
     component: CNavItem,
-    name: "Meus Certificados",
-    to: "/meus-certificados",
-    icon: <CIcon icon={cilBadge} customClassName="nav-icon"/>
+    name: 'Meus Certificados',
+    to: '/meus-certificados',
+    icon: <CIcon icon={cilBadge} customClassName="nav-icon" />,
   },
-   {
+  {
     component: CNavTitle,
     name: 'Cadastros',
   },
@@ -72,11 +74,16 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: "Certificados",
-    to: "/certificados",
-    icon: <CIcon icon={cilBadge} customClassName="nav-icon"/>
-  }
-
+    name: 'Turmas',
+    to: '/turmas',
+    icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Certificados',
+    to: '/certificados',
+    icon: <CIcon icon={cilBadge} customClassName="nav-icon" />,
+  },
 ]
 
 export default _nav

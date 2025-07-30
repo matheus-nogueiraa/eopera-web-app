@@ -1,0 +1,55 @@
+/* Estilos básicos para labels de formulário */
+.form-group label {
+  font-weight: 600;
+  color: #858796;
+}
+
+/* Classes de cor para texto */
+.text-danger {
+  color: #e74a3b !important;
+}
+
+.text-warning {
+  color: #f6c23e !important;
+}
+
+.text-success {
+  color: #1cc88a !important;
+}
+
+.text-info {
+  color: #36b9cc !important;
+}
+
+/* Estilos para botões de grupo de input */
+.input-group .btn-outline-secondary {
+  border-color: #d1d3e2;
+  color: #6c757d;
+}
+
+.input-group .btn-outline-secondary:hover {
+  background-color: #f8f9fc;
+  border-color: #d1d3e2;
+  color: #5a5c69;
+}
+
+/* Texto de ajuda */
+.form-text.text-muted {
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+/* Estilos para tabelas */
+.tabela-turma-cursos {
+  max-width: px;
+  white-space: pre-line;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabela-turma-descricao {
+  max-width: 300px;
+  white-space: pre-line;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
