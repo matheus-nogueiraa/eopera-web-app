@@ -23,7 +23,8 @@ import {
 import CIcon from '@coreui/icons-react'
 
 import { cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@coreui/icons'
-import { atestadosService } from '../../../services/consultarAtestadosService.js'
+import { atestadosService } from '../../services/consultarAtestadosService'
+
 
 const ConsultaAtestados = () => {
   const [ filtros, setFiltros ] = useState({

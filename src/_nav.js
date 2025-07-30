@@ -46,12 +46,6 @@ const _nav = [
     icon: <CIcon icon={cilEducation} customClassName="nav-icon" />,
   },
   {
-    component: CNavItem,
-    name: 'Meus Certificados',
-    to: '/meus-certificados',
-    icon: <CIcon icon={cilBadge} customClassName="nav-icon" />,
-  },
-  {
     component: CNavTitle,
     name: 'Cadastros',
   },

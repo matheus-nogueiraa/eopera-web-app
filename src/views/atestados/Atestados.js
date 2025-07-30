@@ -1,7 +1,6 @@
 import '../consulta-atestados/ConsultarAtestados.css'
 import React, { useRef, useState, useEffect } from 'react'
 import Select from 'react-select'
-import './consulta-atestados/ConsultarAtestados.css'
 
 import {
   CCard,
