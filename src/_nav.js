@@ -33,7 +33,7 @@ const _nav = [
       {
         component: CNavItem,
         name: 'Consultar atestados',
-        to: '/atestados/consulta-atestados',
+        to: '/consulta-atestados',
       },
     ],
   },
@@ -43,13 +43,7 @@ const _nav = [
     to: '/treinamentos',
     icon: <CIcon icon={cilEducation} customClassName="nav-icon" />,
   },
-   {
-    component: CNavItem,
-    name: "Meus Certificados",
-    to: "/meus-certificados",
-    icon: <CIcon icon={cilBadge} customClassName="nav-icon"/>
-  },
-   {
+  {
     component: CNavTitle,
     name: 'Cadastros',
   },
@@ -74,9 +68,8 @@ const _nav = [
     component: CNavItem,
     name: "Certificados",
     to: "/certificados",
-    icon: <CIcon icon={cilBadge} customClassName="nav-icon"/>
-  }
-
+    icon: <CIcon icon={cilBadge} customClassName="nav-icon" />
+  },
 ]
 
 export default _nav

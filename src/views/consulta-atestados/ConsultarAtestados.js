@@ -23,7 +23,7 @@ import {
 import CIcon from '@coreui/icons-react'
 
 import {cilSearch, cilCheckCircle, cilClock, cilXCircle, cilZoomIn } from '@coreui/icons'
-import { atestadosService } from '../../../services/consultarAtestadosService.js'
+import { atestadosService } from '../../services/consultarAtestadosService.js'
 
 const ConsultaAtestados = () => {
   const [ filtros, setFiltros ] = useState({
@@ -259,19 +259,25 @@ const ConsultaAtestados = () => {
 
       // Filtro por data início
       if (filtros.dataInicio) {
-        const dataInicioAtestado = new Date(atestado.dataInicio || atestado.dataInicial)
-        const dataInicioFiltro = new Date(filtros.dataInicio)
-        if (dataInicioAtestado < dataInicioFiltro) {
-          return false
+        const dataInicioAtestado = atestado.dataInicio || atestado.dataInicial
+        if (dataInicioAtestado) {
+          const dataInicioFiltro = new Date(filtros.dataInicio)
+          const dataAtestado = new Date(dataInicioAtestado)
+          if (dataAtestado < dataInicioFiltro) {
+            return false
+          }
         }
       }
 
       // Filtro por data final
       if (filtros.dataFim) {
-        const dataFimAtestado = new Date(atestado.dataFim || atestado.dataFinal)
-        const dataFimFiltro = new Date(filtros.dataFim)
-        if (dataFimAtestado > dataFimFiltro) {
-          return false
+        const dataFimAtestado = atestado.dataFim || atestado.dataFinal
+        if (dataFimAtestado) {
+          const dataFimFiltro = new Date(filtros.dataFim)
+          const dataAtestado = new Date(dataFimAtestado)
+          if (dataAtestado > dataFimFiltro) {
+            return false
+          }
         }
       }
 
@@ -317,12 +323,7 @@ const ConsultaAtestados = () => {
       setBuscaRealizada(true)
       setPaginaAtual(1)
 
-      // Limpar os filtros após busca bem-sucedida
-      setFiltros({
-        dataInicio: '',
-        dataFim: '',
-        status: '',
-      })
+      // Não limpar os filtros após busca bem-sucedida
 
       console.log(
         `Busca concluída. ${resultados.length} atestados encontrados com os filtros aplicados.`,
@@ -507,23 +508,12 @@ const ConsultaAtestados = () => {
                     )}
                     {carregando ? 'Buscando...' : 'Buscar'}
                   </CButton>
-                   <CButton
-                    size="md"
-                    type="button"
-                    color="secondary"
-                    className="w-100 mt-2"
-                    onClick={recarregarDados}
-                    disabled={carregando}
-                  >
-                    teste
-                  </CButton>
                 </CCol>
                 <span className="text-primary">
                   *Somente os atestados enviados pelo Eopera serão exibidos!
                 </span>
               </CRow>
               <hr />
-
               {/* Condicionar a exibição da tabela */}
               {carregando && !buscaRealizada ? (
                 <div className="text-center py-4">
@@ -649,15 +639,3 @@ const ConsultaAtestados = () => {
 }
 
 export default ConsultaAtestados
-
-// Exemplo de uso
-// import { atestadosService } from './services/consultarAtestadosService.js'
-
-// Consultar atestados com matrícula padrão
-// const atestados = await atestadosService.consultarAtestados()
-
-// Consultar atestados com matrícula específica
-// const atestadosEspecificos = await atestadosService.consultarAtestados('123456')
-
-localStorage.setItem('matricula', '003493')
-localStorage.setItem('nomeUsuario', 'Usuário Teste')

@@ -1,0 +1,32 @@
+[
+  {
+    "tipo": "programatico",
+    "titulo": "CONTEÚDO PROGRAMÁTICO",
+    "conteudo": "<Conteúdos do curso>",
+    "logo": "/src/assets/images/Elcop-academy.png"
+  },
+  {
+    "tipo": "conclusao",
+    "titulo": "CERTIFICADO DE CONCLUSÃO",
+    "subtitulo": "Certificamos que",
+    "nome": "GIVANILDO MACHADO DE SOUZA",
+    "texto": "concluiu o conteúdo do curso de {curso},\nno dia {data}",
+    "curso": "NR-35- Trabalho em Altura",
+    "data": "18/07/2025",
+    "token": "",
+    "logo": "/src/assets/images/Elcop-academy.png",
+    "logo_selo": "/src/assets/images/Elcop-academy.png",
+    "rodape": "",
+    "rodape_cor": "#7a131a",
+    "rodape_texto_cor": "#222",
+    "titulo_cor": "#222",
+    "nome_cor": "#222",
+    "texto_cor": "#222",
+    "layout": {
+      "borda_superior": true,
+      "borda_inferior": true,
+      "borda_cor": "#7a131a",
+      "borda_espessura": 8
+    }
+  }
+]

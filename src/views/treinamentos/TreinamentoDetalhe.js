@@ -17,15 +17,15 @@ const aulasExemplo = [
 const TreinamentoDetalhe = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const treinamento = treinamentos[parseInt(id, 10)];
-  const [aulaSelecionada, setAulaSelecionada] = React.useState(0);
+  const treinamento = treinamentos[ parseInt(id, 10) ];
+  const [ aulaSelecionada, setAulaSelecionada ] = React.useState(0);
 
   if (!treinamento) return <div className="p-5">Treinamento não encontrado.</div>;
 
   return (
     <div className="container-fluid py-4" style={{ background: '#f8f9fa', minHeight: '100vh' }}>
       <div className="mb-3">
-        <button className="btn btn-link px-0" onClick={() => navigate('/treinamentos')} style={{ fontWeight: 600, color: '#c2001a', textDecoration: 'none' }}>
+        <button className="btn btn-link px-0" onClick={() => navigate('/treinamentos')} style={{ fontWeight: 600, color: 'primary', textDecoration: 'none' }}>
           &#8592; Voltar para treinamentos
         </button>
       </div>
@@ -46,6 +46,10 @@ const TreinamentoDetalhe = () => {
                   </li>
                 ))}
               </ul>
+              <h5 className="mt-4" style={{ fontWeight: 700 }}>Questionário</h5>
+              <button className="btn btn-outline-primary w-100 mt-2">
+                Iniciar Questionário
+              </button>
             </CCardBody>
           </CCard>
         </CCol>
@@ -70,14 +74,23 @@ const TreinamentoDetalhe = () => {
                 </button>
               </div>
               <div className="ratio ratio-16x9 my-4">
-                <iframe
-                  src={aulasExemplo[aulaSelecionada].video}
-                  title={aulasExemplo[aulaSelecionada].titulo}
-                  allowFullScreen
-                  style={{ border: 0, width: '100%', height: '100%' }}
-                />
-              </div>
-              <div>{aulasExemplo[aulaSelecionada].titulo}</div>
+              <iframe
+                src={aulasExemplo[ aulaSelecionada ].video}
+                title={aulasExemplo[ aulaSelecionada ].titulo}
+                allowFullScreen
+                style={{ border: 0, width: '100%', height: '100%' }}
+              />
+            </div>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <div>{aulasExemplo[ aulaSelecionada ].titulo}</div>
+              <button
+                className="btn btn-outline-primary"
+                onClick={() => setAulaSelecionada((prev) => Math.min(prev + 1, aulasExemplo.length - 1))}
+                disabled={aulaSelecionada === aulasExemplo.length - 1}
+              >
+                Marcar com concluído
+              </button>
+            </div>
             </CCardBody>
           </CCard>
         </CCol>

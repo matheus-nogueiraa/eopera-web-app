@@ -32,7 +32,13 @@ const dados = [
   },
 ];
 
-const CriarConteudoTabela = () => {
+const CriarConteudoTabela = ({ search = '' }) => {
+  // Filtro dos dados conforme o texto digitado
+  const dadosFiltrados = dados.filter(item =>
+    item.nome.toLowerCase().includes(search.toLowerCase()) ||
+    item.categoria.toLowerCase().includes(search.toLowerCase()) ||
+    item.url.toLowerCase().includes(search.toLowerCase())
+  );
   return (
     <>
       <CTable hover responsive bordered align="middle" className="mt-4">
@@ -47,7 +53,7 @@ const CriarConteudoTabela = () => {
           </CTableRow>
         </CTableHead>
         <CTableBody>
-          {dados.map((item) => (
+          {dadosFiltrados.map((item) => (
             <CTableRow key={item.id}>
               <CTableDataCell>{item.id}</CTableDataCell>
               <CTableDataCell>{item.nome}</CTableDataCell>

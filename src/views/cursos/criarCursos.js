@@ -40,7 +40,7 @@ const criarConteudos = () => {
             />
           </CCol>
         </CRow>
-        <CriarConteudoTabela />
+        <CriarConteudoTabela search={search} />
     </div>
   );
 };

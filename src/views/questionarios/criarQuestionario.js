@@ -39,7 +39,7 @@ const criarQuestionario = () => {
         onSave={() => {
           setShowModal(false);
         }} />
-      <CriarQuestionarioTabela />
+      <CriarQuestionarioTabela search={search} />
     </div>
   )
 }

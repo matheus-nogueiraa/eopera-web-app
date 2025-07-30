@@ -51,7 +51,12 @@ const questionarios = [
   },
 ];
 
-const CriarQuestionarioTabela = () => {
+const CriarQuestionarioTabela = ({ search = '' }) => {
+  // Filtro dos questionários conforme o texto digitado
+  const questionariosFiltrados = questionarios.filter(q =>
+    q.descricao.toLowerCase().includes(search.toLowerCase()) ||
+    q.curso.toLowerCase().includes(search.toLowerCase())
+  );
   return (
     <>
       <CTable hover responsive bordered align="middle" className="mt-4">
@@ -66,7 +71,7 @@ const CriarQuestionarioTabela = () => {
           </CTableRow>
         </CTableHead>
         <CTableBody>
-          {questionarios.map((q) => (
+          {questionariosFiltrados.map((q) => (
             <CTableRow key={q.id}>
               <CTableDataCell>{q.id}</CTableDataCell>
               <CTableDataCell>{q.descricao}</CTableDataCell>
