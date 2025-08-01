@@ -55,8 +55,6 @@ const treinamentos = [
   }
 ];
 
-
-
 const Treinamentos = () => {
   const navigate = useNavigate();
   return (
@@ -104,7 +102,6 @@ const Treinamentos = () => {
     </div>
   );
 };
-
 
 // Exporta o array para uso no detalhe
 export { treinamentos };

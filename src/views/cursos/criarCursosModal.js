@@ -40,7 +40,7 @@ const CriarConteudoModal = ({ visible, onClose, onSave }) => {
             <CFormLabel htmlFor="Descrição">Url do vídeo</CFormLabel>
             <CFormInput type="text" id="url" placeholder="Digite a url do vídeo" />
           </CCol>
-          <CCol md={4}>
+          <CCol md={3}>
             <CFormLabel htmlFor="Descrição">Categoria</CFormLabel>
             <CFormSelect id="categoria" placeholder="Digite a categoria">
               <option value="">Selecione uma categoria</option>
@@ -50,8 +50,16 @@ const CriarConteudoModal = ({ visible, onClose, onSave }) => {
             </CFormSelect>
           </CCol>
           <CCol md={2}>
+            <CFormLabel htmlFor="Descrição">Publico?</CFormLabel>
+            <br />
             <>&nbsp;</>
-            <CFormCheck id="flexCheckDefault" label="Ativo?" checked={true} />
+            <CFormCheck id="flexCheckDefault" />
+          </CCol>
+          <CCol md={1}>
+            <CFormLabel htmlFor="Descrição">Ativo?</CFormLabel>
+            <br />
+            <>&nbsp;</>
+            <CFormCheck id="flexCheckDefault" />
           </CCol>
         </CRow>
       </CModalBody>

@@ -13,7 +13,7 @@ const Turmas = React.lazy(() => import('./views/turmas/Turmas'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home' },
-  { path: '/dashboard', name: 'Dashboard', element: () => <ProtectedRoute><Dashboard /></ProtectedRoute> },
+  { path: '/ranking', name: 'Dashboard', element: () => <ProtectedRoute><Dashboard /></ProtectedRoute> },
   { path: '/atestados', name: 'Atestados', element: () => <ProtectedRoute><Atestados /></ProtectedRoute> },
   { path: '/treinamentos', name: 'Treinamentos', element: () => <ProtectedRoute><Treinamentos /></ProtectedRoute> },
   { path: '/consulta-atestados', name: 'Consultar Atestados', element: () => <ProtectedRoute><ConsultaAtestados /></ProtectedRoute> },

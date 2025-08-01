@@ -6,6 +6,7 @@ import {
   CRow,
   CCol
 } from '@coreui/react';
+import Prova from './Prova';
 import { treinamentos } from './treinamentos';
 
 const aulasExemplo = [
@@ -19,6 +20,13 @@ const TreinamentoDetalhe = () => {
   const navigate = useNavigate();
   const treinamento = treinamentos[ parseInt(id, 10) ];
   const [ aulaSelecionada, setAulaSelecionada ] = React.useState(0);
+  // Estado para marcar aulas concluídas
+  const [ aulasConcluidas, setAulasConcluidas ] = React.useState(Array(aulasExemplo.length).fill(false));
+  // Estado do modal da prova
+  const [ modalProva, setModalProva ] = React.useState(false);
+
+  // Verifica se todas as aulas foram concluídas
+  const todasConcluidas = aulasConcluidas.every(Boolean);
 
   if (!treinamento) return <div className="p-5">Treinamento não encontrado.</div>;
 
@@ -46,10 +54,16 @@ const TreinamentoDetalhe = () => {
                   </li>
                 ))}
               </ul>
-              <h5 className="mt-4" style={{ fontWeight: 700 }}>Questionário</h5>
-              <button className="btn btn-outline-primary w-100 mt-2">
-                Iniciar Questionário
+              <h5 className="mt-4" style={{ fontWeight: 700 }}>Prova</h5>
+              <button
+                className="btn btn-outline-primary w-100 mt-2"
+                title={!todasConcluidas ? 'Conclua todas as aulas para liberar a prova' : ''}
+                onClick={() => setModalProva(true)}
+              >
+                Iniciar prova
               </button>
+              {/* Modal da prova */}
+              <Prova visible={modalProva} onClose={() => setModalProva(false)} />
             </CCardBody>
           </CCard>
         </CCol>
@@ -74,23 +88,29 @@ const TreinamentoDetalhe = () => {
                 </button>
               </div>
               <div className="ratio ratio-16x9 my-4">
-              <iframe
-                src={aulasExemplo[ aulaSelecionada ].video}
-                title={aulasExemplo[ aulaSelecionada ].titulo}
-                allowFullScreen
-                style={{ border: 0, width: '100%', height: '100%' }}
-              />
-            </div>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <div>{aulasExemplo[ aulaSelecionada ].titulo}</div>
-              <button
-                className="btn btn-outline-primary"
-                onClick={() => setAulaSelecionada((prev) => Math.min(prev + 1, aulasExemplo.length - 1))}
-                disabled={aulaSelecionada === aulasExemplo.length - 1}
-              >
-                Marcar com concluído
-              </button>
-            </div>
+                <iframe
+                  src={aulasExemplo[ aulaSelecionada ].video}
+                  title={aulasExemplo[ aulaSelecionada ].titulo}
+                  allowFullScreen
+                  style={{ border: 0, width: '100%', height: '100%' }}
+                />
+              </div>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>{aulasExemplo[ aulaSelecionada ].titulo}</div>
+                <button
+                  className={`btn btn-outline-primary${aulasConcluidas[ aulaSelecionada ] ? ' active' : ''}`}
+                  onClick={() => {
+                    setAulasConcluidas((prev) => {
+                      const novo = [ ...prev ];
+                      novo[ aulaSelecionada ] = true;
+                      return novo;
+                    });
+                  }}
+                  disabled={aulasConcluidas[ aulaSelecionada ]}
+                >
+                  {aulasConcluidas[ aulaSelecionada ] ? 'Concluída' : 'Marcar como concluída'}
+                </button>
+              </div>
             </CCardBody>
           </CCard>
         </CCol>

@@ -127,6 +127,11 @@ const CriarQuestionarioModal = ({ visible, onClose, onSave }) => {
     setShowConfirm(false)
   }
 
+  // Função para salvar e logar o formulário
+  const handleSave = () => {
+    console.log('Formulário criado:', perguntas)
+    if (onSave) onSave(perguntas)
+  }
   return (
     <>
       <CModal visible={visible} size="lg" backdrop="static" closeOnBackdrop={false} closeOnEscape={false}>
@@ -143,6 +148,9 @@ const CriarQuestionarioModal = ({ visible, onClose, onSave }) => {
               <CFormLabel htmlFor="Nome">Selecione o Curso</CFormLabel>
               <CFormSelect>
                 <option value="">Selecione o Curso</option>
+                <option value="react">React</option>
+                <option value="vue">Vue</option>
+                <option value="angular">Angular</option>
               </CFormSelect>
             </CCol>
             <hr className="mt-4"></hr>
@@ -232,7 +240,7 @@ const CriarQuestionarioModal = ({ visible, onClose, onSave }) => {
           <CButton color="secondary" onClick={handleRequestClose}>
             Cancelar
           </CButton>
-          <CButton color="primary" className="w-20" onClick={onSave}>
+          <CButton color="primary" className="w-20" onClick={handleSave}>
             Salvar
           </CButton>
         </CModalFooter>

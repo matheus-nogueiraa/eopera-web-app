@@ -366,6 +366,7 @@ const Turmas = () => {
       usuarios: usuariosSelecionados.map((u) => u.nome),
     }
 
+    // Exibir o objeto da turma no console ao salvar
     if (editingTurma) {
       setTurmas((prev) => prev.map((t) => (t.id === editingTurma.id ? novaTurma : t)))
       setAlertMessage('Turma atualizada com sucesso!')

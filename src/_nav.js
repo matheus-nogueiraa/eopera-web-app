@@ -13,8 +13,8 @@ import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 const _nav = [
   {
     component: CNavItem,
-    name: 'Dashboard',
-    to: '/dashboard',
+    name: 'Ranking',
+    to: '/ranking',
     icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
   },
   {

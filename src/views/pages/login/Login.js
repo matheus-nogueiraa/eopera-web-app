@@ -86,7 +86,7 @@ const Login = () => {
         setToast({ show: true, message: 'Login realizado com sucesso!', type: 'success' });
         setTimeout(() => {
           setLoading(false);
-          navigate('/dashboard');
+          navigate('/ranking');
         }, 1200);
       } else {
         setLoading(false);
