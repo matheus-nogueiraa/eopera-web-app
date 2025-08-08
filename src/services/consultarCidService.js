@@ -10,7 +10,6 @@ export const cidService = {
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
       })
-      console.log('Resposta da API:', response.data)
       return response.data
 
     } catch (error) {

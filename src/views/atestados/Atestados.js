@@ -60,22 +60,7 @@ const Atestados = () => {
     setCidError(null)
 
     try {
-      console.log('Buscando CIDs com filtro:', termoBusca)
       const response = await cidService.consultarCids(termoBusca)
-
-      // DEBUG MELHORADO: Vamos ver exatamente o que está chegando
-      console.log('=== DEBUG COMPLETO CID ===')
-      console.log('Response:', response)
-      console.log('Response.data:', response.data)
-
-      if (response.data && response.data.CID) {
-        console.log('Array CID:', response.data.CID)
-        console.log('Primeiro item:', response.data.CID[ 0 ])
-        console.log('Propriedades do primeiro item:', Object.keys(response.data.CID[ 0 ]))
-        console.log('Valores do primeiro item:', Object.values(response.data.CID[ 0 ]))
-      }
-      console.log('========================')
-
       if (response.data.CID && response.data.CID.length > 0) {
         // Filtrar localmente se o service não suportar filtro no backend
         let cidsFiltrados = response.data.CID
@@ -97,7 +82,6 @@ const Atestados = () => {
           .map((cid, index) => {
             // Vamos tentar pegar as propriedades mais comuns primeiro
             const propriedades = Object.keys(cid)
-            console.log(`Item ${index}:`, cid, 'Propriedades:', propriedades)
 
             // Tentar encontrar o código (geralmente a primeira propriedade ou algo com 'cod', 'id', etc.)
             let codigo = 'N/A'
@@ -157,9 +141,6 @@ const Atestados = () => {
           .filter(Boolean) // Remove itens nulos
 
         setCidOptions(cidsFormatados)
-        console.log(
-          `${cidsFormatados.length} CIDs carregados (${cidsFiltrados.length} encontrados)`,
-        )
       } else {
         setCidOptions([])
         console.log('Nenhum CID encontrado na resposta')
@@ -427,7 +408,6 @@ const Atestados = () => {
                         }
                       }}
                       onInputChange={(newValue, { action }) => {
-                        console.log('Input changed:', newValue, action)
                         if (action === 'input-change') {
                           setInputValue(newValue)
                         } else if (action === 'menu-close' && !selectedCid) {
