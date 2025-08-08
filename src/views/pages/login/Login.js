@@ -15,7 +15,8 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
 import './login.css'
-import logoImg from '../../../assets/images/SGI.jpg'
+import pkg from '../../../../package.json';
+import { color } from 'chart.js/helpers'
 
 const Login = () => {
   const navigate = useNavigate();
@@ -109,7 +110,6 @@ const Login = () => {
   return (
     <div className="login-page">
       <style>
-        
       </style>
 
       {/* Toast */}
@@ -154,7 +154,6 @@ const Login = () => {
         <div className="circle-decoration decoration-3"></div>
 
         {/* Seção da marca/logo */}
-        
         <div className="brand-section">
           <div className="logo-container">
             <img
@@ -229,6 +228,22 @@ const Login = () => {
             </CForm>
           </div>
         </div>
+      </div>
+      {/* Versão no canto inferior direito */}
+      <div
+        style={{
+          position: 'fixed',
+          right: 16,
+          bottom: 10,
+          color: 'white',
+          opacity: 0.7,
+          fontSize: 14,
+          zIndex: 9999,
+          pointerEvents: 'none',
+          userSelect: 'none'
+        }}
+      >
+        Versão: {pkg.version}
       </div>
     </div>
   )
