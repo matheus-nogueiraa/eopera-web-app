@@ -11,15 +11,15 @@ import {
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
 const _nav = [
-  {
-    component: CNavItem,
-    name: 'Ranking',
-    to: '/ranking',
-    icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
-  },
+  // {
+  //   component: CNavItem,
+  //   name: 'Ranking',
+  //   to: '/ranking',
+  //   icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
+  // },
   {
     component: CNavTitle,
-    name: 'Home',
+    name: 'E-opera X',
   },
   {
     component: CNavGroup,
@@ -39,45 +39,45 @@ const _nav = [
       },
     ],
   },
-  {
-    component: CNavItem,
-    name: 'Treinamentos',
-    to: '/treinamentos',
-    icon: <CIcon icon={cilEducation} customClassName="nav-icon" />,
-  },
-  {
-    component: CNavTitle,
-    name: 'Cadastros',
-  },
-  {
-    component: CNavGroup,
-    name: 'Conteúdos',
-    icon: <CIcon icon={cilVideo} customClassName="nav-icon" />,
-    items: [
-      {
-        component: CNavItem,
-        name: 'Criar Cursos',
-        to: '/criar-cursos',
-      },
-      {
-        component: CNavItem,
-        name: 'Criar Questionários',
-        to: '/criar-questionarios',
-      },
-    ],
-  },
-  {
-    component: CNavItem,
-    name: 'Turmas',
-    to: '/turmas',
-    icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
-  },
-  {
-    component: CNavItem,
-    name: 'Certificados',
-    to: '/certificados',
-    icon: <CIcon icon={cilBadge} customClassName="nav-icon" />,
-  },
+  // {
+  //   component: CNavTitle,
+  //   name: 'Eopera Academy',
+  // },
+  // {
+  //   component: CNavItem,
+  //   name: 'Treinamentos',
+  //   to: '/treinamentos',
+  //   icon: <CIcon icon={cilEducation} customClassName="nav-icon" />,
+  // },
+  // {
+  //   component: CNavGroup,
+  //   name: 'Conteúdos',
+  //   icon: <CIcon icon={cilVideo} customClassName="nav-icon" />,
+  //   items: [
+  //     {
+  //       component: CNavItem,
+  //       name: 'Criar Cursos',
+  //       to: '/criar-cursos',
+  //     },
+  //     {
+  //       component: CNavItem,
+  //       name: 'Criar Questionários',
+  //       to: '/criar-questionarios',
+  //     },
+  //   ],
+  // },
+  // {
+  //   component: CNavItem,
+  //   name: 'Turmas',
+  //   to: '/turmas',
+  //   icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
+  // },
+  // {
+  //   component: CNavItem,
+  //   name: 'Certificados',
+  //   to: '/certificados',
+  //   icon: <CIcon icon={cilBadge} customClassName="nav-icon" />,
+  // },
 ]
 
 export default _nav

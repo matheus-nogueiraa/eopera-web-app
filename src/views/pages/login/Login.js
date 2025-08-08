@@ -1,13 +1,9 @@
-import React from 'react'
-import { useState } from 'react'
-import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   CButton,
   CCard,
   CCardBody,
-  CCardGroup,
-  CCardImage,
   CCol,
   CContainer,
   CForm,
@@ -18,22 +14,32 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
-import { setTimeout } from 'core-js'
+import './login.css'
+import logoImg from '../../../assets/images/SGI.jpg'
 
 const Login = () => {
   const navigate = useNavigate();
   const [ cpf, setCpf ] = useState('');
   const [ senha, setSenha ] = useState('');
   const [ error, setError ] = useState('');
+  const [ loading, setLoading ] = useState(false);
+  const [ toast, setToast ] = useState({ show: false, message: '', type: '', time: 300 });
+
   // Esconde o erro automaticamente após 2,5 segundos
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(''), 2500);
       return () => clearTimeout(timer);
     }
-  }, [error]);
-  const [ loading, setLoading ] = useState(false);
-  const [ toast, setToast ] = useState({ show: false, message: '', type: '', time: 300 });
+  }, [ error ]);
+
+  // Esconde o toast após um tempo
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => setToast({ ...toast, show: false }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [ toast ]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -86,7 +92,7 @@ const Login = () => {
         setToast({ show: true, message: 'Login realizado com sucesso!', type: 'success' });
         setTimeout(() => {
           setLoading(false);
-          navigate('/ranking');
+          navigate('/atestados');
         }, 1200);
       } else {
         setLoading(false);
@@ -101,83 +107,129 @@ const Login = () => {
   };
 
   return (
-    <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
-      <CContainer>
-        {/* Toast simples */}
-        {toast.show && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 20,
-              right: 20,
-              zIndex: 9999,
-              background: toast.type === 'success' ? '#198754' : '#dc3545',
-              color: '#fff',
-              padding: '12px 24px',
-              borderRadius: 8,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              minWidth: 200,
-              fontWeight: 500,
-            }}
-          >
-            {toast.message}
+    <div className="login-page">
+      <style>
+        
+      </style>
+
+      {/* Toast */}
+      {toast.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            zIndex: 9999,
+            background: toast.type === 'success' ? '#90171B' : '#dc3545',
+            color: '#fff',
+            padding: '12px 24px',
+            borderRadius: 8,
+            boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+            minWidth: 300,
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}
+        >
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '24px',
+            height: '24px',
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            borderRadius: '50%'
+          }}>
+            {toast.type === 'success' ? '✓' : '!'}
           </div>
-        )}
-        <CRow className="justify-content-center">
-          <CCol md={4}>
-            <CCardGroup>
-              <CCard className="p-4">
-                <CCardBody>
-                  <CForm onSubmit={handleLogin}>
-                    <CCardImage src="src/assets/images/Elcop-academy.png" alt="Elcop Academy" width={80} />
-                    <p className="text-body-secondary">Entre com cpf e senha</p>
-                    {error && <div style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
-                    <CInputGroup className="mb-3">
-                      <CInputGroupText>
-                        <CIcon icon={cilUser} />
-                      </CInputGroupText>
-                      <CFormInput
-                        placeholder="CPF"
-                        autoComplete="username"
-                        value={cpf}
-                        onChange={e => setCpf(e.target.value)}
-                        disabled={loading}
-                      />
-                    </CInputGroup>
-                    <CInputGroup className="mb-4">
-                      <CInputGroupText>
-                        <CIcon icon={cilLockLocked} />
-                      </CInputGroupText>
-                      <CFormInput
-                        type="password"
-                        placeholder="Senha"
-                        autoComplete="current-password"
-                        value={senha}
-                        onChange={e => setSenha(e.target.value)}
-                        disabled={loading}
-                      />
-                    </CInputGroup>
-                    <CRow>
-                      <CCol xs={12}>
-                        <CButton type="submit" color="primary" className="w-100 py-1 fw-semibold" style={{ fontSize: 18 }} disabled={loading}>
-                          {loading ? (
-                            <span>
-                              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                              Entrando...
-                            </span>
-                          ) : (
-                            'Entrar'
-                          )}
-                        </CButton>
-                      </CCol>
-                    </CRow>
-                  </CForm>
-                </CCardBody>
-              </CCard>
-            </CCardGroup>
-          </CCol>
-        </CRow>
-      </CContainer>
+          {toast.message}
+        </div>
+      )}
+
+      <div className="login-container">
+        {/* Elementos decorativos */}
+        <div className="circle-decoration decoration-1"></div>
+        <div className="circle-decoration decoration-2"></div>
+        <div className="circle-decoration decoration-3"></div>
+
+        {/* Seção da marca/logo */}
+        
+        <div className="brand-section">
+          <div className="logo-container">
+            <img
+              src='https://static.wixstatic.com/media/85cac4_bd48f6aa00f24193893686e9643162e7~mv2.png/v1/fill/w_328,h_194,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Design%20sem%20nome.png'
+              alt="Logo"
+              className="brand-logo"
+            />
+          </div>
+        </div>
+
+        {/* Seção do formulário */}
+        <div className="login-form-section">
+          <div className="login-form-container">
+            <h1 className="login-heading">Bem-vindo(a)!</h1>
+            <p className="login-subheading">Faça login com CPF e senha</p>
+
+            {error && <div className="error-message">{error}</div>}
+
+            <CForm onSubmit={handleLogin}>
+              <div className="mb-4">
+                <label htmlFor="cpf-input" className="form-label text-white mb-2">CPF</label>
+                <CInputGroup>
+                  <CInputGroupText>
+                    <CIcon icon={cilUser} />
+                  </CInputGroupText>
+                  <CFormInput
+                    id="cpf-input"
+                    placeholder="Digite seu CPF"
+                    autoComplete="username"
+                    value={cpf}
+                    onChange={e => setCpf(e.target.value)}
+                    disabled={loading}
+                    className="form-input"
+                  />
+                </CInputGroup>
+              </div>
+
+              <div className="mb-4">
+                <label htmlFor="password-input" className="form-label text-white mb-2">Senha</label>
+                <CInputGroup>
+                  <CInputGroupText>
+                    <CIcon icon={cilLockLocked} />
+                  </CInputGroupText>
+                  <CFormInput
+                    id="password-input"
+                    type="password"
+                    placeholder="Digite sua senha"
+                    autoComplete="current-password"
+                    value={senha}
+                    onChange={e => setSenha(e.target.value)}
+                    disabled={loading}
+                    className="form-input"
+                  />
+                </CInputGroup>
+              </div>
+
+              <CButton
+                type="submit"
+                color="primary"
+                className="w-100 login-btn mt-4"
+                disabled={loading}
+              >
+                {loading ? (
+                  <span>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Entrando...
+                  </span>
+                ) : (
+                  'Entrar'
+                )}
+              </CButton>
+            </CForm>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
