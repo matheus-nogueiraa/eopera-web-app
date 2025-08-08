@@ -43,12 +43,12 @@ const ConsultaAtestados = () => {
   const [ itensPorPagina ] = useState(10)
 
   // Estados para dados da API
-  const [atestados, setAtestados] = useState([])
-  const [atestadosFiltrados, setAtestadosFiltrados] = useState([])
-  const [buscaRealizada, setBuscaRealizada] = useState(false)
-  const [carregando, setCarregando] = useState(false)
-  const [erro, setErro] = useState(null)
-  const [erroAtestado, setErroAtestado] = useState(null) // Novo estado para erro de atestado
+  const [ atestados, setAtestados ] = useState([])
+  const [ atestadosFiltrados, setAtestadosFiltrados ] = useState([])
+  const [ buscaRealizada, setBuscaRealizada ] = useState(false)
+  const [ carregando, setCarregando ] = useState(false)
+  const [ erro, setErro ] = useState(null)
+  const [ erroAtestado, setErroAtestado ] = useState(null) // Novo estado para erro de atestado
 
   // Função para normalizar os dados da API
   const normalizarAtestado = (atestadoAPI) => {
@@ -71,7 +71,7 @@ const ConsultaAtestados = () => {
         cancelled: 'Cancelado',
 
       }
-      return statusMap[statusAtestado] || 'Em Análise'
+      return statusMap[ statusAtestado ] || 'Em Análise'
     }
 
     // Mapear motivo baseado no status do atestado
@@ -172,7 +172,7 @@ const ConsultaAtestados = () => {
 
       if (!matriculaUsuario) {
         // Verificar se há informações de login em outras chaves
-        const chavesAlternativas = ['userMatricula', 'user_matricula', 'matriculaUsuario', 'userId']
+        const chavesAlternativas = [ 'userMatricula', 'user_matricula', 'matriculaUsuario', 'userId' ]
         let encontrouMatricula = false
 
         for (const chave of chavesAlternativas) {
@@ -403,8 +403,27 @@ const ConsultaAtestados = () => {
 
   // Função para formatar data
   const formatarData = (data) => {
-    if (!data) return ''
-    return new Date(data).toLocaleDateString('pt-BR')
+    // Verificar casos inválidos
+    if (!data ||
+      data === "{}" ||
+      data === "-" ||
+      data === "Invalid Date" ||
+      data === "null" ||
+      data === "undefined") {
+      return "-";
+    }
+
+    try {
+      const dataObj = new Date(data);
+      // Verificar se a data é válida
+      if (isNaN(dataObj.getTime())) {
+        return "-";
+      }
+      return dataObj.toLocaleDateString('pt-BR');
+    } catch (error) {
+      console.error("Erro ao formatar data:", data, error);
+      return "-";
+    }
   }
 
   // Obter itens da página atual
@@ -558,7 +577,6 @@ const ConsultaAtestados = () => {
                           <th>Data Final</th>
                           <th>Solicitação</th>
                           <th>Motivo</th>
-                          
                           {/* <th>Anexo</th> */}
                         </tr>
                       </thead>
@@ -568,12 +586,12 @@ const ConsultaAtestados = () => {
                             <td className="text-center">{renderStatus(atestado.status)}</td>
                             <td>{atestado.tipificacao}</td>
                             <td>{atestado.especificacao}</td>
-                            <td className="text-center">{atestado.dias}</td>
+                            <td className="text-center">{atestado.dias || "-"}</td>
                             <td className="text-center">
                               {formatarData(atestado.dataInicio || atestado.dataInicial)}
                             </td>
                             <td className="text-center">
-                              {formatarData(atestado.dataFim || atestado.dataFinal)}
+                              {formatarData(atestado.dataFim || atestado.dataFinal || "-")}
                             </td>
                             <td className="text-center">{atestado.numFluig || '-'}</td>
                             <td>{getMotivoTexto(atestado)}</td>

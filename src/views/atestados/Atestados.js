@@ -152,12 +152,9 @@ const Atestados = () => {
               return null
             }
 
-            console.log('Item formatado:', item)
             return item
           })
           .filter(Boolean) // Remove itens nulos
-
-        console.log('Todos os CIDs formatados:', cidsFormatados)
 
         setCidOptions(cidsFormatados)
         console.log(
@@ -223,7 +220,6 @@ const Atestados = () => {
     event.preventDefault()
     const formElement = event.currentTarget
     const anexoBase64 = fileInputRef.current?.files[ 0 ] ? await getFileBase64(fileInputRef.current.files[ 0 ]) : ''
-    console.log('Anexo Base64:', anexoBase64)
 
     if (formElement.checkValidity() === false) {
       event.stopPropagation()
@@ -242,7 +238,7 @@ const Atestados = () => {
         motivoAfastamento: document.getElementById('especificacaoAtestado')?.options[ document.getElementById('especificacaoAtestado')?.selectedIndex ]?.text || '',
         dataInicio: document.getElementById('dataInicioAtestado')?.value || '',
         qtdDias: document.getElementById('diasAtestado')?.value || '',
-        cid: document.getElementById('cidAtestado')?.options[ document.getElementById('cidAtestado')?.selectedIndex ]?.text || '',
+        cid: selectedCid?.label || '',
         nomeMedico: document.getElementById('medicoAtestado')?.value || '',
         justificativa: document.getElementById('justificativaAtestado')?.value || '',
         anexoBase64,
