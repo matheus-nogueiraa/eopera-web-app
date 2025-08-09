@@ -40,7 +40,7 @@ export default defineConfig(() => {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.scss'],
     },
     server: {
-      port: 3000,
+      port: import.meta.env.VITE_PORT,
       proxy: {
         '/api': {
           target: 'https://adm.elcop.eng.br:9000',

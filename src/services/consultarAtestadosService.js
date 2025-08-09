@@ -1,7 +1,6 @@
 // consultarAtestadosService.js
 import axios from 'axios'
 
-const API_URL = 'https://adm.elcop.eng.br:9000/api/consultarAtestados'
 const TOKEN = '@k)1qlny;dG!ogXC]us7XB(2LzE{@w'
 
 export const atestadosService = {
