@@ -61,6 +61,20 @@ const Login = () => {
     }
 
     try {
+      // === LOGS DE DEBUG DETALHADOS ===
+      console.log('🔍 === INÍCIO DEBUG LOGIN ===');
+      console.log('🔍 URL atual completa:', window.location.href);
+      console.log('🔍 Origin:', window.location.origin);
+      console.log('🔍 Host:', window.location.host);
+      console.log('🔍 Protocol:', window.location.protocol);
+      console.log('🔍 Port:', window.location.port);
+      console.log('🔍 URL da API será:', window.location.origin + '/api/login');
+      console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
+      console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
+      console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
+      
+      // TESTE 2: Requisição para API
+      console.log('🔍 TESTE 2: Fazendo requisição para /api/login...');
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
@@ -69,7 +83,25 @@ const Login = () => {
         },
         body: JSON.stringify({ cpf, senha }),
       });
+
+      console.log('🔍 TESTE 2 - Status:', response.status);
+      console.log('🔍 TESTE 2 - Headers completos:', Object.fromEntries(response.headers.entries()));
+      
+      // Ler resposta como texto primeiro
+      const responseText = await response.text();
+      console.log('🔍 TESTE 2 - Resposta raw:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('🔍 TESTE 2 - JSON parseado:', data);
+      } catch (jsonError) {
+        console.log('🔍 TESTE 2 - ERRO ao parsear JSON:', jsonError);
+        console.log('🔍 TESTE 2 - Resposta não é JSON válido');
+      }
+      
       if (response.status === 200) {
+        console.log('🔍 LOGIN SUCESSO!');
         // Consulta operador após login
         try {
           const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpf}`, {
@@ -88,7 +120,7 @@ const Login = () => {
             }
           }
         } catch (err) {
-          // Falha ao consultar operador, mas login foi bem-sucedido
+          console.log('🔍 Erro ao consultar operador:', err);
         }
         setToast({ show: true, message: 'Login realizado com sucesso!', type: 'success' });
         setTimeout(() => {
@@ -96,14 +128,34 @@ const Login = () => {
           navigate('/atestados');
         }, 1200);
       } else {
+        console.log('🔍 LOGIN FALHOU - Status:', response.status);
+        console.log('🔍 Dados recebidos:', data);
         setLoading(false);
-        setToast({ show: true, message: 'CPF ou senha inválidos.', type: 'error' });
-        setError('CPF ou senha inválidos.');
+        const errorMsg = data?.message || data?.error || `Erro ${response.status}`;
+        setToast({ show: true, message: errorMsg, type: 'error' });
+        setError(errorMsg);
       }
     } catch (err) {
+      console.error('🔍 === ERRO COMPLETO ===');
+      console.error('🔍 Tipo do erro:', err.constructor.name);
+      console.error('🔍 Mensagem:', err.message);
+      console.error('🔍 Stack:', err.stack);
+      console.error('🔍 Erro completo:', err);
+      
       setLoading(false);
-      setToast({ show: true, message: 'Erro ao conectar à API.', type: 'error' });
-      setError('Erro ao conectar à API.');
+      
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setToast({ show: true, message: 'Erro de conexão: Não foi possível conectar ao servidor.', type: 'error' });
+        setError('Erro de conexão com o servidor.');
+      } else if (err.name === 'TypeError' && err.message.includes('NetworkError')) {
+        setToast({ show: true, message: 'Erro de rede: Verifique sua conexão.', type: 'error' });
+        setError('Erro de rede.');
+      } else {
+        setToast({ show: true, message: `Erro inesperado: ${err.message}`, type: 'error' });
+        setError(`Erro inesperado: ${err.message}`);
+      }
+      
+      console.log('🔍 === FIM DEBUG LOGIN ===');
     }
   };
 
