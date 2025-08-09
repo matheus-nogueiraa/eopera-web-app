@@ -40,7 +40,7 @@ export default defineConfig(() => {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.scss'],
     },
     server: {
-      port: 6443,
+      port: 9000,
       proxy: {
         '/api': {
           target: 'https://adm.elcop.eng.br:9000',
