@@ -92,12 +92,12 @@ const Login = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': '`@k)1qlny;dG!ogXC]us7XB(2LzE{@w`'
+          'Authorization': 'Bearer `@k)1qlny;dG!ogXC]us7XB(2LzE{@w`' // Com Bearer
         },
         body: JSON.stringify({ 
-          cpf: cpfLimpo,  // Usar CPF sem formatação
+          cpf: cpfLimpo,
           senha 
-        }),
+        })
       });
 
       console.log('🔍 TESTE 2 - Status:', response.status);
