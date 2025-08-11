@@ -23,7 +23,6 @@ import {
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import { cilMagnifyingGlass, cilCloudDownload } from '@coreui/icons';
-// import servicosService from '../../services/servicosService';
 
 const ServicosTabela = () => {
   // Estados para os dados da tabela
@@ -46,19 +45,69 @@ const ServicosTabela = () => {
       setError('');
       
       try {
-        // Para usar a API real, descomente as linhas abaixo
-        // const dadosAPI = await servicosService.buscarServicos();
-        // setServicos(dadosAPI);
-        // setFilteredServicos(dadosAPI);
+        // URL da API
+        const apiUrl = '/api/consultarOcorrenciasEoperaX';
         
-        // Temporariamente vazio até integrar com API
-        setServicos([]);
-        setFilteredServicos([]);
+        // Configuração do fetch
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          mode: 'cors',
+          cache: 'no-cache',
+          credentials: 'omit'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.status && result.data) {
+          // Formatar os dados para o formato esperado pela tabela
+          const servicosFormatados = result.data.map(item => ({
+            id: item.idOcorrencia,
+            numeroOS: item.numOs.trim(),
+            unidadeConsumidora: item.unidadeConsumidora.trim(),
+            dataInicio: formatarDataHora(item.data, item.hora),
+            usuarioRegistro: item.ZCC_NOME || ''
+          }));
+          
+          setServicos(servicosFormatados);
+          setFilteredServicos(servicosFormatados);
+        } else {
+          setServicos([]);
+          setFilteredServicos([]);
+          setError(result.messsage || 'Nenhum dado disponível');
+        }
       } catch (err) {
         setError('Erro ao carregar os serviços. Tente novamente.');
         console.error('Erro ao carregar serviços:', err);
+        setServicos([]);
+        setFilteredServicos([]);
       } finally {
         setLoading(false);
+      }
+    };
+
+    // Função auxiliar para formatar data e hora
+    const formatarDataHora = (data, hora) => {
+      if (!data) return '';
+      
+      try {
+        const ano = data.substring(0, 4);
+        const mes = data.substring(4, 6);
+        const dia = data.substring(6, 8);
+        
+        const horaFormatada = hora ? hora.trim() : '';
+        
+        return `${dia}/${mes}/${ano} ${horaFormatada}`;
+      } catch (e) {
+        return data;
       }
     };
 
@@ -73,9 +122,7 @@ const ServicosTabela = () => {
       const filtered = servicos.filter(servico =>
         servico.numeroOS?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
         servico.unidadeConsumidora?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
-        servico.status?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
-        servico.centroCustos?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
-        servico.numeroOperacional?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
+        servico.dataInicio?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
         servico.usuarioRegistro?.toLowerCase().includes(filtroConteudo.toLowerCase())
       );
       setFilteredServicos(filtered);
@@ -104,15 +151,11 @@ const ServicosTabela = () => {
       }
 
       const csvContent = [
-        ['Número OS', 'UN. Consumidora', 'Status', 'Data/Hora Início', 'Data/Hora Conclusão', 'Centro de Custos', 'Número Operacional', 'Usuário Registro'],
+        ['Número OS', 'UN. Consumidora', 'Data/Hora Início', 'Usuário Registro'],
         ...filteredServicos.map(servico => [
           servico.numeroOS,
           servico.unidadeConsumidora,
-          servico.status,
           servico.dataInicio,
-          servico.dataConclusao || '',
-          servico.centroCustos,
-          servico.numeroOperacional,
           servico.usuarioRegistro
         ])
       ].map(row => row.join(',')).join('\n');
@@ -206,11 +249,7 @@ const ServicosTabela = () => {
                       <CTableRow>
                         <CTableHeaderCell className="text-nowrap">Número OS</CTableHeaderCell>
                         <CTableHeaderCell className="text-nowrap">UN. Consumidora</CTableHeaderCell>
-                        <CTableHeaderCell className="text-nowrap text-center">Status</CTableHeaderCell>
                         <CTableHeaderCell className="text-nowrap">Data/Hora Início</CTableHeaderCell>
-                        <CTableHeaderCell className="text-nowrap">Data/Hora Conclusão</CTableHeaderCell>
-                        <CTableHeaderCell className="text-nowrap">Centro de Custos</CTableHeaderCell>
-                        <CTableHeaderCell className="text-nowrap">Número Operacional</CTableHeaderCell>
                         <CTableHeaderCell className="text-nowrap">Usuário Registro</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
@@ -220,29 +259,13 @@ const ServicosTabela = () => {
                           <CTableRow key={servico.id}>
                             <CTableDataCell className="text-nowrap">{servico.numeroOS}</CTableDataCell>
                             <CTableDataCell>{servico.unidadeConsumidora}</CTableDataCell>
-                            <CTableDataCell className="text-center">
-                              <span 
-                                className={`badge ${
-                                  servico.status === 'Concluído' 
-                                    ? 'bg-success' 
-                                    : servico.status === 'Em Andamento' 
-                                    ? 'bg-warning text-dark' 
-                                    : 'bg-secondary'
-                                }`}
-                              >
-                                {servico.status}
-                              </span>
-                            </CTableDataCell>
                             <CTableDataCell className="text-nowrap">{servico.dataInicio}</CTableDataCell>
-                            <CTableDataCell className="text-nowrap">{servico.dataConclusao || '-'}</CTableDataCell>
-                            <CTableDataCell>{servico.centroCustos}</CTableDataCell>
-                            <CTableDataCell className="text-nowrap">{servico.numeroOperacional}</CTableDataCell>
                             <CTableDataCell>{servico.usuarioRegistro}</CTableDataCell>
                           </CTableRow>
                         ))
                       ) : (
                         <CTableRow>
-                          <CTableDataCell colSpan={8} className="text-center py-4">
+                          <CTableDataCell colSpan={4} className="text-center py-4">
                             <div className="text-muted">
                               <div>Nenhum serviço encontrado</div>
                               {filtroConteudo && (

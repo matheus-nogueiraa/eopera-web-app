@@ -43,11 +43,11 @@ export default defineConfig(() => {
       port: 3000,
       proxy: {
         '/api': {
-          target: 'https://10.10.0.13:80',  // Voltando para HTTPS com porta 80
-          // target: 'https://adm.elcop.eng.br:9000',
+          // target: 'https://10.10.0.13:80',
+          target: 'https://adm.elcop.eng.br:9000',
           changeOrigin: true,
-          secure: false,  // Isso faz o proxy ignorar erros de certificado
-          // Remover o rewrite para evitar problemas de caminho
+          secure: false,
+          // Não reescrevemos o caminho para manter o /api
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {
               console.log('Erro de proxy:', err);

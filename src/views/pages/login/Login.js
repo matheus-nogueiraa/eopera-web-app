@@ -68,63 +68,49 @@ const Login = () => {
       console.log('🔍 Host:', window.location.host);
       console.log('🔍 Protocol:', window.location.protocol);
       console.log('🔍 Port:', window.location.port);
-      
-      // SOLUÇÃO CORRIGIDA: Usar diretamente o IP da API com HTTPS
-      // Precisamos chamar o IP 10.10.0.13:80 diretamente
-      // Como window.location.origin resolve para 10.10.0.6, não podemos usar o proxy
-      const apiBaseUrl = 'https://10.10.0.13:80/api';
-      
-      console.log('🔍 URL da API será (IP direto):', apiBaseUrl + '/login');
+      console.log('🔍 URL da API será:', window.location.origin + '/api/login');
       console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
       console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
       console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
       
-      // Implementando uma solução direta para o servidor
-      console.log('🔍 Fazendo requisição HTTPS para IP:', apiBaseUrl + '/login');
-      
-      // Configurar o fetch com as opções corretas
-      const fetchOptions = {
+      // TESTE 2: Requisição para API
+      console.log('🔍 TESTE 2: Fazendo requisição para /api/login...');
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-          'X-Requested-With': 'XMLHttpRequest'
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
         },
         body: JSON.stringify({ cpf, senha }),
-        mode: 'cors',
-        cache: 'no-cache',
-        // Importante: mudar para 'omit' para evitar problemas de CORS com credenciais
-        credentials: 'omit'
-      };
-      
-      // Fazer a requisição diretamente com HTTPS
-      const response = await fetch(`${apiBaseUrl}/login`, fetchOptions);
+      });
 
-      console.log('🔍 Status da resposta:', response.status);
-      console.log('🔍 Headers completos:', Object.fromEntries(response.headers.entries()));
+      console.log('🔍 TESTE 2 - Status:', response.status);
+      console.log('🔍 TESTE 2 - Headers completos:', Object.fromEntries(response.headers.entries()));
       
-      // Ler resposta como JSON diretamente
-      const data = await response.json();
-      console.log('🔍 Dados recebidos:', data);
+      // Ler resposta como texto primeiro
+      const responseText = await response.text();
+      console.log('🔍 TESTE 2 - Resposta raw:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('🔍 TESTE 2 - JSON parseado:', data);
+      } catch (jsonError) {
+        console.log('🔍 TESTE 2 - ERRO ao parsear JSON:', jsonError);
+        console.log('🔍 TESTE 2 - Resposta não é JSON válido');
+      }
       
       if (response.status === 200) {
         console.log('🔍 LOGIN SUCESSO!');
         // Consulta operador após login
         try {
-          // Fazer requisição direta para o servidor
-          const operadorOptions = {
+          const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpf}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-              'X-Requested-With': 'XMLHttpRequest'
+              'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
             },
-            mode: 'cors',
-            cache: 'no-cache',
-            credentials: 'omit'
-          };
-          
-          const operadorResp = await fetch(`${apiBaseUrl}/consultarOperador?cpf=${cpf}`, operadorOptions);
+          });
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
             if (operadorData.status && operadorData.data) {
@@ -150,20 +136,24 @@ const Login = () => {
         setError(errorMsg);
       }
     } catch (err) {
-      console.error('🔍 === ERRO DE CONEXÃO ===');
+      console.error('🔍 === ERRO COMPLETO ===');
+      console.error('🔍 Tipo do erro:', err.constructor.name);
       console.error('🔍 Mensagem:', err.message);
+      console.error('🔍 Stack:', err.stack);
       console.error('🔍 Erro completo:', err);
       
       setLoading(false);
       
-      // Mostrar mensagem de erro simplificada
-      setToast({ 
-        show: true, 
-        message: 'Erro de conexão com o servidor. Tente novamente em instantes.', 
-        type: 'error' 
-      });
-      
-      setError('Erro de conexão com o servidor.');
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setToast({ show: true, message: 'Erro de conexão: Não foi possível conectar ao servidor.', type: 'error' });
+        setError('Erro de conexão com o servidor.');
+      } else if (err.name === 'TypeError' && err.message.includes('NetworkError')) {
+        setToast({ show: true, message: 'Erro de rede: Verifique sua conexão.', type: 'error' });
+        setError('Erro de rede.');
+      } else {
+        setToast({ show: true, message: `Erro inesperado: ${err.message}`, type: 'error' });
+        setError(`Erro inesperado: ${err.message}`);
+      }
       
       console.log('🔍 === FIM DEBUG LOGIN ===');
     }
