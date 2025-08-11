@@ -91,8 +91,8 @@ const Login = () => {
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer `@k)1qlny;dG!ogXC]us7XB(2LzE{@w`' // Com Bearer
         },
         body: JSON.stringify({ 
           cpf: cpfLimpo,
