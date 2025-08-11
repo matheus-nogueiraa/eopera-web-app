@@ -70,15 +70,15 @@ const Login = () => {
       console.log('🔍 Port:', window.location.port);
       
       // Determinar a URL da API
-      // Use diretamente a URL para o IP e porta 80, igual ao Postman
-      const apiBaseUrl = 'https://10.10.0.13:80/api';
+      // Use o proxy NGINX para evitar problemas de certificado
+      const apiBaseUrl = '/api';
       
-      console.log('🔍 URL da API será:', apiBaseUrl + '/login');
+      console.log('🔍 URL da API será:', window.location.origin + apiBaseUrl + '/login');
       console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
       console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
       console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
       
-      // TESTE 2: Requisição direta para a API (igual ao Postman)
+      // TESTE 2: Requisição através do proxy NGINX
       console.log('🔍 TESTE 2: Fazendo requisição para ' + apiBaseUrl + '/login...');
       const response = await fetch(`${apiBaseUrl}/login`, {
         method: 'POST',
@@ -86,9 +86,7 @@ const Login = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
         },
-        body: JSON.stringify({ cpf, senha }),
-        // Para contornar problemas de certificado em chamadas diretas para o IP
-        mode: 'cors'
+        body: JSON.stringify({ cpf, senha })
       });
 
       console.log('🔍 TESTE 2 - Status:', response.status);
@@ -117,8 +115,7 @@ const Login = () => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
             },
-            // Para contornar problemas de certificado em chamadas diretas para o IP
-            mode: 'cors'
+
           });
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
