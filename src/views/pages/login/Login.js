@@ -79,9 +79,18 @@ const Login = () => {
       const cpfLimpo = cpf.replace(/[^\d]/g, '');
       console.log('🔍 CPF após limpeza:', cpfLimpo);
       
-      console.log('🔍 Usando URL relativa para API');
+      // SOLUÇÃO TEMPORÁRIA: Contornar o problema do Nginx usando conexão direta
+      // Em produção, verificar se estamos no servidor de produção
+      const isProduction = window.location.origin.includes('adm.elcop.eng.br');
       
-      const response = await fetch(`/api/login`, {
+      // URL a ser usada - temporariamente usando conexão direta
+      const apiUrl = isProduction ? 'http://localhost:80/api/login' : '/api/login';
+      const useNoCors = isProduction;
+      
+      console.log('🔍 Usando URL para API:', apiUrl);
+      console.log('🔍 Modo no-cors:', useNoCors ? 'Sim' : 'Não');
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,6 +100,7 @@ const Login = () => {
           cpf: cpfLimpo,  // Usar CPF sem formatação
           senha 
         }),
+        ...(useNoCors ? { mode: 'no-cors' } : {})
       });
 
       console.log('🔍 TESTE 2 - Status:', response.status);
@@ -199,6 +209,47 @@ const Login = () => {
       setToast({ 
         show: true, 
         message: `Erro de conexão: ${err.message}`, 
+        type: 'error',
+        time: 5000 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Função para testar conexão direta com o backend, ignorando o Nginx
+  const testarBackendDireto = async () => {
+    try {
+      setLoading(true);
+      console.log('🔧 Testando conexão direta com o backend...');
+      
+      // Usar no-cors para evitar erros CORS, mas não poderemos ver a resposta
+      const response = await fetch('http://localhost:80/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
+        },
+        mode: 'no-cors',
+        body: JSON.stringify({ 
+          cpf: '12345678900', 
+          senha: 'teste' 
+        })
+      });
+      
+      console.log('🔧 Teste direto - Modo no-cors - Status:', response.status);
+      
+      setToast({ 
+        show: true, 
+        message: 'Teste direto enviado (modo no-cors)', 
+        type: 'info',
+        time: 5000
+      });
+    } catch (err) {
+      console.error('🔧 Erro no teste direto:', err);
+      setToast({ 
+        show: true, 
+        message: `Erro no teste direto: ${err.message}`, 
         type: 'error',
         time: 5000 
       });
@@ -333,7 +384,17 @@ const Login = () => {
                 onClick={testarConexaoAPI}
                 disabled={loading}
               >
-                Testar Conectividade
+                Testar API via Nginx
+              </CButton>
+              
+              <CButton 
+                type="button" 
+                color="info" 
+                className="w-100 mt-2"
+                onClick={testarBackendDireto}
+                disabled={loading}
+              >
+                Testar Backend Direto
               </CButton>
             </CForm>
           </div>
