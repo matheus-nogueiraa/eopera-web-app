@@ -22,17 +22,37 @@
   <script>
     // Esta função detecta se estamos em ambiente de produção
     function setupCertificateBypass() {
-      // Verificar se estamos na porta de produção
-      if (window.location.port === '6443') {
-        console.log('🔒 Configurando exceções de segurança para ambiente específico');
-        
-        // Adicionar meta tag para contornar algumas verificações de segurança 
-        // (isso é apenas para ambiente controlado, não para produção real)
-        const metaTag = document.createElement('meta');
-        metaTag.httpEquiv = 'Content-Security-Policy';
-        metaTag.content = 'upgrade-insecure-requests';
-        document.head.appendChild(metaTag);
-      }
+      console.log('🔒 Configurando exceções de segurança para todos os ambientes');
+      
+      // Adicionar meta tag para contornar algumas verificações de segurança
+      const metaTag = document.createElement('meta');
+      metaTag.httpEquiv = 'Content-Security-Policy';
+      metaTag.content = 'upgrade-insecure-requests';
+      document.head.appendChild(metaTag);
+      
+      // Adicionar indicador de ambiente no console
+      console.log('🔒 Ambiente: ' + (window.location.port === '6443' ? 'Produção (6443)' : 'Desenvolvimento'));
+      
+      // Interceptar erros de certificado SSL não tratados
+      window.addEventListener('unhandledrejection', function(event) {
+        // Se o erro estiver relacionado a certificado SSL
+        if (event.reason && typeof event.reason.message === 'string' && 
+            (event.reason.message.includes('certificate') || 
+             event.reason.message.includes('SSL') || 
+             event.reason.message.includes('ERR_CERT_'))) {
+          
+          console.warn('Interceptado erro de certificado SSL:', event.reason.message);
+          
+          // Exibir notificação ao usuário (opcional)
+          if (!window.sslErrorNotified) {
+            window.sslErrorNotified = true;
+            console.log('Ocorreu um problema de conexão segura. Usando o proxy configurado.');
+          }
+          
+          // Previne que o erro seja exibido no console como não tratado
+          event.preventDefault();
+        }
+      });
     }
     
     // Executar antes de tudo

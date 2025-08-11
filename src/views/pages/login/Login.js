@@ -69,19 +69,16 @@ const Login = () => {
       console.log('🔍 Protocol:', window.location.protocol);
       console.log('🔍 Port:', window.location.port);
       
-      // Determinar a URL da API baseada na porta de acesso
-      // Se estiver na porta 6443 (produção), use IP direto com HTTPS
-      const isProduction = window.location.port === '6443';
-      const apiBaseUrl = isProduction 
-        ? 'https://10.10.0.13:80/api'  // Voltando para HTTPS com porta 80
-        : '/api';
+      // Determinar a URL da API
+      // Use diretamente a URL para o IP e porta 80, igual ao Postman
+      const apiBaseUrl = 'https://10.10.0.13:80/api';
       
-      console.log('🔍 URL da API será:', isProduction ? apiBaseUrl + '/login' : window.location.origin + apiBaseUrl + '/login');
+      console.log('🔍 URL da API será:', apiBaseUrl + '/login');
       console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
       console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
       console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
       
-      // TESTE 2: Requisição para API
+      // TESTE 2: Requisição direta para a API (igual ao Postman)
       console.log('🔍 TESTE 2: Fazendo requisição para ' + apiBaseUrl + '/login...');
       const response = await fetch(`${apiBaseUrl}/login`, {
         method: 'POST',
@@ -90,6 +87,8 @@ const Login = () => {
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
         },
         body: JSON.stringify({ cpf, senha }),
+        // Para contornar problemas de certificado em chamadas diretas para o IP
+        mode: 'cors'
       });
 
       console.log('🔍 TESTE 2 - Status:', response.status);
@@ -118,6 +117,8 @@ const Login = () => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
             },
+            // Para contornar problemas de certificado em chamadas diretas para o IP
+            mode: 'cors'
           });
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
@@ -160,19 +161,18 @@ const Login = () => {
       
       if (isCertError) {
         // Erro específico de certificado
-        console.error('🔍 Detectado erro de certificado SSL');
+        console.error('🔍 Detectado erro de certificado SSL:', err.message);
+        
+        // Log mais detalhado para depuração
+        console.log('🔍 Tentando realizar chamada de teste direta...');
+        
+        // Mostrar mensagem útil ao usuário
         setToast({ 
           show: true, 
-          message: 'Erro de certificado SSL. Por favor, contate o suporte técnico.', 
+          message: 'Erro de certificado ao conectar com servidor. Erro: ' + err.message, 
           type: 'error' 
         });
-        setError('Erro de certificado SSL. Tentando conexão alternativa...');
-        
-        // Tentativa alternativa via HTTP (apenas como último recurso)
-        setTimeout(() => {
-          console.log('🔍 Tentando conexão alternativa sem SSL...');
-          window.location.href = window.location.href.replace('https://', 'http://');
-        }, 3000);
+        setError('Erro de conexão SSL. Por favor, informe ao suporte técnico.');
       } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setToast({ show: true, message: 'Erro de conexão: Não foi possível conectar ao servidor.', type: 'error' });
         setError('Erro de conexão com o servidor.');
