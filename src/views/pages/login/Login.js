@@ -79,14 +79,12 @@ const Login = () => {
       const cpfLimpo = cpf.replace(/[^\d]/g, '');
       console.log('🔍 CPF após limpeza:', cpfLimpo);
       
-      // SOLUÇÃO TEMPORÁRIA: Contornar o problema do Nginx usando conexão direta
-      // Em produção, verificar se estamos no servidor de produção
-      const isProduction = window.location.origin.includes('adm.elcop.eng.br');
+   
       
       // URL a ser usada - temporariamente usando conexão direta
-      const apiUrl = isProduction ? 'http://localhost:80/api/login' : '/api/login';
-      const useNoCors = isProduction;
-      
+      const apiUrl = 'http://10.10.0.6:80/api/login';
+      const useNoCors = true;
+
       console.log('🔍 Usando URL para API:', apiUrl);
       console.log('🔍 Modo no-cors:', useNoCors ? 'Sim' : 'Não');
       
