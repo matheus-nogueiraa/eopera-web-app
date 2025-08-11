@@ -29,7 +29,7 @@ export default defineConfig(() => {
         },
       },
     },
-    plugins: [react()],
+    plugins: [ react() ],
     resolve: {
       alias: [
         {
@@ -37,16 +37,22 @@ export default defineConfig(() => {
           replacement: `${path.resolve(__dirname, 'src')}/`,
         },
       ],
-      extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.scss'],
+      extensions: [ '.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.scss' ],
     },
     server: {
       port: 3000,
       proxy: {
         '/api': {
-          target: 'https://adm.elcop.eng.br:9000',
+          target: 'https://10.10.0.13:80',
+          // target: 'https://adm.elcop.eng.br:9000',
           changeOrigin: true,
-          secure: true,
+          secure: false,
           rewrite: (path) => path.replace(/^\/api/, '/api'),
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('Erro de proxy:', err);
+            });
+          },
         },
       },
     },
