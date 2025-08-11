@@ -46,7 +46,7 @@ const ServicosTabela = () => {
       
       try {
         // URL da API
-        const apiUrl = 'https://adm.elcop.eng.br:443/api/consultarOcorrenciasEoperaX';
+        const apiUrl = '/api/consultarOcorrenciasEoperaX';
         
         // Configuração do fetch
         const response = await fetch(apiUrl, {
