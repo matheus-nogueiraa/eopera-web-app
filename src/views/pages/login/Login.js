@@ -68,14 +68,22 @@ const Login = () => {
       console.log('🔍 Host:', window.location.host);
       console.log('🔍 Protocol:', window.location.protocol);
       console.log('🔍 Port:', window.location.port);
-      console.log('🔍 URL da API será:', window.location.origin + '/api/login');
+      
+      // Determinar a URL da API baseada na porta de acesso
+      // Se estiver na porta 6443 (produção), use IP direto
+      const isProduction = window.location.port === '6443';
+      const apiBaseUrl = isProduction 
+        ? 'http://10.10.0.13:80/api' 
+        : '/api';
+      
+      console.log('🔍 URL da API será:', isProduction ? apiBaseUrl + '/login' : window.location.origin + apiBaseUrl + '/login');
       console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
       console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
       console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
       
       // TESTE 2: Requisição para API
-      console.log('🔍 TESTE 2: Fazendo requisição para /api/login...');
-      const response = await fetch('/api/login', {
+      console.log('🔍 TESTE 2: Fazendo requisição para ' + apiBaseUrl + '/login...');
+      const response = await fetch(`${apiBaseUrl}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +112,7 @@ const Login = () => {
         console.log('🔍 LOGIN SUCESSO!');
         // Consulta operador após login
         try {
-          const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpf}`, {
+          const operadorResp = await fetch(`${apiBaseUrl}/consultarOperador?cpf=${cpf}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
