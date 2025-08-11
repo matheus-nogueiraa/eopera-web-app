@@ -45,7 +45,7 @@ export default defineConfig(() => {
         '/api': {
           // target: 'https://10.10.0.13:80',
           // target: 'https://adm.elcop.eng.br:9000',
-          target: 'http://10.10.0.6:80', // Apontando para seu backend local na porta 80
+          target: 'https://10.10.0.6:443', // Apontando para seu backend local na porta 443
           changeOrigin: true,
           secure: false,
           // Não reescrevemos o caminho para manter o /api
