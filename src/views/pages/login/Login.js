@@ -98,7 +98,6 @@ const Login = () => {
           cpf: cpfLimpo,  // Usar CPF sem formatação
           senha 
         }),
-        ...(useNoCors ? { mode: 'no-cors' } : {})
       });
 
       console.log('🔍 TESTE 2 - Status:', response.status);
