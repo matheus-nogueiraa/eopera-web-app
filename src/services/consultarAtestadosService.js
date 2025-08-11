@@ -7,7 +7,7 @@ const API_BASE_URL = 'https://adm.elcop.eng.br:443'
 export const atestadosService = {
   consultarAtestados: async (matricula) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/consultarAtestados?matricula=${matricula}`, {
+      const response = await axios.get(`https://adm.elcop.eng.br:443/api/consultarAtestados?matricula=${matricula}`, {
         headers: {
           'Authorization': `Bearer ${TOKEN}`,
         },
