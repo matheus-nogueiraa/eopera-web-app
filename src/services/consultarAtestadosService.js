@@ -21,7 +21,7 @@ export const atestadosService = {
   enviarAtestado: async (dadosAtestado) => {
     try {
       const response = await axios.post(
-        'https://adm.elcop.eng.br:9000/api/enviarAtestado',
+        '/api/enviarAtestado',
         dadosAtestado,
         {
           headers: {
