@@ -92,7 +92,7 @@ const Login = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
+          'Authorization': '`@k)1qlny;dG!ogXC]us7XB(2LzE{@w`'
         },
         body: JSON.stringify({ 
           cpf: cpfLimpo,  // Usar CPF sem formatação
