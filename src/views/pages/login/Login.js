@@ -61,32 +61,11 @@ const Login = () => {
     }
 
     try {
-      // === LOGS DE DEBUG DETALHADOS ===
-      console.log('🔍 === INÍCIO DEBUG LOGIN ===');
-      console.log('🔍 URL atual completa:', window.location.href);
-      console.log('🔍 Origin:', window.location.origin);
-      console.log('🔍 Host:', window.location.host);
-      console.log('🔍 Protocol:', window.location.protocol);
-      console.log('🔍 Port:', window.location.port);
-      console.log('🔍 URL da API será:', window.location.origin + '/api/login');
-      console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
-      console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
-      console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
-      
-      console.log('🔍 TESTE 2: Fazendo requisição para /api/login...');
-      
       // Preparar CPF (remover formatação)
       const cpfLimpo = cpf.replace(/[^\d]/g, '');
-      console.log('🔍 CPF após limpeza:', cpfLimpo);
-      
-   
       
       // URL a ser usada - temporariamente usando conexão direta
       const apiUrl = 'https://adm.elcop.eng.br:443/api/login';
-      const useNoCors = true;
-
-      console.log('🔍 Usando URL para API:', apiUrl);
-      console.log('🔍 Modo no-cors:', useNoCors ? 'Sim' : 'Não');
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -99,29 +78,25 @@ const Login = () => {
           senha 
         })
       });
-
-      console.log('🔍 TESTE 2 - Status:', response.status);
-      console.log('🔍 TESTE 2 - Headers completos:', Object.fromEntries(response.headers.entries()));
       
       // Ler resposta como texto primeiro
       const responseText = await response.text();
-      console.log('🔍 TESTE 2 - Resposta raw:', responseText);
       
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('🔍 TESTE 2 - JSON parseado:', data);
       } catch (jsonError) {
-        console.log('🔍 TESTE 2 - ERRO ao parsear JSON:', jsonError);
-        console.log('🔍 TESTE 2 - Resposta não é JSON válido');
+        console.log('🔍 Erro ao parsear JSON:', jsonError);
       }
       
       if (response.status === 200) {
-        console.log('🔍 LOGIN SUCESSO!');
+        // === LOGS ESPECÍFICOS PARA CONSULTA DO OPERADOR ===
+        console.log('🔍 === INÍCIO CONSULTA OPERADOR ===');
+        
         // Consulta operador após login
         try {
-          // Usar o CPF limpo para a consulta de operador também
-          const cpfLimpo = cpf.replace(/[^\d]/g, '');
+          console.log('🔍 CPF limpo para consulta:', cpfLimpo);
+          
           const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpfLimpo}`, {
             method: 'GET',
             headers: {
@@ -129,37 +104,56 @@ const Login = () => {
               'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
             },
           });
+          
+          console.log('🔍 Status da consulta operador:', operadorResp.status);
+          
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
+            console.log('🔍 Dados do operador recebidos:', operadorData);
+            
             if (operadorData.status && operadorData.data) {
+              console.log('🔍 Dados válidos do operador - salvando no localStorage...');
+              console.log('🔍 Matricula:', operadorData.data.matricula);
+              console.log('🔍 Nome:', operadorData.data.nome);
+              console.log('🔍 CPF:', operadorData.data.cpf);
+              
               localStorage.setItem('matricula', operadorData.data.matricula);
               localStorage.setItem('nomeUsuario', operadorData.data.nome);
               localStorage.setItem('cpf', operadorData.data.cpf);
+              
+              // Verificar se foi salvo no localStorage
+              console.log('🔍 Verificando localStorage após salvar:');
+              console.log('🔍 localStorage.nomeUsuario:', localStorage.getItem('nomeUsuario'));
+              console.log('🔍 localStorage.matricula:', localStorage.getItem('matricula'));
+              console.log('🔍 localStorage.cpf:', localStorage.getItem('cpf'));
+            } else {
+              console.log('🔍 ERRO: Dados do operador inválidos ou ausentes');
+              console.log('🔍 operadorData.status:', operadorData.status);
+              console.log('🔍 operadorData.data:', operadorData.data);
             }
+          } else {
+            console.log('🔍 ERRO: Falha na consulta do operador - Status:', operadorResp.status);
+            const errorText = await operadorResp.text();
+            console.log('🔍 Resposta de erro:', errorText);
           }
         } catch (err) {
-          console.log('🔍 Erro ao consultar operador:', err);
+          console.log('🔍 ERRO CATCH na consulta operador:', err);
         }
+        
+        console.log('🔍 === FIM CONSULTA OPERADOR ===');
+        
         setToast({ show: true, message: 'Login realizado com sucesso!', type: 'success' });
         setTimeout(() => {
           setLoading(false);
           navigate('/atestados');
         }, 1200);
       } else {
-        console.log('🔍 LOGIN FALHOU - Status:', response.status);
-        console.log('🔍 Dados recebidos:', data);
         setLoading(false);
         const errorMsg = data?.message || data?.error || `Erro ${response.status}`;
         setToast({ show: true, message: errorMsg, type: 'error' });
         setError(errorMsg);
       }
     } catch (err) {
-      console.error('🔍 === ERRO COMPLETO ===');
-      console.error('🔍 Tipo do erro:', err.constructor.name);
-      console.error('🔍 Mensagem:', err.message);
-      console.error('🔍 Stack:', err.stack);
-      console.error('🔍 Erro completo:', err);
-      
       setLoading(false);
       
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
@@ -172,88 +166,14 @@ const Login = () => {
         setToast({ show: true, message: `Erro inesperado: ${err.message}`, type: 'error' });
         setError(`Erro inesperado: ${err.message}`);
       }
-      
-      console.log('🔍 === FIM DEBUG LOGIN ===');
     }
   };
 
   // Função para testar conexão direta com a API
-  const testarConexaoAPI = async () => {
-    try {
-      setLoading(true);
-      console.log('🔄 Testando conexão com a API...');
-      
-      // Testar com URL relativa
-      const response = await fetch('/api/login', {
-        method: 'OPTIONS',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
-        }
-      });
-      
-      console.log('🔄 Teste OPTIONS - Status:', response.status);
-      console.log('🔄 Teste OPTIONS - Headers:', Object.fromEntries(response.headers.entries()));
-      
-      setToast({ 
-        show: true, 
-        message: `Teste de API: ${response.status === 204 ? 'Sucesso!' : 'Falha: ' + response.status}`, 
-        type: response.status === 204 ? 'success' : 'error',
-        time: 5000
-      });
-    } catch (err) {
-      console.error('🔄 Erro no teste:', err);
-      setToast({ 
-        show: true, 
-        message: `Erro de conexão: ${err.message}`, 
-        type: 'error',
-        time: 5000 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  
   
   // Função para testar conexão direta com o backend, ignorando o Nginx
-  const testarBackendDireto = async () => {
-    try {
-      setLoading(true);
-      console.log('🔧 Testando conexão direta com o backend...');
-      
-      // Usar no-cors para evitar erros CORS, mas não poderemos ver a resposta
-      const response = await fetch('http://localhost:80/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
-        },
-        mode: 'no-cors',
-        body: JSON.stringify({ 
-          cpf: '12345678900', 
-          senha: 'teste' 
-        })
-      });
-      
-      console.log('🔧 Teste direto - Modo no-cors - Status:', response.status);
-      
-      setToast({ 
-        show: true, 
-        message: 'Teste direto enviado (modo no-cors)', 
-        type: 'info',
-        time: 5000
-      });
-    } catch (err) {
-      console.error('🔧 Erro no teste direto:', err);
-      setToast({ 
-        show: true, 
-        message: `Erro no teste direto: ${err.message}`, 
-        type: 'error',
-        time: 5000 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   return (
     <div className="login-page">
@@ -372,26 +292,6 @@ const Login = () => {
                 ) : (
                   'Entrar'
                 )}
-              </CButton>
-              
-              <CButton 
-                type="button" 
-                color="secondary" 
-                className="w-100 mt-2"
-                onClick={testarConexaoAPI}
-                disabled={loading}
-              >
-                Testar API via Nginx
-              </CButton>
-              
-              <CButton 
-                type="button" 
-                color="info" 
-                className="w-100 mt-2"
-                onClick={testarBackendDireto}
-                disabled={loading}
-              >
-                Testar Backend Direto
               </CButton>
             </CForm>
           </div>
