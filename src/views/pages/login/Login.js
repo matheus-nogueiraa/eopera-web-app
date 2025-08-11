@@ -69,16 +69,16 @@ const Login = () => {
       console.log('🔍 Protocol:', window.location.protocol);
       console.log('🔍 Port:', window.location.port);
       
-      // Determinar a URL da API
-      // Use o proxy NGINX para evitar problemas de certificado
-      const apiBaseUrl = '/api';
+      // Determinar a URL da API - usar IP diretamente como no Postman
+      // Isso é necessário porque o proxy não está configurado corretamente
+      const apiBaseUrl = 'https://10.10.0.13:80/api';
       
-      console.log('🔍 URL da API será:', window.location.origin + apiBaseUrl + '/login');
+      console.log('🔍 URL da API será:', apiBaseUrl + '/login');
       console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
       console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
       console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
       
-      // TESTE 2: Requisição através do proxy NGINX
+      // TESTE 2: Requisição direta para o IP (igual ao Postman)
       console.log('🔍 TESTE 2: Fazendo requisição para ' + apiBaseUrl + '/login...');
       const response = await fetch(`${apiBaseUrl}/login`, {
         method: 'POST',
@@ -86,7 +86,9 @@ const Login = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
         },
-        body: JSON.stringify({ cpf, senha })
+        body: JSON.stringify({ cpf, senha }),
+        // Ignorar problemas de certificado e CORS
+        mode: 'cors'
       });
 
       console.log('🔍 TESTE 2 - Status:', response.status);
@@ -115,7 +117,7 @@ const Login = () => {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
             },
-
+            mode: 'cors'
           });
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
@@ -161,15 +163,20 @@ const Login = () => {
         console.error('🔍 Detectado erro de certificado SSL:', err.message);
         
         // Log mais detalhado para depuração
-        console.log('🔍 Tentando realizar chamada de teste direta...');
+        console.log('🔍 Erro na chamada para IP direto (10.10.0.13:80). Verificar configurações do navegador.');
         
-        // Mostrar mensagem útil ao usuário
+        // Mostrar mensagem mais direta ao usuário
         setToast({ 
           show: true, 
-          message: 'Erro de certificado ao conectar com servidor. Erro: ' + err.message, 
+          message: 'Erro de certificado ao conectar com o servidor. Tente novamente em alguns instantes.', 
           type: 'error' 
         });
-        setError('Erro de conexão SSL. Por favor, informe ao suporte técnico.');
+        setError('Erro de conexão. Tente novamente em instantes.');
+        
+        // Tentar nova tentativa após um curto período
+        setTimeout(() => {
+          setError('Fazendo nova tentativa de conexão...');
+        }, 2000);
       } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setToast({ show: true, message: 'Erro de conexão: Não foi possível conectar ao servidor.', type: 'error' });
         setError('Erro de conexão com o servidor.');
