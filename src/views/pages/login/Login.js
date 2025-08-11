@@ -75,7 +75,10 @@ const Login = () => {
       
       // TESTE 2: Requisição para API
       console.log('🔍 TESTE 2: Fazendo requisição para /api/login...');
-      const response = await fetch('/api/login', {
+
+      const baseUrl = 'http://localhost:3000'
+
+      const response = await fetch(`${baseUrl}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
