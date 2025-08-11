@@ -1,11 +1,12 @@
 // Serviço para gerenciar ordens de serviço
 
+const API_BASE_URL = 'https://adm.elcop.eng.br:443'
 
 export const servicosService = {
   // Buscar todas as ordens de serviço
   async buscarServicos() {
     try {
-      const response = await fetch(`/api/servicos`);
+      const response = await fetch(`${API_BASE_URL}/api/servicos`);
       if (!response.ok) {
         throw new Error('Erro ao buscar serviços');
       }
@@ -161,7 +162,7 @@ export default servicosService;
 // Função para consultar serviços do Protheus (autocomplete)
 export const consultarServicosProtheus = async (params = {}) => {
   try {
-    const url = new URL('/api/consultaServicosProtheus', window.location.origin);
+    const url = new URL(`${API_BASE_URL}/api/consultaServicosProtheus`);
     
     // Adicionar parâmetros de query se fornecidos
     if (params.idServico) {

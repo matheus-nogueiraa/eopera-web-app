@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Usar /api para aproveitar o proxy do Vite em desenvolvimento
-const API_BASE_URL = '/api';
+// Usar URL completa da API para produção
+const API_BASE_URL = 'https://adm.elcop.eng.br:443/api';
 
 export const consultarCentroCusto = async (params = {}) => {
 

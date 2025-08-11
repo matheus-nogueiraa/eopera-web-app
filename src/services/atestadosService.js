@@ -2,7 +2,7 @@
 export const atestadosService = {
   enviarAtestado: async (dadosAtestado) => {
     try {
-      const resposta = await fetch('/api/enviarAtestado', {
+      const resposta = await fetch('https://adm.elcop.eng.br:443/api/enviarAtestado', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

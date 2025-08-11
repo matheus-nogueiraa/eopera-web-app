@@ -97,7 +97,7 @@ const Login = () => {
         try {
           console.log('🔍 CPF limpo para consulta:', cpfLimpo);
           
-          const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpfLimpo}`, {
+          const operadorResp = await fetch(`https://adm.elcop.eng.br:443/api/consultarOperador?cpf=${cpfLimpo}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',

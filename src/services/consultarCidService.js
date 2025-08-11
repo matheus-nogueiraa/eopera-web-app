@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-const API_URL = '/api/consultarCids'
+const API_BASE_URL = 'https://adm.elcop.eng.br:443'
+const API_URL = `${API_BASE_URL}/api/consultarCids`
 
 export const cidService = {
   consultarCids: async (matricula) => {
@@ -20,9 +21,9 @@ export const cidService = {
 
   enviarCid: async (dadosCid) => {
     try {
-      const response = await axios.post('/api/enviarCid', dadosCid, {
+      const response = await axios.post(`${API_BASE_URL}/api/enviarCid`, dadosCid, {
         headers: {
-          'Authorization': `Bearer ${TOKEN}`,
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
           'Content-Type': 'application/json',
         },
       })

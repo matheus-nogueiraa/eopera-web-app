@@ -907,7 +907,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
               };
 
               console.log('Enviando corpo:', body);
-              const response = await fetch('/api/incluirOcorrencia', {
+              const response = await fetch('https://adm.elcop.eng.br:443/api/incluirOcorrencia', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
