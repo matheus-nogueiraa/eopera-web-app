@@ -40,11 +40,12 @@ export default defineConfig(() => {
       extensions: [ '.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.scss' ],
     },
     server: {
-      port: 3000,
+      port: 3001, // Alterado para porta 3001 para evitar conflito com o backend
       proxy: {
         '/api': {
           // target: 'https://10.10.0.13:80',
-          target: 'https://adm.elcop.eng.br:9000',
+          // target: 'https://adm.elcop.eng.br:9000',
+          target: 'http://localhost:3000', // Apontando para seu backend local
           changeOrigin: true,
           secure: false,
           // Não reescrevemos o caminho para manter o /api
