@@ -43,7 +43,7 @@ export default defineConfig(() => {
       port: 3000,
       proxy: {
         '/api': {
-          target: 'http://10.10.0.13:80',  // Mudado para http (sem s) já que o IP provavelmente não tem SSL
+          target: 'https://10.10.0.13:80',  // Mudado para http (sem s) já que o IP provavelmente não tem SSL
           // target: 'https://adm.elcop.eng.br:9000',
           changeOrigin: true,
           secure: false,

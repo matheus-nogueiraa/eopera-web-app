@@ -73,7 +73,7 @@ const Login = () => {
       // Se estiver na porta 6443 (produção), use IP direto
       const isProduction = window.location.port === '6443';
       const apiBaseUrl = isProduction 
-        ? 'http://10.10.0.13:80/api' 
+        ? 'https://10.10.0.13:80/api' 
         : '/api';
       
       console.log('🔍 URL da API será:', isProduction ? apiBaseUrl + '/login' : window.location.origin + apiBaseUrl + '/login');
