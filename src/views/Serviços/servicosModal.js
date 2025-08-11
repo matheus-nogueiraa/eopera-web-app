@@ -920,10 +920,9 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
 
               if (response.ok) {
                 mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
-                setTimeout(() => {
-                  limparCampos();
-                  setVisible(false);
-                }, 2000);
+                // Fechando o modal imediatamente após o sucesso
+                limparCampos();
+                setVisible(false);
               } else {
                 const errorMsg = result.message || 'Erro ao registrar ordem de serviço. Tente novamente.';
                 mostrarAlert(errorMsg, 'danger');
