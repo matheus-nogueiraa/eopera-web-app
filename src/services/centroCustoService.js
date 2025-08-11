@@ -1,7 +1,4 @@
-import axios from 'axios';
-
-// Usar /api para aproveitar o proxy do Vite em desenvolvimento
-const API_BASE_URL = '/api';
+import httpRequest from "../utils/httpRequests";
 
 export const consultarCentroCusto = async (params = {}) => {
 
@@ -16,18 +13,23 @@ export const consultarCentroCusto = async (params = {}) => {
       queryParams.append('numCCusto', params.numCCusto);
     }
     
-    const url = `${API_BASE_URL}/consultarCentroCusto${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const url = `/consultarCentroCusto${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     
-    const response = await axios.get(url, {
+    const response = await httpRequest(url, {
       headers: {
         'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
     });
 
-    console.log('Centro de custo consultado com sucesso:', response.data);
+    if (!response.ok) {
+      throw new Error(`Erro ao consultar centro de custo: ${response.statusText}`);
+    }
 
-    return response.data;
+    const responseData = await response.json();
+    console.error('Dados do centro de custo:', responseData);
+
+    return responseData;
   } catch (error) {
     console.error('Erro ao consultar centro de custo:', error);
     throw error;

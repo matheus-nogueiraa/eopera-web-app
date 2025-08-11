@@ -23,6 +23,7 @@ import {
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import { cilMagnifyingGlass, cilCloudDownload } from '@coreui/icons';
+import httpRequest from '../../utils/httpRequests';
 
 const ServicosTabela = () => {
   // Estados para os dados da tabela
@@ -45,11 +46,8 @@ const ServicosTabela = () => {
       setError('');
       
       try {
-        // URL da API
-        const apiUrl = '/api/consultarOcorrenciasEoperaX';
-        
         // Configuração do fetch
-        const response = await fetch(apiUrl, {
+        const response = await httpRequest('/consultarOcorrenciasEoperaX', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

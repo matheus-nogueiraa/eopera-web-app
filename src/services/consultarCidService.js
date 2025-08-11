@@ -1,15 +1,20 @@
-import axios from 'axios'
+import httpRequest from "../utils/httpRequests"
 
 export const cidService = {
   consultarCids: async (matricula) => {
     try {
-      const response = await axios.get('/api/consultarCids', {
+      const response = await httpRequest('/consultarCids', {
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
       })
-      return response.data
 
+      if (!response.ok) {
+        throw new Error(`Erro ao consultar CIDs: ${response.statusText}`)
+      }
+      const responseData = await response.json()
+      console.log('CIDs consultados com sucesso:', responseData)
+      return responseData
     } catch (error) {
       console.error('Erro ao consultar CID:', error)
       throw error

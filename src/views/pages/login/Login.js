@@ -17,6 +17,7 @@ import { cilLockLocked, cilUser } from '@coreui/icons'
 import './login.css'
 import pkg from '../../../../package.json';
 import { color } from 'chart.js/helpers'
+import httpRequest from '../../../utils/httpRequests'
 
 const Login = () => {
   const navigate = useNavigate();
@@ -61,7 +62,7 @@ const Login = () => {
     }
 
     try {
-      const response = await fetch('/api/login', {
+      const response = await httpRequest('/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +83,7 @@ const Login = () => {
       if (response.status === 200) {
         // Consulta operador após login
         try {
-          const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpf}`, {
+          const operadorResp = await httpRequest(`/consultarOperador?cpf=${cpf}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',

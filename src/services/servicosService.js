@@ -1,8 +1,11 @@
+/// CORRIGIR REQUISIÇÃO
+
+import httpRequest from '../utils/httpRequests';
 export const servicosService = {
   // Buscar todas as ordens de serviço
   async buscarServicos() {
     try {
-      const response = await fetch(`/api/servicos`);
+      const response = await httpRequest(`/api/servicos`);
       if (!response.ok) {
         throw new Error('Erro ao buscar serviços');
       }

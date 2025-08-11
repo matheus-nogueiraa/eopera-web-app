@@ -1,7 +1,9 @@
+import httpRequest from '../utils/httpRequests';
+
 export const atestadosService = {
   enviarAtestado: async (dadosAtestado) => {
     try {
-      const resposta = await fetch('/api/enviarAtestado', {
+      const resposta = await httpRequest('/enviarAtestado', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

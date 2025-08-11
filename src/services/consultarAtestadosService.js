@@ -1,15 +1,20 @@
-// consultarAtestadosService.js
-import axios from 'axios'
+import httpRequest from '../utils/httpRequests';
 
 export const atestadosService = {
   consultarAtestados: async (matricula) => {
     try {
-      const response = await axios.get(`/api/consultarAtestados?matricula=${matricula}`, {
+      const response = await httpRequest(`/consultarAtestados?matricula=${matricula}`, {
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          'Content-Type': 'application/json',
         },
       })
-      return response.data
+      if (!response.ok) {
+        throw new Error(`Erro ao consultar atestados: ${response.statusText}`);
+      }
+      const responseData = await response.json();
+      console.log('Atestados consultados com sucesso:', responseData);
+      return responseData
     } catch (error) {
       console.error('Erro ao consultar atestados:', error)
       throw error

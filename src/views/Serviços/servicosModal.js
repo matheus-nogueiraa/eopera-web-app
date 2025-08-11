@@ -31,6 +31,7 @@ import { cilX, cilCheckAlt } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import { consultarServicosProtheus } from '../../services/servicosService';
 import { left } from '@popperjs/core';
+import httpRequest from '../../utils/httpRequests';
 
 // Adicionando estilos CSS para animação
 const styles = `
@@ -907,7 +908,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
               };
 
               console.log('Enviando corpo:', body);
-              const response = await fetch('/api/incluirOcorrencia', {
+              const response = await httpRequest('/incluirOcorrencia', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
