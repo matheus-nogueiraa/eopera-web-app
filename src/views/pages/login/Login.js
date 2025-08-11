@@ -76,19 +76,15 @@ const Login = () => {
       // TESTE 2: Requisição para API
       console.log('🔍 TESTE 2: Fazendo requisição para /api/login...');
       
-      // Determine a URL base com base no ambiente
-      let baseUrl = '';
+      // Em produção, usamos URL relativa para o Nginx fazer o proxy
+      // Em ambientes de desenvolvimento, podemos determinar uma URL específica
       
-      // Se estiver em ambiente de desenvolvimento, use a URL de desenvolvimento
-     
-      baseUrl = 'http://localhost:80'; // Use a porta do seu backend local
+      // Usando URL relativa para requisições - será resolvida em relação ao host atual
+      // Isso permite que o Nginx faça o proxy corretamente
       
+      console.log('🔍 Usando URL relativa para API');
       
-      console.log('🔍 URL base da API:', baseUrl);
-      
-      // Usar URL relativa para que o Nginx possa fazer o proxy corretamente em produção
-      // Ou URL completa em desenvolvimento
-      const response = await fetch(`${baseUrl}/api/login`, {
+      const response = await fetch(`/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
