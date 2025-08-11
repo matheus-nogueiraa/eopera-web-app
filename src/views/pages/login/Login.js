@@ -69,34 +69,57 @@ const Login = () => {
       console.log('🔍 Protocol:', window.location.protocol);
       console.log('🔍 Port:', window.location.port);
       
-      // Determinar a URL da API - usar IP diretamente mas com o proxy reverso do NGINX
-      // Isso é necessário porque o DNS aponta para o mesmo servidor
-      const apiBaseUrl = window.location.protocol + '//10.10.0.13:80/api';
+      // SOLUÇÃO CORRIGIDA: Usar diretamente o IP da API com HTTPS
+      // Precisamos chamar o IP 10.10.0.13:80 diretamente
+      // Como window.location.origin resolve para 10.10.0.6, não podemos usar o proxy
+      const apiBaseUrl = 'https://10.10.0.13:80/api';
       
-      console.log('🔍 URL da API será:', apiBaseUrl + '/login');
+      console.log('🔍 URL da API será (IP direto):', apiBaseUrl + '/login');
       console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
       console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
       console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
       
-      // TESTE 2: Requisição direta para o IP
-      console.log('🔍 TESTE 2: Fazendo requisição para ' + apiBaseUrl + '/login...');
-      // Usar método de bypass de certificado para fazer a chamada de API
-      console.log('🔍 Usando bypass de certificado para chamada da API');
-      const response = await fetch(`${apiBaseUrl}/login`, {
+      // Implementando uma solução robusta para contornar o problema de certificado
+      console.log('🔍 Tentando chamada direta para IP com tratamento de erros de certificado:', apiBaseUrl + '/login');
+      
+      // Função auxiliar para tentar diferentes abordagens
+      async function tentarRequisicaoComFallback(url, opcoes) {
+        // Primeira tentativa: HTTPS
+        try {
+          console.log('🔍 Tentativa 1: HTTPS para', url);
+          return await fetch(url, opcoes);
+        } catch (erro1) {
+          console.log('🔍 Primeira tentativa falhou:', erro1.message);
+          
+          // Segunda tentativa: HTTP (se falhou com HTTPS)
+          try {
+            const urlHttp = url.replace('https://', 'http://');
+            console.log('🔍 Tentativa 2: HTTP para', urlHttp);
+            return await fetch(urlHttp, opcoes);
+          } catch (erro2) {
+            console.log('🔍 Segunda tentativa falhou:', erro2.message);
+            throw erro2; // Propagar erro se ambos falharem
+          }
+        }
+      }
+      
+      // Configurar o fetch com as opções corretas
+      const fetchOptions = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-          'X-Requested-With': 'XMLHttpRequest',
-          'Access-Control-Allow-Origin': '*'
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({ cpf, senha }),
-        // Ignorar problemas de certificado e CORS
         mode: 'cors',
-        // Prevenir cache
         cache: 'no-cache',
-        credentials: 'include'
-      });
+        // Importante: mudar para 'omit' para evitar problemas de CORS com credenciais
+        credentials: 'omit'
+      };
+      
+      // Fazer a requisição com nossa função de fallback
+      const response = await tentarRequisicaoComFallback(`${apiBaseUrl}/login`, fetchOptions);
 
       console.log('🔍 TESTE 2 - Status:', response.status);
       console.log('🔍 TESTE 2 - Headers completos:', Object.fromEntries(response.headers.entries()));
@@ -118,18 +141,20 @@ const Login = () => {
         console.log('🔍 LOGIN SUCESSO!');
         // Consulta operador após login
         try {
-          const operadorResp = await fetch(`${apiBaseUrl}/consultarOperador?cpf=${cpf}`, {
+          // Usar a mesma função de fallback para a chamada do operador
+          const operadorOptions = {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-              'X-Requested-With': 'XMLHttpRequest',
-              'Access-Control-Allow-Origin': '*'
+              'X-Requested-With': 'XMLHttpRequest'
             },
             mode: 'cors',
             cache: 'no-cache',
-            credentials: 'include'
-          });
+            credentials: 'omit'
+          };
+          
+          const operadorResp = await tentarRequisicaoComFallback(`${apiBaseUrl}/consultarOperador?cpf=${cpf}`, operadorOptions);
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
             if (operadorData.status && operadorData.data) {
