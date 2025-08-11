@@ -46,7 +46,6 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     if (!cpf && !senha) {
       setError('CPF e senha são obrigatórios.');
       setLoading(false);
@@ -62,50 +61,70 @@ const Login = () => {
     }
 
     try {
+      // === LOGS DE DEBUG DETALHADOS ===
       console.log('🔍 === INÍCIO DEBUG LOGIN ===');
-
-      // CORREÇÃO PRINCIPAL: Usar o proxy do Nginx em vez de IP direto
-      // O Nginx está configurado para fazer proxy de /api para https://10.10.0.13:80
-      const apiBaseUrl = `${window.location.origin}/api`;
-
-      console.log('🔍 URL da API (via proxy):', apiBaseUrl + '/login');
-      console.log('🔍 Origin atual:', window.location.origin);
-
-      // Configurar o fetch de forma simples
+      console.log('🔍 URL atual completa:', window.location.href);
+      console.log('🔍 Origin:', window.location.origin);
+      console.log('🔍 Host:', window.location.host);
+      console.log('🔍 Protocol:', window.location.protocol);
+      console.log('🔍 Port:', window.location.port);
+      
+      // SOLUÇÃO CORRIGIDA: Usar diretamente o IP da API com HTTPS
+      // Precisamos chamar o IP 10.10.0.13:80 diretamente
+      // Como window.location.origin resolve para 10.10.0.6, não podemos usar o proxy
+      const apiBaseUrl = 'https://10.10.0.13:80/api';
+      
+      console.log('🔍 URL da API será (IP direto):', apiBaseUrl + '/login');
+      console.log('🔍 Token sendo usado:', import.meta.env.VITE_API_TOKEN ? 'Token presente' : 'Token ausente');
+      console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
+      console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
+      
+      // Implementando uma solução direta para o servidor
+      console.log('🔍 Fazendo requisição HTTPS para IP:', apiBaseUrl + '/login');
+      
+      // Configurar o fetch com as opções corretas
       const fetchOptions = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({ cpf, senha }),
+        mode: 'cors',
+        cache: 'no-cache',
+        // Importante: mudar para 'omit' para evitar problemas de CORS com credenciais
+        credentials: 'omit'
       };
-
-      console.log('🔍 Fazendo requisição via proxy do Nginx...');
-
-      // Fazer uma única requisição via proxy
+      
+      // Fazer a requisição diretamente com HTTPS
       const response = await fetch(`${apiBaseUrl}/login`, fetchOptions);
 
       console.log('🔍 Status da resposta:', response.status);
-      console.log('🔍 Headers:', Object.fromEntries(response.headers.entries()));
-
-      // Processar a resposta
+      console.log('🔍 Headers completos:', Object.fromEntries(response.headers.entries()));
+      
+      // Ler resposta como JSON diretamente
       const data = await response.json();
       console.log('🔍 Dados recebidos:', data);
-
+      
       if (response.status === 200) {
         console.log('🔍 LOGIN SUCESSO!');
-
-        // Consulta operador após login (também via proxy)
+        // Consulta operador após login
         try {
-          const operadorResp = await fetch(`${apiBaseUrl}/consultarOperador?cpf=${cpf}`, {
+          // Fazer requisição direta para o servidor
+          const operadorOptions = {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+              'X-Requested-With': 'XMLHttpRequest'
             },
-          });
-
+            mode: 'cors',
+            cache: 'no-cache',
+            credentials: 'omit'
+          };
+          
+          const operadorResp = await fetch(`${apiBaseUrl}/consultarOperador?cpf=${cpf}`, operadorOptions);
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
             if (operadorData.status && operadorData.data) {
@@ -117,33 +136,35 @@ const Login = () => {
         } catch (err) {
           console.log('🔍 Erro ao consultar operador:', err);
         }
-
         setToast({ show: true, message: 'Login realizado com sucesso!', type: 'success' });
         setTimeout(() => {
           setLoading(false);
           navigate('/atestados');
         }, 1200);
-
       } else {
         console.log('🔍 LOGIN FALHOU - Status:', response.status);
+        console.log('🔍 Dados recebidos:', data);
         setLoading(false);
         const errorMsg = data?.message || data?.error || `Erro ${response.status}`;
         setToast({ show: true, message: errorMsg, type: 'error' });
         setError(errorMsg);
       }
-
     } catch (err) {
-      console.error('🔍 === ERRO COMPLETO ===');
-      console.error('🔍 Erro:', err);
-
+      console.error('🔍 === ERRO DE CONEXÃO ===');
+      console.error('🔍 Mensagem:', err.message);
+      console.error('🔍 Erro completo:', err);
+      
       setLoading(false);
-      setToast({
-        show: true,
-        message: 'Erro de conexão com o servidor. Tente novamente.',
-        type: 'error'
+      
+      // Mostrar mensagem de erro simplificada
+      setToast({ 
+        show: true, 
+        message: 'Erro de conexão com o servidor. Tente novamente em instantes.', 
+        type: 'error' 
       });
+      
       setError('Erro de conexão com o servidor.');
-
+      
       console.log('🔍 === FIM DEBUG LOGIN ===');
     }
   };
