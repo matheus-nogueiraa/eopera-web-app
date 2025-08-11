@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CCol,
   CRow,
@@ -29,6 +29,9 @@ const criarConteudos = () => {
     color: 'success'
   });
 
+  // Referência para a tabela de serviços
+  const tabelaRef = useRef(null);
+
   // Adicionar estilos CSS ao montar o componente
   useEffect(() => {
     const styleSheet = document.createElement("style");
@@ -53,6 +56,13 @@ const criarConteudos = () => {
     setTimeout(() => {
       setAlert(prev => ({ ...prev, visible: false }));
     }, 5000);
+  };
+
+  const handleCadastroSucesso = () => {
+    // Recarregar dados da tabela
+    if (tabelaRef.current && tabelaRef.current.recarregarDados) {
+      tabelaRef.current.recarregarDados();
+    }
   };
 
   return (
@@ -102,7 +112,7 @@ const criarConteudos = () => {
             )}
           </CButton>
         </CCol>
-        <ServicosTabela />
+        <ServicosTabela ref={tabelaRef} />
       </CRow>
       
       <ServicosModal 
@@ -110,6 +120,7 @@ const criarConteudos = () => {
         setVisible={setShowModal} 
         setLoadingParent={setLoading}
         showAlertParent={showAlert}
+        onSuccess={handleCadastroSucesso}
       />
       
     </div>

@@ -30,6 +30,7 @@ import CIcon from '@coreui/icons-react';
 import { cilX, cilCheckAlt } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import { consultarServicosProtheus } from '../../services/servicosService';
+import { consultarEquipes } from '../../services/equipesService';
 import { left } from '@popperjs/core';
 import httpRequest from '../../utils/httpRequests';
 
@@ -47,7 +48,7 @@ styleSheet.type = "text/css";
 styleSheet.innerText = styles;
 document.head.appendChild(styleSheet);
 
-const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent }) => {
+const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent, onSuccess }) => {
   const [ usuarios, setUsuarios ] = useState([]);
   const [ servicos, setServicos ] = useState([]);
   const [ novoUsuario, setNovoUsuario ] = useState('');
@@ -72,6 +73,16 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
   const [ servicoDropdownVisivel, setServicoDropdownVisivel ] = useState({});
   const [ servicoSelectedIndex, setServicoSelectedIndex ] = useState({});
   const servicosRefs = useRef({});
+
+  // Estados para autocomplete de número operacional
+  const [ equipesOpcoes, setEquipesOpcoes ] = useState([]);
+  const [ todasEquipes, setTodasEquipes ] = useState([]); // Cache de todas as equipes
+  const [ loadingEquipes, setLoadingEquipes ] = useState(false);
+  const [ equipeDropdownVisivel, setEquipeDropdownVisivel ] = useState(false);
+  const [ equipeSelectedIndex, setEquipeSelectedIndex ] = useState(-1);
+  const [ numeroOperacionalSelecionado, setNumeroOperacionalSelecionado ] = useState('');
+  const equipeRef = useRef(null);
+  const equipeDebounceRef = useRef(null);
 
   // Função para limpar todos os campos do modal
   const limparCampos = () => {
@@ -111,6 +122,15 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
     setServicoSelectedIndex({});
     servicosRefs.current = {};
     // Manter todosServicos para não precisar recarregar
+
+    // Resetar estados do número operacional
+    setEquipesOpcoes([]);
+    setEquipeDropdownVisivel(false);
+    setEquipeSelectedIndex(-1);
+    setNumeroOperacionalSelecionado('');
+    if (equipeDebounceRef.current) {
+      clearTimeout(equipeDebounceRef.current);
+    }
 
     // Resetar estados do alert
     setAlertVisible(false);
@@ -212,15 +232,25 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
     setLoadingServicos(true);
 
     try {
-      const response = await consultarServicosProtheus(); // Sem parâmetros = todos os serviços
-
-      // A API retorna um objeto com status, messsage e data
-      // O array de serviços está em response.data
-      const dados = response?.data && Array.isArray(response.data) ? response.data : [];
-      setTodosServicos(dados);
+      console.log('Carregando todos os serviços do Protheus...');
+      
+      // Usar a função consultarServicosProtheus sem parâmetros para buscar todos
+      const dados = await consultarServicosProtheus();
+      
+      console.log('Dados recebidos da API:', dados);
+      
+      // A função já retorna diretamente o array de dados
+      if (Array.isArray(dados)) {
+        setTodosServicos(dados);
+        console.log(`${dados.length} serviços carregados com sucesso`);
+      } else {
+        console.warn('Resposta da API não é um array:', dados);
+        setTodosServicos([]);
+      }
     } catch (error) {
       console.error('Erro ao carregar serviços:', error);
       setTodosServicos([]);
+      mostrarAlert('Erro ao carregar serviços do Protheus', 'danger');
     } finally {
       setLoadingServicos(false);
     }
@@ -350,7 +380,129 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
     console.log('Centro de custo selecionado:', centroCusto);
   };
 
-  // Fechar dropdowns de serviços quando clicar fora
+  // Função para carregar todas as equipes (uma vez só)
+  const carregarTodasEquipes = async () => {
+    if (todasEquipes.length > 0) return; // Já carregados
+
+    setLoadingEquipes(true);
+
+    try {
+      const equipesData = await consultarEquipes({ retornaInativos: 'S' });
+      setTodasEquipes(equipesData || []);
+    } catch (error) {
+      console.error('Erro ao carregar equipes:', error);
+      mostrarAlert('Erro ao carregar equipes', 'danger');
+    } finally {
+      setLoadingEquipes(false);
+    }
+  };
+
+  // Função para filtrar equipes localmente
+  const filtrarEquipes = (termo) => {
+    if (!termo || termo.length < 2) {
+      return [];
+    }
+
+    const termoLower = termo.toLowerCase().trim();
+
+    return todasEquipes.filter(equipe => {
+      const numOperacional = equipe.numOperacional?.toLowerCase().trim() || '';
+      const descricao = equipe.descricao?.toLowerCase() || '';
+
+      return numOperacional.includes(termoLower) || descricao.includes(termoLower);
+    }).slice(0, 20); // Limitar a 20 resultados
+  };
+
+  // Função para buscar equipes
+  const buscarEquipes = async (termo) => {
+    if (!termo || termo.length < 2) {
+      setEquipesOpcoes([]);
+      setEquipeDropdownVisivel(false);
+      return;
+    }
+
+    // Carregar todas as equipes se ainda não carregou
+    if (todasEquipes.length === 0) {
+      await carregarTodasEquipes();
+    }
+
+    // Filtrar localmente
+    const equipesFiltradas = filtrarEquipes(termo);
+    setEquipesOpcoes(equipesFiltradas);
+    setEquipeDropdownVisivel(true);
+    setEquipeSelectedIndex(-1);
+  };
+
+  // Debounce para busca de equipes
+  const handleNumeroOperacionalChange = (e) => {
+    const valor = e.target.value;
+    setNumeroOperacionalSelecionado(valor);
+
+    // Se o campo foi limpo, resetar seleção
+    if (!valor) {
+      setEquipesOpcoes([]);
+      setEquipeDropdownVisivel(false);
+      return;
+    }
+
+    // Limpar timeout anterior
+    if (equipeDebounceRef.current) {
+      clearTimeout(equipeDebounceRef.current);
+    }
+
+    // Configurar novo timeout
+    equipeDebounceRef.current = setTimeout(() => {
+      buscarEquipes(valor);
+    }, 300); // 300ms de delay
+  };
+
+  // Selecionar equipe
+  const selecionarEquipe = (equipe) => {
+    // Mostrar número operacional e descrição no input
+    const descricaoEquipe = equipe.descricao?.trim() || '';
+    const textoExibicao = `${equipe.numOperacional?.trim()} - ${descricaoEquipe}`;
+
+    setNumeroOperacionalSelecionado(textoExibicao);
+
+    // Atualizar o valor do input diretamente
+    const numeroOperacionalInput = document.getElementById('numeroOperacional');
+    if (numeroOperacionalInput) {
+      numeroOperacionalInput.value = textoExibicao;
+    }
+
+    setEquipeDropdownVisivel(false);
+    setEquipeSelectedIndex(-1);
+  };
+
+  // Navegação por teclado para equipes
+  const handleEquipeKeyDown = (e) => {
+    if (!equipeDropdownVisivel || equipesOpcoes.length === 0) return;
+
+    const maxResults = Math.min(equipesOpcoes.length, 10);
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setEquipeSelectedIndex(prev => prev < maxResults - 1 ? prev + 1 : 0);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setEquipeSelectedIndex(prev => prev > 0 ? prev - 1 : maxResults - 1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (equipeSelectedIndex >= 0 && equipeSelectedIndex < maxResults) {
+          selecionarEquipe(equipesOpcoes[equipeSelectedIndex]);
+        }
+        break;
+      case 'Escape':
+        setEquipeDropdownVisivel(false);
+        setEquipeSelectedIndex(-1);
+        break;
+    }
+  };
+
+  // Fechar dropdowns quando clicar fora
   useEffect(() => {
     const handleClickOutside = (event) => {
       // Fechar dropdowns de serviços quando clicar fora
@@ -361,6 +513,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
           setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
         }
       });
+
+      // Fechar dropdown de equipes quando clicar fora
+      if (equipeRef.current && !equipeRef.current.contains(event.target)) {
+        setEquipeDropdownVisivel(false);
+        setEquipeSelectedIndex(-1);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -372,6 +530,10 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
           clearTimeout(servicosRefs.current[ key ]);
         }
       });
+      // Limpar timeout das equipes
+      if (equipeDebounceRef.current) {
+        clearTimeout(equipeDebounceRef.current);
+      }
     };
   }, []);
 
@@ -522,7 +684,90 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
         <CRow className="mb-4">
           <CCol md={3}>
             <CFormLabel htmlFor="numeroOperacional" className="mb-1">Número Operacional:</CFormLabel>
-            <CFormInput id="numeroOperacional" />
+            <div className="position-relative" ref={equipeRef}>
+              <CFormInput
+                id="numeroOperacional"
+                value={numeroOperacionalSelecionado}
+                onChange={handleNumeroOperacionalChange}
+                onKeyDown={handleEquipeKeyDown}
+                placeholder="Digite número ou descrição..."
+                autoComplete="off"
+              />
+              {loadingEquipes && equipeDropdownVisivel && (
+                <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                  <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                    <span className="visually-hidden">Carregando...</span>
+                  </div>
+                </div>
+              )}
+              {equipeDropdownVisivel && equipesOpcoes.length > 0 && (
+                <div
+                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                  style={{
+                    zIndex: 1050,
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                    top: '100%'
+                  }}
+                >
+                  <CListGroup flush>
+                    {equipesOpcoes.slice(0, 10).map((equipeOpcao, opcaoIndex) => (
+                      <CListGroupItem
+                        key={opcaoIndex}
+                        className={`cursor-pointer py-1 px-2 ${equipeSelectedIndex === opcaoIndex ? 'bg-light' : ''}`}
+                        style={{
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s',
+                          backgroundColor: equipeSelectedIndex === opcaoIndex ? '#f8f9fa' : 'white',
+                          fontSize: '0.8rem'
+                        }}
+                        onClick={() => selecionarEquipe(equipeOpcao)}
+                        onMouseEnter={(e) => {
+                          if (equipeSelectedIndex !== opcaoIndex) {
+                            e.target.style.backgroundColor = '#f8f9fa';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (equipeSelectedIndex !== opcaoIndex) {
+                            e.target.style.backgroundColor = 'white';
+                          }
+                        }}
+                      >
+                        <div>
+                          <strong>{equipeOpcao.numOperacional?.trim()}</strong>
+                          {equipeOpcao.descricao && (
+                            <div className="text-muted small">
+                              {equipeOpcao.descricao.trim()}
+                            </div>
+                          )}
+                          <small className={`${equipeOpcao.ativo === 'S' ? 'text-success' : 'text-danger'}`}>
+                            {equipeOpcao.ativo === 'S' ? 'Ativo' : 'Inativo'}
+                          </small>
+                        </div>
+                      </CListGroupItem>
+                    ))}
+                    {equipesOpcoes.length >= 20 && (
+                      <CListGroupItem className="text-center text-muted py-1">
+                        <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                      </CListGroupItem>
+                    )}
+                  </CListGroup>
+                </div>
+              )}
+              {equipeDropdownVisivel && equipesOpcoes.length === 0 && !loadingEquipes && numeroOperacionalSelecionado.length >= 2 && (
+                <div
+                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                  style={{
+                    zIndex: 1050,
+                    top: '100%'
+                  }}
+                >
+                  <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                    Nenhuma equipe encontrada
+                  </div>
+                </div>
+              )}
+            </div>
           </CCol>
           <CCol md={4}>
             <CFormLabel htmlFor="centroDeCustos" className="mb-1">Centro de Custos:</CFormLabel>
@@ -631,7 +876,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
         {/* Seção de serviços */}
         <div className="mb-4">
           <div className="d-flex justify-content-between align-items-center mb-2">
-            <h6 className="mb-0">serviços</h6>
+            <h6 className="mb-0">Serviços</h6>
             <CButton
               color="dark"
               size="sm"
@@ -921,9 +1166,15 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent 
 
               if (response.ok) {
                 mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
-                // Fechando o modal imediatamente após o sucesso
-                limparCampos();
-                setVisible(false);
+                
+                if (onSuccess && typeof onSuccess === 'function') {
+                  onSuccess();
+                }
+                
+                setTimeout(() => {
+                  limparCampos();
+                  setVisible(false);
+                }, 1000); 
               } else {
                 const errorMsg = result.message || 'Erro ao registrar ordem de serviço. Tente novamente.';
                 mostrarAlert(errorMsg, 'danger');

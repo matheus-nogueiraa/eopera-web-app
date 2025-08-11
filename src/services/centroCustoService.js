@@ -27,7 +27,7 @@ export const consultarCentroCusto = async (params = {}) => {
     }
 
     const responseData = await response.json();
-    console.error('Dados do centro de custo:', responseData);
+    console.log('Dados do centro de custo:', responseData);
 
     return responseData;
   } catch (error) {

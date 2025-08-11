@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import {
   CCard,
   CCardBody,
@@ -25,7 +25,7 @@ import CIcon from '@coreui/icons-react';
 import { cilMagnifyingGlass, cilCloudDownload } from '@coreui/icons';
 import httpRequest from '../../utils/httpRequests';
 
-const ServicosTabela = () => {
+const ServicosTabela = forwardRef((props, ref) => {
   // Estados para os dados da tabela
   const [servicos, setServicos] = useState([]);
   const [filteredServicos, setFilteredServicos] = useState([]);
@@ -40,75 +40,78 @@ const ServicosTabela = () => {
   const [filtroConteudo, setFiltroConteudo] = useState('');
 
   // Função para carregar serviços da API
-  useEffect(() => {
-    const carregarServicos = async () => {
-      setLoading(true);
-      setError('');
+  const carregarServicos = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Configuração do fetch
+      const response = await httpRequest('/consultarOcorrenciasEoperaX', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+      });
       
-      try {
-        // Configuração do fetch
-        const response = await httpRequest('/consultarOcorrenciasEoperaX', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          mode: 'cors',
-          cache: 'no-cache',
-          credentials: 'omit'
-        });
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.status && result.data) {
+        // Formatar os dados para o formato esperado pela tabela
+        const servicosFormatados = result.data.map(item => ({
+          id: item.idOcorrencia,
+          numeroOS: item.numOs.trim(),
+          unidadeConsumidora: item.unidadeConsumidora.trim(),
+          dataInicio: formatarDataHora(item.data, item.hora),
+          usuarioRegistro: item.ZCC_NOME || ''
+        }));
         
-        if (!response.ok) {
-          throw new Error(`Erro HTTP: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.status && result.data) {
-          // Formatar os dados para o formato esperado pela tabela
-          const servicosFormatados = result.data.map(item => ({
-            id: item.idOcorrencia,
-            numeroOS: item.numOs.trim(),
-            unidadeConsumidora: item.unidadeConsumidora.trim(),
-            dataInicio: formatarDataHora(item.data, item.hora),
-            usuarioRegistro: item.ZCC_NOME || ''
-          }));
-          
-          setServicos(servicosFormatados);
-          setFilteredServicos(servicosFormatados);
-        } else {
-          setServicos([]);
-          setFilteredServicos([]);
-          setError(result.messsage || 'Nenhum dado disponível');
-        }
-      } catch (err) {
-        setError('Erro ao carregar os serviços. Tente novamente.');
-        console.error('Erro ao carregar serviços:', err);
+        setServicos(servicosFormatados);
+        setFilteredServicos(servicosFormatados);
+      } else {
         setServicos([]);
         setFilteredServicos([]);
-      } finally {
-        setLoading(false);
+        setError(result.messsage || 'Nenhum dado disponível');
       }
-    };
+    } catch (err) {
+      setError('Erro ao carregar os serviços. Tente novamente.');
+      console.error('Erro ao carregar serviços:', err);
+      setServicos([]);
+      setFilteredServicos([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Função auxiliar para formatar data e hora
-    const formatarDataHora = (data, hora) => {
-      if (!data) return '';
+  // Função auxiliar para formatar data e hora
+  const formatarDataHora = (data, hora) => {
+    if (!data) return '';
+    
+    try {
+      const ano = data.substring(0, 4);
+      const mes = data.substring(4, 6);
+      const dia = data.substring(6, 8);
       
-      try {
-        const ano = data.substring(0, 4);
-        const mes = data.substring(4, 6);
-        const dia = data.substring(6, 8);
-        
-        const horaFormatada = hora ? hora.trim() : '';
-        
-        return `${dia}/${mes}/${ano} ${horaFormatada}`;
-      } catch (e) {
-        return data;
-      }
-    };
+      const horaFormatada = hora ? hora.trim() : '';
+      
+      return `${dia}/${mes}/${ano} ${horaFormatada}`;
+    } catch (e) {
+      return data;
+    }
+  };
 
+  // Expor a função de recarregamento para o componente pai
+  useImperativeHandle(ref, () => ({
+    recarregarDados: carregarServicos
+  }));
+
+  // Carregar dados na inicialização
+  useEffect(() => {
     carregarServicos();
   }, []);
 
@@ -348,6 +351,6 @@ const ServicosTabela = () => {
       </CRow>
     </div>
   );
-};
+});
 
 export default ServicosTabela;

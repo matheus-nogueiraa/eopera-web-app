@@ -1,131 +1,95 @@
-/// CORRIGIR REQUISIÇÃO
-
 import httpRequest from '../utils/httpRequests';
+
 export const servicosService = {
-  // Buscar todas as ordens de serviço
+  // Buscar todos os cadastros de serviços do Protheus
   async buscarServicos() {
     try {
-      const response = await httpRequest(`/api/servicos`);
+      const response = await httpRequest('/consultaServicosProtheus', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+      });
+      
       if (!response.ok) {
-        throw new Error('Erro ao buscar serviços');
+        throw new Error(`Erro HTTP: ${response.status}`);
       }
-      return await response.json();
+      
+      const result = await response.json();
+      
+      if (result.status && result.data) {
+        return result.data;
+      } else {
+        throw new Error(result.messsage || 'Nenhum dado disponível');
+      }
     } catch (error) {
       console.error('Erro no servicosService.buscarServicos:', error);
       throw error;
     }
   },
 
-  // Buscar serviços com paginação e filtros
-  async buscarServicosComFiltros(page = 1, limit = 10, filtros = {}) {
+  // Buscar serviços com filtros (incluindo por idServico)
+  async buscarServicosComFiltros(filtros = {}) {
     try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...filtros
-      });
-
-      const response = await fetch(`${API_BASE_URL}/api/servicos?${queryParams}`);
-      if (!response.ok) {
-        throw new Error('Erro ao buscar serviços');
+      let endpoint = '/consultaServicosProtheus';
+      
+      // Se tiver idServico, adicionar como query param
+      if (filtros.idServico) {
+        endpoint += `?idServico=${filtros.idServico}`;
       }
-      return await response.json();
+
+      const response = await httpRequest(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.status && result.data) {
+        return result.data;
+      } else {
+        throw new Error(result.messsage || 'Nenhum dado disponível');
+      }
     } catch (error) {
       console.error('Erro no servicosService.buscarServicosComFiltros:', error);
       throw error;
     }
   },
 
-  // Criar nova ordem de serviço
-  async criarServico(dadosServico) {
+  async buscarServicoPorId(idServico) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/servicos`, {
-        method: 'POST',
+      const response = await httpRequest(`/consultaServicosProtheus?idServico=${idServico}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify(dadosServico),
       });
-
+      
       if (!response.ok) {
-        throw new Error('Erro ao criar serviço');
+        throw new Error(`Erro HTTP: ${response.status}`);
       }
-      return await response.json();
-    } catch (error) {
-      console.error('Erro no servicosService.criarServico:', error);
-      throw error;
-    }
-  },
-
-  // Atualizar ordem de serviço
-  async atualizarServico(id, dadosServico) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/servicos/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dadosServico),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao atualizar serviço');
+      
+      const result = await response.json();
+      
+      if (result.status && result.data && result.data.length > 0) {
+        return result.data[0]; // Retorna o primeiro (e único) resultado
+      } else {
+        throw new Error(result.messsage || 'Serviço não encontrado');
       }
-      return await response.json();
-    } catch (error) {
-      console.error('Erro no servicosService.atualizarServico:', error);
-      throw error;
-    }
-  },
-
-  // Excluir ordem de serviço
-  async excluirServico(id) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/servicos/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao excluir serviço');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erro no servicosService.excluirServico:', error);
-      throw error;
-    }
-  },
-
-  // Buscar serviço por ID
-  async buscarServicoPorId(id) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/servicos/${id}`);
-      if (!response.ok) {
-        throw new Error('Erro ao buscar serviço');
-      }
-      return await response.json();
     } catch (error) {
       console.error('Erro no servicosService.buscarServicoPorId:', error);
-      throw error;
-    }
-  },
-
-  // Atualizar status do serviço
-  async atualizarStatusServico(id, novoStatus) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/servicos/${id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: novoStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao atualizar status do serviço');
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Erro no servicosService.atualizarStatusServico:', error);
       throw error;
     }
   },
@@ -133,22 +97,37 @@ export const servicosService = {
   // Exportar dados para download
   async exportarServicos(formato = 'csv', filtros = {}) {
     try {
-      const queryParams = new URLSearchParams({
-        formato,
-        ...filtros
-      });
-
-      const response = await fetch(`${API_BASE_URL}/api/servicos/exportar?${queryParams}`);
-      if (!response.ok) {
-        throw new Error('Erro ao exportar serviços');
+      // Buscar dados primeiro
+      const servicos = await this.buscarServicosComFiltros(filtros);
+      
+      if (!servicos || servicos.length === 0) {
+        throw new Error('Nenhum dado disponível para exportação');
       }
 
-      // Se for um arquivo, retorna o blob
-      if (response.headers.get('content-type')?.includes('application/')) {
-        return await response.blob();
+      // Se for CSV, criar o conteúdo
+      if (formato === 'csv') {
+        const csvContent = [
+          ['ID Serviço', 'Sigla UP', 'Descrição UP', 'Código Serviço', 'Descrição Serviço', 'Centro Custo', 'Valor Pontos', 'Valor Grupo', 'Grupo Instalação', 'Código Unidade', 'Descrição Unidade'],
+          ...servicos.map(servico => [
+            servico.idServico?.trim() || '',
+            servico.siglaUp?.trim() || '',
+            servico.descricaoUp?.trim() || '',
+            servico.codServico?.trim() || '',
+            servico.descricaoServico?.trim() || '',
+            servico.centroCusto?.trim() || '',
+            servico.valorPontos || 0,
+            servico.valorGrupo || 0,
+            servico.grupoInstalacao?.trim() || '',
+            servico.codUnidade?.trim() || '',
+            servico.descricaoUnidade?.trim() || ''
+          ])
+        ].map(row => row.join(',')).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        return blob;
       }
       
-      return await response.json();
+      return servicos;
     } catch (error) {
       console.error('Erro no servicosService.exportarServicos:', error);
       throw error;
@@ -158,21 +137,22 @@ export const servicosService = {
 
 export default servicosService;
 
-// Função para consultar serviços do Protheus (autocomplete)
+// Função para consultar serviços do Protheus (compatibilidade)
 export const consultarServicosProtheus = async (params = {}) => {
   try {
-    const url = new URL('/api/consultaServicosProtheus', window.location.origin);
+    let endpoint = '/consultaServicosProtheus';
     
-    // Adicionar parâmetros de query se fornecidos
+    // Adicionar parâmetro idServico se fornecido
     if (params.idServico) {
-      url.searchParams.append('idServico', params.idServico);
+      endpoint += `?idServico=${params.idServico}`;
     }
 
-    const response = await fetch(url.toString(), {
+    const response = await httpRequest(endpoint, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
+        'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+        'X-Requested-With': 'XMLHttpRequest'
       }
     });
 
@@ -180,8 +160,13 @@ export const consultarServicosProtheus = async (params = {}) => {
       throw new Error(`Erro na requisição: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data;
+    const result = await response.json();
+    
+    if (result.status && result.data) {
+      return result.data;
+    } else {
+      throw new Error(result.messsage || 'Nenhum dado disponível');
+    }
   } catch (error) {
     console.error('Erro ao consultar serviços do Protheus:', error);
     throw error;

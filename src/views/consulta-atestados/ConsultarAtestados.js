@@ -47,6 +47,7 @@ const ConsultaAtestados = () => {
   const [ atestadosFiltrados, setAtestadosFiltrados ] = useState([])
   const [ buscaRealizada, setBuscaRealizada ] = useState(false)
   const [ carregando, setCarregando ] = useState(false)
+  const [ carregandoInicial, setCarregandoInicial ] = useState(true) // Novo estado para carregamento inicial
   const [ erro, setErro ] = useState(null)
   const [ erroAtestado, setErroAtestado ] = useState(null) // Novo estado para erro de atestado
 
@@ -194,11 +195,24 @@ const ConsultaAtestados = () => {
         }
       }
 
-      // Carregar atestados automaticamente ao montar o componente
-      buscarAtestadosAPI().catch((error) => {
-        console.error('Erro detalhado:', error)
-        setErro('Erro ao carregar atestados iniciais: ' + error.message)
-      })
+      // Carregar e consultar atestados automaticamente ao montar o componente
+      setCarregandoInicial(true)
+      buscarAtestadosAPI()
+        .then((dadosCarregados) => {
+          // Após carregar os dados, executar a busca automaticamente
+          const resultados = filtrarAtestados(dadosCarregados, filtros)
+          setAtestadosFiltrados(resultados)
+          setBuscaRealizada(true)
+          setPaginaAtual(1)
+          console.log(`Consulta inicial concluída. ${resultados.length} atestados encontrados.`)
+        })
+        .catch((error) => {
+          console.error('Erro detalhado:', error)
+          setErro('Erro ao carregar atestados iniciais: ' + error.message)
+        })
+        .finally(() => {
+          setCarregandoInicial(false)
+        })
     }
 
     verificarLogin()
@@ -341,15 +355,33 @@ const ConsultaAtestados = () => {
 
   // Função para recarregar dados da API
   const recarregarDados = async () => {
-    await buscarAtestadosAPI()
-    setBuscaRealizada(false)
-    setAtestadosFiltrados([])
-    setPaginaAtual(1)
-    setFiltros({
-      dataInicio: '',
-      dataFim: '',
-      status: '',
-    })
+    try {
+      const dadosFrescos = await buscarAtestadosAPI()
+      
+      // Limpar filtros
+      const filtrosLimpos = {
+        dataInicio: '',
+        dataFim: '',
+        status: '',
+        tipificacao: '',
+        especificacao: '',
+      }
+      setFiltros(filtrosLimpos)
+      
+      // Aplicar busca automaticamente com filtros limpos
+      const resultados = filtrarAtestados(dadosFrescos, filtrosLimpos)
+      setAtestadosFiltrados(resultados)
+      setBuscaRealizada(true)
+      setPaginaAtual(1)
+      
+      console.log(`Dados recarregados. ${resultados.length} atestados encontrados.`)
+    } catch (error) {
+      console.error('Erro ao recarregar dados:', error)
+      setErro('Erro ao recarregar dados: ' + error.message)
+      setBuscaRealizada(false)
+      setAtestadosFiltrados([])
+      setPaginaAtual(1)
+    }
   }
 
   const expandirCalendario = (ref) => {
@@ -527,23 +559,28 @@ const ConsultaAtestados = () => {
                     ) : (
                       <CIcon icon={cilSearch} className="me-1" />
                     )}
-                    {carregando ? 'Buscando...' : 'Buscar'}
+                    {carregando ? 'Buscando...' : 'Filtrar'}
                   </CButton>
                 </CCol>
                 <span className="text-primary">
-                  *Somente os atestados enviados pelo Eopera serão exibidos!
+                  *Somente os atestados enviados pelo Eopera serão exibidos! Use os filtros para refinar a busca.
                 </span>
               </CRow>
               <hr />
               {/* Condicionar a exibição da tabela */}
-              {carregando && !buscaRealizada ? (
+              {carregandoInicial ? (
                 <div className="text-center py-4">
                   <CSpinner />
                   <p className="text-muted mt-2">Carregando atestados...</p>
                 </div>
+              ) : carregando && !buscaRealizada ? (
+                <div className="text-center py-4">
+                  <CSpinner />
+                  <p className="text-muted mt-2">Buscando atestados...</p>
+                </div>
               ) : !buscaRealizada ? (
                 <div className="text-center py-4">
-                  <p className="text-muted">Clique em "Buscar" para visualizar os atestados.</p>
+                  <p className="text-muted">Clique em "Buscar" para filtrar os atestados.</p>
                 </div>
               ) : erroAtestado ? (
                 <CAlert color="secondary" className="text-center">
