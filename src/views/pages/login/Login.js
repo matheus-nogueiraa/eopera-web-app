@@ -82,7 +82,7 @@ const Login = () => {
    
       
       // URL a ser usada - temporariamente usando conexão direta
-      const apiUrl = 'https://10.10.0.6:443/api/login';
+      const apiUrl = 'https://adm.elcop.eng.br:443/api/login';
       const useNoCors = true;
 
       console.log('🔍 Usando URL para API:', apiUrl);
