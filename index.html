@@ -24,11 +24,17 @@
     function setupCertificateBypass() {
       console.log('🔒 Configurando exceções de segurança para todos os ambientes');
       
-      // Adicionar meta tag para contornar algumas verificações de segurança
-      const metaTag = document.createElement('meta');
-      metaTag.httpEquiv = 'Content-Security-Policy';
-      metaTag.content = 'upgrade-insecure-requests';
-      document.head.appendChild(metaTag);
+      // Adicionar meta tags para contornar algumas verificações de segurança
+      const metaTag1 = document.createElement('meta');
+      metaTag1.httpEquiv = 'Content-Security-Policy';
+      metaTag1.content = 'upgrade-insecure-requests';
+      document.head.appendChild(metaTag1);
+      
+      // Configurar exceções para certificados específicos
+      const metaTag2 = document.createElement('meta');
+      metaTag2.httpEquiv = 'Content-Security-Policy';
+      metaTag2.content = "connect-src https://10.10.0.13:80 'self'";
+      document.head.appendChild(metaTag2);
       
       // Adicionar indicador de ambiente no console
       console.log('🔒 Ambiente: ' + (window.location.port === '6443' ? 'Produção (6443)' : 'Desenvolvimento'));
