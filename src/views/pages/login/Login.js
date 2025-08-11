@@ -73,14 +73,11 @@ const Login = () => {
       console.log('🔍 CPF:', cpf ? 'CPF presente' : 'CPF ausente');
       console.log('🔍 Senha:', senha ? 'Senha presente' : 'Senha ausente');
       
-      // TESTE 2: Requisição para API
       console.log('🔍 TESTE 2: Fazendo requisição para /api/login...');
       
-      // Em produção, usamos URL relativa para o Nginx fazer o proxy
-      // Em ambientes de desenvolvimento, podemos determinar uma URL específica
-      
-      // Usando URL relativa para requisições - será resolvida em relação ao host atual
-      // Isso permite que o Nginx faça o proxy corretamente
+      // Preparar CPF (remover formatação)
+      const cpfLimpo = cpf.replace(/[^\d]/g, '');
+      console.log('🔍 CPF após limpeza:', cpfLimpo);
       
       console.log('🔍 Usando URL relativa para API');
       
@@ -90,7 +87,10 @@ const Login = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
         },
-        body: JSON.stringify({ cpf, senha }),
+        body: JSON.stringify({ 
+          cpf: cpfLimpo,  // Usar CPF sem formatação
+          senha 
+        }),
       });
 
       console.log('🔍 TESTE 2 - Status:', response.status);
@@ -113,7 +113,9 @@ const Login = () => {
         console.log('🔍 LOGIN SUCESSO!');
         // Consulta operador após login
         try {
-          const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpf}`, {
+          // Usar o CPF limpo para a consulta de operador também
+          const cpfLimpo = cpf.replace(/[^\d]/g, '');
+          const operadorResp = await fetch(`/api/consultarOperador?cpf=${cpfLimpo}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -165,6 +167,43 @@ const Login = () => {
       }
       
       console.log('🔍 === FIM DEBUG LOGIN ===');
+    }
+  };
+
+  // Função para testar conexão direta com a API
+  const testarConexaoAPI = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Testando conexão com a API...');
+      
+      // Testar com URL relativa
+      const response = await fetch('/api/login', {
+        method: 'OPTIONS',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
+        }
+      });
+      
+      console.log('🔄 Teste OPTIONS - Status:', response.status);
+      console.log('🔄 Teste OPTIONS - Headers:', Object.fromEntries(response.headers.entries()));
+      
+      setToast({ 
+        show: true, 
+        message: `Teste de API: ${response.status === 204 ? 'Sucesso!' : 'Falha: ' + response.status}`, 
+        type: response.status === 204 ? 'success' : 'error',
+        time: 5000
+      });
+    } catch (err) {
+      console.error('🔄 Erro no teste:', err);
+      setToast({ 
+        show: true, 
+        message: `Erro de conexão: ${err.message}`, 
+        type: 'error',
+        time: 5000 
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -285,6 +324,16 @@ const Login = () => {
                 ) : (
                   'Entrar'
                 )}
+              </CButton>
+              
+              <CButton 
+                type="button" 
+                color="secondary" 
+                className="w-100 mt-2"
+                onClick={testarConexaoAPI}
+                disabled={loading}
+              >
+                Testar Conectividade
               </CButton>
             </CForm>
           </div>
