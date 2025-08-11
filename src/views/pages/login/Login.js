@@ -70,10 +70,10 @@ const Login = () => {
       console.log('🔍 Port:', window.location.port);
       
       // Determinar a URL da API baseada na porta de acesso
-      // Se estiver na porta 6443 (produção), use IP direto
+      // Se estiver na porta 6443 (produção), use IP direto com HTTPS
       const isProduction = window.location.port === '6443';
       const apiBaseUrl = isProduction 
-        ? 'https://10.10.0.13:80/api' 
+        ? 'https://10.10.0.13:80/api'  // Voltando para HTTPS com porta 80
         : '/api';
       
       console.log('🔍 URL da API será:', isProduction ? apiBaseUrl + '/login' : window.location.origin + apiBaseUrl + '/login');
@@ -152,7 +152,28 @@ const Login = () => {
       
       setLoading(false);
       
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      // Verificar se é um erro de certificado
+      const isCertError = 
+        err.message.includes('ERR_CERT_COMMON_NAME_INVALID') || 
+        err.message.includes('certificate') || 
+        err.message.includes('SSL');
+      
+      if (isCertError) {
+        // Erro específico de certificado
+        console.error('🔍 Detectado erro de certificado SSL');
+        setToast({ 
+          show: true, 
+          message: 'Erro de certificado SSL. Por favor, contate o suporte técnico.', 
+          type: 'error' 
+        });
+        setError('Erro de certificado SSL. Tentando conexão alternativa...');
+        
+        // Tentativa alternativa via HTTP (apenas como último recurso)
+        setTimeout(() => {
+          console.log('🔍 Tentando conexão alternativa sem SSL...');
+          window.location.href = window.location.href.replace('https://', 'http://');
+        }, 3000);
+      } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setToast({ show: true, message: 'Erro de conexão: Não foi possível conectar ao servidor.', type: 'error' });
         setError('Erro de conexão com o servidor.');
       } else if (err.name === 'TypeError' && err.message.includes('NetworkError')) {

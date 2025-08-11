@@ -17,6 +17,27 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="shortcut icon" href="/src/assets/images/logoGoogle.png">
   <script src="https://cdn.jsdelivr.net/npm/@coreui/coreui@5.0.0/dist/js/coreui.bundle.min.js"></script>
+  
+  <!-- Script para lidar com erros de certificado em ambientes específicos -->
+  <script>
+    // Esta função detecta se estamos em ambiente de produção
+    function setupCertificateBypass() {
+      // Verificar se estamos na porta de produção
+      if (window.location.port === '6443') {
+        console.log('🔒 Configurando exceções de segurança para ambiente específico');
+        
+        // Adicionar meta tag para contornar algumas verificações de segurança 
+        // (isso é apenas para ambiente controlado, não para produção real)
+        const metaTag = document.createElement('meta');
+        metaTag.httpEquiv = 'Content-Security-Policy';
+        metaTag.content = 'upgrade-insecure-requests';
+        document.head.appendChild(metaTag);
+      }
+    }
+    
+    // Executar antes de tudo
+    setupCertificateBypass();
+  </script>
 </head>
 
 <body>

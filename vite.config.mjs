@@ -43,10 +43,10 @@ export default defineConfig(() => {
       port: 3000,
       proxy: {
         '/api': {
-          target: 'https://10.10.0.13:80',  // Mudado para http (sem s) já que o IP provavelmente não tem SSL
+          target: 'https://10.10.0.13:80',  // Voltando para HTTPS com porta 80
           // target: 'https://adm.elcop.eng.br:9000',
           changeOrigin: true,
-          secure: false,
+          secure: false,  // Isso faz o proxy ignorar erros de certificado
           // Remover o rewrite para evitar problemas de caminho
           configure: (proxy, _options) => {
             proxy.on('error', (err, _req, _res) => {
