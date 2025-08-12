@@ -27,7 +27,7 @@ import {
   CSpinner
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-import { cilX, cilCheckAlt } from '@coreui/icons';
+import { cilX, cilCheckAlt, cilCamera } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import { consultarServicosProtheus } from '../../services/servicosService';
 import { consultarEquipes } from '../../services/equipesService';
@@ -308,7 +308,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   const limparErroCampo = (campo) => {
     setCamposComErro(prev => {
       const novoErros = { ...prev };
-      delete novoErros[campo];
+      delete novoErros[ campo ];
       return novoErros;
     });
   };
@@ -467,7 +467,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
       valorGrupo: '',
       valorServico: '',
       quantidade: '',
-      servicoSelecionado: null
+      servicoSelecionado: null,
+      fotos: []
     } ]);
   };
 
@@ -481,6 +482,52 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     const novosServicos = [ ...servicos ];
     novosServicos[ index ][ campo ] = valor;
     setServicos(novosServicos);
+  };
+
+  // Função para upload de imagens
+  const handleImageUpload = (event, servicoIndex) => {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+
+    // Converter arquivos para base64
+    const promisesConvercao = files.map(file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // Remover o prefixo data:image/...;base64,
+          const base64 = reader.result.split(',')[ 1 ];
+          resolve({ base64 });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(promisesConvercao)
+      .then(novasFotos => {
+        const novosServicos = [ ...servicos ];
+        if (!novosServicos[ servicoIndex ].fotos) {
+          novosServicos[ servicoIndex ].fotos = [];
+        }
+        novosServicos[ servicoIndex ].fotos = [ ...novosServicos[ servicoIndex ].fotos, ...novasFotos ];
+        setServicos(novosServicos);
+        mostrarAlert(`${novasFotos.length} foto${novasFotos.length > 1 ? 's' : ''} adicionada${novasFotos.length > 1 ? 's' : ''} com sucesso!`, 'success');
+      })
+      .catch(error => {
+        console.error('Erro ao converter imagens:', error);
+        mostrarAlert('Erro ao processar as imagens. Tente novamente.', 'danger');
+      });
+
+    // Limpar o input para permitir selecionar os mesmos arquivos novamente
+    event.target.value = '';
+  };
+
+  // Função para remover foto
+  const removerFoto = (servicoIndex, fotoIndex) => {
+    const novosServicos = [ ...servicos ];
+    novosServicos[ servicoIndex ].fotos.splice(fotoIndex, 1);
+    setServicos(novosServicos);
+    mostrarAlert('Foto removida com sucesso!', 'success');
   };
 
   // Função para carregar todos os serviços (uma vez só)
@@ -728,7 +775,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     // Atualizar o valor do input diretamente
     const numeroOperacionalInput = document.getElementById('numeroOperacional');
     if (numeroOperacionalInput) {
-      numeroOperacionalInput.value = textoExibicao;
+      numeroOperacionalInput.value = textoExibicao.split(' - ')[ 0 ];
     }
 
     setEquipeDropdownVisivel(false);
@@ -830,7 +877,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
             dismissible
             onClose={() => setAlertVisible(false)}
             className={`d-flex align-items-start mb-3 ${alertColor === 'danger' ? 'border-danger' : ''}`}
-            style={{ 
+            style={{
               animation: 'fadeIn 0.3s',
               boxShadow: alertColor === 'danger' ? '0 4px 12px rgba(220, 53, 69, 0.3)' : '0 4px 12px rgba(25, 135, 84, 0.3)',
               zIndex: 1060
@@ -843,8 +890,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 <CIcon icon={cilX} />
               )}
             </div>
-            <div 
-              className="flex-grow-1" 
+            <div
+              className="flex-grow-1"
               dangerouslySetInnerHTML={{ __html: alertMessage }}
             />
           </CAlert>
@@ -854,8 +901,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CRow className="mb-4">
           <CCol md={3}>
             <CFormLabel htmlFor="numeroOS" className="mb-1">Número OS:</CFormLabel>
-            <CFormInput 
-              id="numeroOS" 
+            <CFormInput
+              id="numeroOS"
               className={camposComErro.numeroOS ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('numeroOS')}
             />
@@ -868,8 +915,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           </CCol>
           <CCol md={3}>
             <CFormLabel htmlFor="unConsumidora" className="mb-1">UN. Consumidora:</CFormLabel>
-            <CFormInput 
-              id="unConsumidora" 
+            <CFormInput
+              id="unConsumidora"
               className={camposComErro.unConsumidora ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('unConsumidora')}
             />
@@ -882,27 +929,27 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="status" className="mb-1">Status:</CFormLabel>
-            <CFormSelect 
+            <CFormSelect
               id="status"
               className={camposComErro.status ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('status')}
             >
               <option value="">Selecione...</option>
-              <option value="cancelado">Cancelado</option>
-              <option value="concluido">Concluído</option>
-              <option value="dsr">DSR</option>
-              <option value="executado_parcial">Executado Parcial</option>
-              <option value="falta_realizar_poda">Falta Realizar Poda</option>
-              <option value="feriado">Feriado</option>
-              <option value="folga">Folga</option>
-              <option value="improdutivo">Improdutivo</option>
-              <option value="interrompido">Interrompido</option>
-              <option value="interticio">Interticio</option>
-              <option value="parcial">Parcial</option>
-              <option value="poda_feita_ems">Poda Feita EMS</option>
-              <option value="recolhimento_feito_elcop">Recolhimento Feito ELCOP</option>
-              <option value="reprovado">Reprovado</option>
-              <option value="trocar_status">Trocar Status</option>
+              <option value="01">Cancelado</option>
+              <option value="02">Concluído</option>
+              <option value="03">DSR</option>
+              <option value="04">Executado Parcial</option>
+              <option value="05">Falta Realizar Poda</option>
+              <option value="06">Feriado</option>
+              <option value="07">Folga</option>
+              <option value="08">Improdutivo</option>
+              <option value="09">Interrompido</option>
+              <option value="10">Interticio</option>
+              <option value="11">Parcial</option>
+              <option value="12">Poda Feita EMS</option>
+              <option value="13">Recolhimento Feito ELCOP</option>
+              <option value="14">Reprovado</option>
+              <option value="15">Trocar Status</option>
             </CFormSelect>
             {camposComErro.status && (
               <div className="texto-erro fade-in-error">
@@ -929,10 +976,10 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           <CCol md={2}>
             <CFormLabel htmlFor="hora" className="mb-1">Hora:</CFormLabel>
             <div>
-              <CFormInput 
-                type="time" 
-                id="hora" 
-                placeholder="--" 
+              <CFormInput
+                type="time"
+                id="hora"
+                placeholder="--"
                 className={camposComErro.hora ? 'campo-erro' : ''}
               />
               {camposComErro.hora && (
@@ -949,10 +996,10 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CRow className="mb-4">
           <CCol md={5}>
             <CFormLabel htmlFor="endereco" className="mb-1">Endereço:</CFormLabel>
-            <CFormInput 
-              id="endereco" 
-              readOnly={ocorrenciaSemEndereco} 
-              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.endereco ? 'campo-erro' : ''}`} 
+            <CFormInput
+              id="endereco"
+              readOnly={ocorrenciaSemEndereco}
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.endereco ? 'campo-erro' : ''}`}
             />
             {camposComErro.endereco && (
               <div className="texto-erro fade-in-error">
@@ -963,10 +1010,10 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="bairro" className="mb-1">Bairro:</CFormLabel>
-            <CFormInput 
-              id="bairro" 
-              readOnly={ocorrenciaSemEndereco} 
-              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.bairro ? 'campo-erro' : ''}`} 
+            <CFormInput
+              id="bairro"
+              readOnly={ocorrenciaSemEndereco}
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.bairro ? 'campo-erro' : ''}`}
             />
             {camposComErro.bairro && (
               <div className="texto-erro fade-in-error">
@@ -1068,10 +1115,11 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="cep" className="mb-1">CEP:</CFormLabel>
-            <CFormInput 
-              id="cep" 
-              readOnly={ocorrenciaSemEndereco} 
-              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.cep ? 'campo-erro' : ''}`} 
+            <CFormInput
+              id="cep"
+              readOnly={ocorrenciaSemEndereco}
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.cep ? 'campo-erro' : ''}`}
+              maxLength={9}
             />
             {camposComErro.cep && (
               <div className="texto-erro fade-in-error">
@@ -1098,10 +1146,10 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CRow className="mb-4">
           <CCol md={4}>
             <CFormLabel htmlFor="latitude" className="mb-1">Latitude:</CFormLabel>
-            <CFormInput 
-              id="latitude" 
-              readOnly={ocorrenciaSemEndereco} 
-              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.latitude ? 'campo-erro' : ''}`} 
+            <CFormInput
+              id="latitude"
+              readOnly={ocorrenciaSemEndereco}
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.latitude ? 'campo-erro' : ''}`}
             />
             {camposComErro.latitude && (
               <div className="texto-erro fade-in-error">
@@ -1112,10 +1160,10 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           </CCol>
           <CCol md={4}>
             <CFormLabel htmlFor="longitude" className="mb-1">Longitude:</CFormLabel>
-            <CFormInput 
-              id="longitude" 
-              readOnly={ocorrenciaSemEndereco} 
-              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.longitude ? 'campo-erro' : ''}`} 
+            <CFormInput
+              id="longitude"
+              readOnly={ocorrenciaSemEndereco}
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.longitude ? 'campo-erro' : ''}`}
             />
             {camposComErro.longitude && (
               <div className="texto-erro fade-in-error">
@@ -1474,20 +1522,23 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           <CCard className="border">
             <CCardHeader className="bg-light py-2">
               <CRow className="align-items-center">
-                <CCol md={4}>
+                <CCol md={3}>
                   <span className="fw-semibold">Serviço</span>
                 </CCol>
                 <CCol md={2}>
                   <span className="fw-semibold">Observação</span>
                 </CCol>
-                <CCol md={2}>
+                <CCol md={1}>
                   <span className="fw-semibold">Valor Grupo</span>
                 </CCol>
-                <CCol md={2}>
+                <CCol md={1}>
                   <span className="fw-semibold">Valor Serviço</span>
                 </CCol>
                 <CCol md={1}>
                   <span className="fw-semibold">Quantidade</span>
+                </CCol>
+                <CCol md={3}>
+                  <span className="fw-semibold">Fotos</span>
                 </CCol>
                 <CCol md={1} className="text-center">
                   <span className="fw-semibold">Ação</span>
@@ -1501,8 +1552,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 </div>
               ) : (
                 servicos.map((servico, index) => (
-                  <CRow key={index} className="align-items-center mb-3 border-bottom pb-3">
-                    <CCol md={4}>
+                  <CRow key={index} className="align-items-start mb-3 border-bottom pb-3">
+                    <CCol md={3}>
                       <div
                         className="position-relative"
                         ref={el => servicosRefs.current[ `ref_${index}` ] = el}
@@ -1601,7 +1652,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                         placeholder="Observação"
                       />
                     </CCol>
-                    <CCol md={2}>
+                    <CCol md={1}>
                       <CFormInput
                         value={servico.valorGrupo}
                         onChange={(e) => atualizarServico(index, 'valorGrupo', e.target.value)}
@@ -1613,7 +1664,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                         className="bg-light" // Adiciona um estilo visual para campos readonly
                       />
                     </CCol>
-                    <CCol md={2}>
+                    <CCol md={1}>
                       <CFormInput
                         value={servico.valorServico}
                         onChange={(e) => atualizarServico(index, 'valorServico', e.target.value)}
@@ -1633,6 +1684,69 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                         type="number"
                         min="1"
                       />
+                    </CCol>
+                    <CCol md={3}>
+                      <div className="mb-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => handleImageUpload(e, index)}
+                          style={{ display: 'none' }}
+                          id={`fileInput-${index}`}
+                        />
+                        <CButton
+                          color="outline-primary"
+                          size="sm"
+                          onClick={() => document.getElementById(`fileInput-${index}`).click()}
+                          className="mb-2"
+                        >
+                          <CIcon icon={cilCamera} className="me-1" />
+                          Adicionar Fotos
+                        </CButton>
+                      </div>
+                      {servico.fotos && servico.fotos.length > 0 && (
+                        <div className="d-flex flex-wrap gap-1">
+                          {servico.fotos.map((foto, fotoIndex) => (
+                            <div key={fotoIndex} className="position-relative" style={{ width: '40px', height: '40px' }}>
+                              <img
+                                src={`data:image/jpeg;base64,${foto.base64}`}
+                                alt={`Foto ${fotoIndex + 1}`}
+                                style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  objectFit: 'cover',
+                                  borderRadius: '4px',
+                                  border: '1px solid #dee2e6'
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-sm position-absolute"
+                                style={{
+                                  top: '-5px',
+                                  right: '-5px',
+                                  width: '18px',
+                                  height: '18px',
+                                  padding: '0',
+                                  borderRadius: '50%',
+                                  fontSize: '10px',
+                                  lineHeight: '1'
+                                }}
+                                onClick={() => removerFoto(index, fotoIndex)}
+                                title="Remover foto"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {servico.fotos && servico.fotos.length > 0 && (
+                        <small className="text-muted d-block mt-1">
+                          {servico.fotos.length} foto{servico.fotos.length > 1 ? 's' : ''} adicionada{servico.fotos.length > 1 ? 's' : ''}
+                        </small>
+                      )}
                     </CCol>
                     <CCol md={1} className="text-center">
                       <CButton
@@ -1690,8 +1804,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 const municipio = document.getElementById('municipio').value.trim();
 
                 // Validar campos sempre obrigatórios
-                if (!numeroOs) erros.numeroOS = 'Este campo é obrigatório';
-                if (!unConsumidora) erros.unConsumidora = 'Este campo é obrigatório';
+                // Pelo menos um dos campos deve ser preenchido
+                if (!numeroOs && !unConsumidora) {
+                  erros.numeroOS = 'Preencha pelo menos um dos campos: Número OS ou UN. Consumidora';
+                  erros.unConsumidora = 'Preencha pelo menos um dos campos: Número OS ou UN. Consumidora';
+                }
+
                 if (!status) erros.status = 'Este campo é obrigatório';
                 if (!data) erros.data = 'Este campo é obrigatório';
                 if (!hora) erros.hora = 'Este campo é obrigatório';
@@ -1758,15 +1876,15 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               const hora = document.getElementById('hora').value;
               const endereco = ocorrenciaSemEndereco ? '' : document.getElementById('endereco').value.trim();
               const bairro = ocorrenciaSemEndereco ? '' : document.getElementById('bairro').value.trim();
-              const codMunicipio = document.getElementById('municipio').value.trim();
-              const cep = ocorrenciaSemEndereco ? '' : document.getElementById('cep').value.trim();
+              const codMunicipio = document.getElementById('municipio').value.trim().split('-')[ 0 ];
+              const cep = ocorrenciaSemEndereco ? '' : document.getElementById('cep').value.trim().replace(/-/g, '');
               const latitude = ocorrenciaSemEndereco ? '' : document.getElementById('latitude').value.trim();
               const longitude = ocorrenciaSemEndereco ? '' : document.getElementById('longitude').value.trim();
               const dataConclusao = document.getElementById('dataConclusao').value.replace(/-/g, '');
               const horaConclusao = document.getElementById('horaConclusao').value;
               const centroCusto = centroCustoSelecionado;
-              const numOperacional = document.getElementById('numeroOperacional').value.trim();
-              
+              const numOperacional = document.getElementById('numeroOperacional').value.trim().split('-')[ 0 ];
+
               // Pega o CPF e matrícula do usuário logado do localStorage
               const cpfInclusao = localStorage.getItem('cpf') || '00000000000';
               const matInclusao = localStorage.getItem('matricula') || '000000';
@@ -1785,7 +1903,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 quantidade: Number(s.quantidade) || 0,
                 valPontos: Number(s.valorServico) || 0,
                 valGrupo: Number(s.valorGrupo) || 0,
-                fotos: [] // Adapte se for usar fotos
+                fotos: s.fotos || []
               }));
 
               const body = {
