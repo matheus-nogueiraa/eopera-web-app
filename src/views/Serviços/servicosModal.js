@@ -27,7 +27,7 @@ import {
   CSpinner
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-import { cilX, cilCheckAlt, cilCamera } from '@coreui/icons';
+import { cilX, cilCheckAlt, cilCamera, cilWarning } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import { consultarServicosProtheus } from '../../services/servicosService';
 import { consultarEquipes } from '../../services/equipesService';
@@ -100,6 +100,11 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   const [ centroCustoOpcoes, setCentroCustoOpcoes ] = useState([]);
   const [ centroCustoSelecionado, setCentroCustoSelecionado ] = useState('');
   const [ loadingCentroCusto, setLoadingCentroCusto ] = useState(false);
+
+  // Estados para modal de confirmação de troca de centro de custo
+  const [ modalConfirmacaoVisible, setModalConfirmacaoVisible ] = useState(false);
+  const [ novoCentroCustoTemp, setNovoCentroCustoTemp ] = useState('');
+  const [ selectElementTemp, setSelectElementTemp ] = useState(null);
 
   // Estados para autocomplete de serviços
   const [ servicosOpcoes, setServicosOpcoes ] = useState([]);
@@ -344,6 +349,9 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     // Resetar estado do centro de custo selecionado
     setCentroCustoSelecionado('');
 
+    // Limpar serviços quando centro de custo é resetado
+    setTodosServicos([]);
+
     // Resetar estados dos serviços
     setServicosOpcoes([]);
     setServicoDropdownVisivel({});
@@ -374,6 +382,11 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     setAlertVisible(false);
     setAlertMessage('');
     setAlertColor('success');
+
+    // Resetar estados do modal de confirmação
+    setModalConfirmacaoVisible(false);
+    setNovoCentroCustoTemp('');
+    setSelectElementTemp(null);
 
     // Limpar erros de validação
     setCamposComErro({});
@@ -561,6 +574,36 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     }
   };
 
+  // Função para carregar serviços de um centro de custo específico
+  const carregarServicosPorCentroCusto = async (centroCusto) => {
+    setLoadingServicos(true);
+
+    try {
+      console.log(`Carregando serviços do centro de custo: ${centroCusto}`);
+
+      // Usar a função consultarServicosProtheus com o parâmetro centroCusto
+      const dados = await consultarServicosProtheus({ centroCusto });
+
+      console.log('Serviços recebidos para o centro de custo:', dados);
+
+      // A função já retorna diretamente o array de dados
+      if (Array.isArray(dados)) {
+        setTodosServicos(dados);
+        console.log(`${dados.length} serviços carregados para o centro de custo ${centroCusto}`);
+      } else {
+        console.warn('Resposta da API não é um array:', dados);
+        setTodosServicos([]);
+        mostrarAlert('Nenhum serviço encontrado para o centro de custo selecionado', 'warning');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar serviços por centro de custo:', error);
+      setTodosServicos([]);
+      mostrarAlert('Erro ao carregar serviços do centro de custo selecionado', 'danger');
+    } finally {
+      setLoadingServicos(false);
+    }
+  };
+
   // Função para filtrar serviços localmente
   const filtrarServicos = (termo) => {
     if (!termo || termo.length < 2) {
@@ -573,10 +616,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
       const idServico = servico.idServico?.toLowerCase() || '';
       const descricao = servico.descricaoServico?.toLowerCase() || '';
       const codServico = servico.codServico?.toLowerCase() || '';
+      const siglaUp = servico.siglaUp?.toLowerCase() || '';
 
       return idServico.includes(termoLower) ||
         descricao.includes(termoLower) ||
-        codServico.includes(termoLower);
+        codServico.includes(termoLower) ||
+        siglaUp.includes(termoLower);
     }).slice(0, 20); // Limitar a 20 resultados
   };
 
@@ -588,9 +633,17 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
       return;
     }
 
-    // Carregar todos os serviços se ainda não carregou
+    // Verificar se um centro de custo foi selecionado
+    if (!centroCustoSelecionado) {
+      mostrarAlert('É obrigatório selecionar um centro de custo antes de pesquisar serviços', 'warning');
+      setServicosOpcoes([]);
+      setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
+      return;
+    }
+
+    // Se não há serviços carregados para este centro de custo, carregá-los primeiro
     if (todosServicos.length === 0) {
-      await carregarTodosServicos();
+      await carregarServicosPorCentroCusto(centroCustoSelecionado);
     }
 
     // Filtrar localmente
@@ -679,13 +732,71 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   };
 
   // Função para lidar com a mudança no select de centro de custo
-  const handleCentroCustoChange = (e) => {
+  const handleCentroCustoChange = async (e) => {
     const valor = e.target.value;
+    
+    // Se já existe um centro de custo selecionado e há serviços adicionados, 
+    // perguntar se o usuário realmente quer trocar
+    if (centroCustoSelecionado && servicos.length > 0 && valor !== centroCustoSelecionado) {
+      // Armazenar temporariamente o novo valor e elemento do select
+      setNovoCentroCustoTemp(valor);
+      setSelectElementTemp(e.target);
+      setModalConfirmacaoVisible(true);
+      
+      // Reverter o select para o valor anterior temporariamente
+      e.target.value = centroCustoSelecionado;
+      return;
+    }
+
+    // Se não há conflito, proceder normalmente
+    await aplicarMudancaCentroCusto(valor);
+  };
+
+  // Função para aplicar a mudança do centro de custo
+  const aplicarMudancaCentroCusto = async (valor) => {
     setCentroCustoSelecionado(valor);
 
     // Encontrar o objeto completo do centro de custo selecionado
     const centroCusto = centroCustoOpcoes.find(cc => cc.centroCusto === valor);
     console.log('Centro de custo selecionado:', centroCusto);
+
+    // Limpar os serviços anteriores
+    setTodosServicos([]);
+    setServicosOpcoes([]);
+    
+    // Se um centro de custo foi selecionado, carregar os serviços desse centro
+    if (valor && valor.trim()) {
+      await carregarServicosPorCentroCusto(valor.trim());
+    }
+  };
+
+  // Função para confirmar a troca do centro de custo
+  const confirmarTrocaCentroCusto = async () => {
+    // Limpar todos os serviços
+    setServicos([]);
+    
+    // Aplicar a mudança
+    await aplicarMudancaCentroCusto(novoCentroCustoTemp);
+    
+    // Atualizar o select element
+    if (selectElementTemp) {
+      selectElementTemp.value = novoCentroCustoTemp;
+    }
+    
+    // Fechar modal e limpar estados temporários
+    setModalConfirmacaoVisible(false);
+    setNovoCentroCustoTemp('');
+    setSelectElementTemp(null);
+
+    mostrarAlert(`Centro de custo alterado e serviços removidos com sucesso!`, 'success');
+  };
+
+  // Função para cancelar a troca do centro de custo
+  const cancelarTrocaCentroCusto = () => {
+    // Fechar modal e limpar estados temporários
+    setModalConfirmacaoVisible(false);
+    setNovoCentroCustoTemp('');
+    setSelectElementTemp(null);
   };
 
   // Função para carregar todas as equipes (uma vez só)
@@ -856,16 +967,17 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   }, []);
 
   return (
-    <CModal
-      visible={visible}
-      onClose={() => {
-        limparCampos();
-        setVisible(false);
-      }}
-      size="xl"
-      backdrop="static"
-      keyboard={false}
-    >
+    <>
+      <CModal
+        visible={visible}
+        onClose={() => {
+          limparCampos();
+          setVisible(false);
+        }}
+        size="xl"
+        backdrop="static"
+        keyboard={false}
+      >
       <CModalHeader>
         <CModalTitle>Ordem de Serviço</CModalTitle>
       </CModalHeader>
@@ -1303,7 +1415,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
             </div>
           </CCol>
           <CCol md={4}>
-            <CFormLabel htmlFor="centroDeCustos" className="mb-1">Centro de Custos:</CFormLabel>
+            <CFormLabel htmlFor="centroDeCustos" className="mb-1">Centro de Custos: </CFormLabel>
             <div className="position-relative">
               {loadingCentroCusto ? (
                 <div className="d-flex align-items-center">
@@ -1326,6 +1438,16 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                     </option>
                   ))}
                 </CFormSelect>
+              )}
+              {loadingServicos && centroCustoSelecionado && (
+                <div className="mt-2 text-info">
+                  <div className="d-flex align-items-center">
+                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
+                    <small>Carregando serviços do centro de custo...</small>
+                  </div>
+                </div>
               )}
               {camposComErro.centroDeCustos && (
                 <div className="texto-erro fade-in-error">
@@ -1563,8 +1685,13 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                           onChange={(e) => handleServicoChange(e, index)}
                           onKeyDown={(e) => handleServicoKeyDown(e, index)}
                           size="sm"
-                          placeholder="Digite ID ou descrição do serviço..."
+                          placeholder={centroCustoSelecionado ? "Digite ID ou descrição do serviço..." : "Selecione um centro de custo primeiro"}
                           autoComplete="off"
+                          disabled={!centroCustoSelecionado}
+                          style={{
+                            backgroundColor: !centroCustoSelecionado ? '#f8f9fa' : 'white',
+                            cursor: !centroCustoSelecionado ? 'not-allowed' : 'text'
+                          }}
                         />
                         {loadingServicos && servicoDropdownVisivel[ index ] && (
                           <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
@@ -1608,6 +1735,9 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                                 >
                                   <div>
                                     <strong>{servicoOpcao.idServico?.trim()}</strong>
+                                    {servicoOpcao.siglaUp && (
+                                      <div className="text-primary small fw-bold">Sigla UP: {servicoOpcao.siglaUp.trim()}</div>
+                                    )}
                                     {servicoOpcao.descricaoServico && (
                                       <div className="text-muted small">
                                         {servicoOpcao.descricaoServico.trim()}
@@ -1823,15 +1953,9 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 if (!ocorrenciaSemEndereco) {
                   const endereco = document.getElementById('endereco').value.trim();
                   const bairro = document.getElementById('bairro').value.trim();
-                  const cep = document.getElementById('cep').value.trim();
-                  const latitude = document.getElementById('latitude').value.trim();
-                  const longitude = document.getElementById('longitude').value.trim();
 
                   if (!endereco) erros.endereco = 'Este campo é obrigatório';
                   if (!bairro) erros.bairro = 'Este campo é obrigatório';
-                  if (!cep) erros.cep = 'Este campo é obrigatório';
-                  if (!latitude) erros.latitude = 'Este campo é obrigatório';
-                  if (!longitude) erros.longitude = 'Este campo é obrigatório';
                 }
 
                 // Validar se tem pelo menos um usuário
@@ -1979,6 +2103,58 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         </CButton>
       </CModalFooter>
     </CModal>
+
+    {/* Modal de Confirmação para Troca de Centro de Custo */}
+    <CModal
+      visible={modalConfirmacaoVisible}
+      onClose={cancelarTrocaCentroCusto}
+      size="md"
+      backdrop="static"
+    >
+      <CModalHeader>
+        <CModalTitle>Confirmar Troca de Centro de Custo</CModalTitle>
+      </CModalHeader>
+      <CModalBody>
+        <div className="d-flex align-items-start">
+          <div className="flex-shrink-0 me-3">
+            <div 
+              className="bg-warning rounded-circle d-flex align-items-center justify-content-center"
+              style={{ width: '40px', height: '40px' }}
+            >
+              <CIcon icon={cilWarning} size="lg" className="text-white" />
+            </div>
+          </div>
+          <div>
+            <h6 className="mb-2 text-warning">Atenção!</h6>
+            <p className="mb-3">
+              Você já possui <strong>{servicos.length} serviço{servicos.length > 1 ? 's' : ''}</strong> adicionado{servicos.length > 1 ? 's' : ''}.
+            </p>
+            <p className="mb-0">
+              Ao trocar o centro de custo, <strong>todos os serviços serão removidos</strong>.
+            </p>
+            <p className="mt-2 mb-0">
+              <strong>Deseja continuar?</strong>
+            </p>
+          </div>
+        </div>
+      </CModalBody>
+      <CModalFooter>
+        <CButton 
+          color="secondary" 
+          variant="outline"
+          onClick={cancelarTrocaCentroCusto}
+        >
+          Cancelar
+        </CButton>
+        <CButton 
+          color="warning"
+          onClick={confirmarTrocaCentroCusto}
+        >
+          Sim, trocar centro de custo
+        </CButton>
+      </CModalFooter>
+    </CModal>
+    </>
   );
 };
 

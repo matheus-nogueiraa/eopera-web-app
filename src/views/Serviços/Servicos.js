@@ -83,7 +83,7 @@ const criarConteudos = () => {
       </div>
       
       {/* Alertas */}
-      {alert.visible && alert.color === 'success' && (
+      {/* {alert.visible && alert.color === 'success' && (
         <CAlert 
           color={alert.color}
           dismissible
@@ -104,7 +104,7 @@ const criarConteudos = () => {
             dangerouslySetInnerHTML={{ __html: alert.message }}
           />
         </CAlert>
-      )}
+      )} */}
       
       <CRow className="mb-4">
         <CCol lg={12} className="d-flex align-items-center gap-2 mb-4">
