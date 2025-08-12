@@ -1,7 +1,7 @@
 {
-  "name": "@coreui/coreui-free-react-admin-template",
-  "version": "2.1.0",
-  "description": "CoreUI Free React Admin Template",
+  "name": "elcop-portal",
+  "version": "2.1.1",
+  "description": "Elcop Portal",
   "homepage": ".",
   "bugs": {
     "url": "https://github.com/coreui/coreui-free-react-admin-template/issues"

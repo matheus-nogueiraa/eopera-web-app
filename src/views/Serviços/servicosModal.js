@@ -290,11 +290,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     });
     setUsuarioDropdownVisivel(false);
     setUsuariosOpcoes([]);
-
-    // Salvar no localStorage
-    localStorage.setItem('matricula', usuario.matricula?.trim() || '');
-    localStorage.setItem('nome', nomeCompleto);
-    localStorage.setItem('cpf', usuario.cpf?.trim() || '');
   };
 
   // Navegação por teclado para usuários

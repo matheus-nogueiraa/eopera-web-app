@@ -236,4 +236,26 @@
      display: none;
    }
  }
- 
+/* Placeholder mais claro para campos de input na tela de login */
+.form-input::placeholder {
+  color: #e0e0e0;
+  opacity: 1;
+}
+
+/* Para compatibilidade com navegadores Webkit */
+.form-input::-webkit-input-placeholder {
+  color: #e0e0e0;
+}
+
+/* Para compatibilidade com Firefox */
+.form-input:-moz-placeholder {
+  color: #e0e0e0;
+}
+.form-input::-moz-placeholder {
+  color: #e0e0e0;
+}
+
+/* Para compatibilidade com IE */
+.form-input:-ms-input-placeholder {
+  color: #e0e0e0;
+}

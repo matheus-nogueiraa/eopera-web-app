@@ -83,25 +83,21 @@ const criarConteudos = () => {
       </div>
       
       {/* Alertas */}
-      {alert.visible && (
+      {alert.visible && alert.color === 'success' && (
         <CAlert 
           color={alert.color}
           dismissible
           onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
-          className={`mb-4 animate-alert d-flex align-items-start ${alert.color === 'danger' ? 'border-danger' : ''}`}
+          className={`mb-4 animate-alert d-flex align-items-start`}
           style={{ 
             animation: 'fadeSlideDown 0.5s ease-out',
-            boxShadow: alert.color === 'danger' ? '0 4px 12px rgba(220, 53, 69, 0.3)' : '0 4px 12px rgba(25, 135, 84, 0.3)',
+            boxShadow: '0 4px 12px rgba(25, 135, 84, 0.3)',
             position: 'relative',
             zIndex: 1050
           }}
         >
           <div className="flex-shrink-0 me-2 mt-1">
-            {alert.color === 'success' ? (
-              <CIcon icon={cilCheckCircle} />
-            ) : (
-              <CIcon icon={cilX} />
-            )}
+            <CIcon icon={cilCheckCircle} />
           </div>
           <div 
             className="flex-grow-1" 
