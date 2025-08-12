@@ -31,7 +31,7 @@ import { cilX, cilCheckAlt } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import { consultarServicosProtheus } from '../../services/servicosService';
 import { consultarEquipes } from '../../services/equipesService';
-import { left } from '@popperjs/core';
+import { consultarUsuariosEoperaX, filtrarUsuarios } from '../../services/usuariosService';
 import httpRequest from '../../utils/httpRequests';
 
 // Adicionando estilos CSS para animação
@@ -39,6 +39,38 @@ const styles = `
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .alert-danger {
+    border-left: 4px solid #dc3545 !important;
+  }
+  
+  .alert-danger .alert-content {
+    line-height: 1.6;
+  }
+  
+  .alert-danger ul {
+    margin: 0;
+    padding-left: 1rem;
+  }
+  
+  .campo-erro {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+  }
+  
+  .texto-erro {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .fade-in-error {
+    animation: fadeIn 0.3s ease-in-out;
   }
 `;
 
@@ -55,6 +87,9 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   const [ isLider, setIsLider ] = useState(false);
   const [ ocorrenciaSemEndereco, setOcorrenciaSemEndereco ] = useState(false);
   const [ isSubmitting, setIsSubmitting ] = useState(false);
+
+  // Estados para validação de campos
+  const [ camposComErro, setCamposComErro ] = useState({});
 
   // Estados para alertas
   const [ alertVisible, setAlertVisible ] = useState(false);
@@ -84,6 +119,205 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   const equipeRef = useRef(null);
   const equipeDebounceRef = useRef(null);
 
+  // Estados para autocomplete de município
+  const [ municipiosOpcoes, setMunicipiosOpcoes ] = useState([]);
+  const [ todosMunicipios, setTodosMunicipios ] = useState([]);
+  const [ loadingMunicipios, setLoadingMunicipios ] = useState(false);
+  const [ municipioDropdownVisivel, setMunicipioDropdownVisivel ] = useState(false);
+  const [ municipioSelectedIndex, setMunicipioSelectedIndex ] = useState(-1);
+  const [ municipioSelecionado, setMunicipioSelecionado ] = useState('');
+  const municipioRef = useRef(null);
+  const municipioDebounceRef = useRef(null);
+
+  // Estados para autocomplete de usuários
+  const [ usuariosOpcoes, setUsuariosOpcoes ] = useState([]);
+  const [ todosUsuarios, setTodosUsuarios ] = useState([]);
+  const [ loadingUsuarios, setLoadingUsuarios ] = useState(false);
+  const [ usuarioDropdownVisivel, setUsuarioDropdownVisivel ] = useState(false);
+  const [ usuarioSelectedIndex, setUsuarioSelectedIndex ] = useState(-1);
+  const [ usuarioSelecionado, setUsuarioSelecionado ] = useState('');
+  const [ usuarioInfo, setUsuarioInfo ] = useState({ matricula: '', nome: '', cpf: '' });
+  const usuarioRef = useRef(null);
+  const usuarioDebounceRef = useRef(null);
+
+  // Função para carregar todos os municípios (uma vez só)
+  const carregarTodosMunicipios = async () => {
+    if (todosMunicipios.length > 0) return;
+    setLoadingMunicipios(true);
+    try {
+      const resp = await httpRequest('/consultarMunicipiosIBGE', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
+        },
+      });
+      const json = await resp.json();
+      if (json.status && Array.isArray(json.data)) {
+        setTodosMunicipios(json.data);
+      } else {
+        setTodosMunicipios([]);
+      }
+    } catch (e) {
+      setTodosMunicipios([]);
+    } finally {
+      setLoadingMunicipios(false);
+    }
+  };
+
+  // Função para filtrar municípios localmente
+  const filtrarMunicipios = (termo) => {
+    if (!termo || termo.length < 2) return [];
+    const termoLower = termo.toLowerCase().trim();
+    return todosMunicipios.filter(m =>
+      m.codigo?.toLowerCase().includes(termoLower) ||
+      m.descricao?.toLowerCase().includes(termoLower)
+    ).slice(0, 20);
+  };
+
+  // Função para buscar municípios
+  const buscarMunicipios = async (termo) => {
+    if (!termo || termo.length < 2) {
+      setMunicipiosOpcoes([]);
+      setMunicipioDropdownVisivel(false);
+      return;
+    }
+    if (todosMunicipios.length === 0) {
+      await carregarTodosMunicipios();
+    }
+    const filtrados = filtrarMunicipios(termo);
+    setMunicipiosOpcoes(filtrados);
+    setMunicipioDropdownVisivel(true);
+    setMunicipioSelectedIndex(-1);
+  };
+
+  // Debounce para busca de municípios
+  const handleMunicipioChange = (e) => {
+    const valor = e.target.value;
+    setMunicipioSelecionado(valor);
+    if (!valor) {
+      setMunicipiosOpcoes([]);
+      setMunicipioDropdownVisivel(false);
+      return;
+    }
+    if (municipioDebounceRef.current) clearTimeout(municipioDebounceRef.current);
+    municipioDebounceRef.current = setTimeout(() => {
+      buscarMunicipios(valor);
+    }, 300);
+  };
+
+  // Selecionar município
+  const selecionarMunicipio = (municipio) => {
+    const texto = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+    setMunicipioSelecionado(texto);
+    setMunicipioDropdownVisivel(false);
+    setMunicipiosOpcoes([]);
+    // Se quiser salvar o código do município para envio, salve em outro estado
+    // setCodMunicipioSelecionado(municipio.codigo.trim());
+    // Atualizar o valor do input diretamente
+    const municipioInput = document.getElementById('municipio');
+    if (municipioInput) {
+      municipioInput.value = texto;
+    }
+  };
+
+  // Navegação por teclado para municípios
+  const handleMunicipioKeyDown = (e) => {
+    if (!municipioDropdownVisivel || municipiosOpcoes.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      setMunicipioSelectedIndex((prev) => Math.min(prev + 1, municipiosOpcoes.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      setMunicipioSelectedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter' && municipioSelectedIndex >= 0) {
+      selecionarMunicipio(municipiosOpcoes[ municipioSelectedIndex ]);
+    }
+  };
+
+  // Função para carregar todos os usuários (uma vez só)
+  const carregarTodosUsuarios = async () => {
+    if (todosUsuarios.length > 0) return;
+    setLoadingUsuarios(true);
+    try {
+      const dados = await consultarUsuariosEoperaX();
+      setTodosUsuarios(dados || []);
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+      setTodosUsuarios([]);
+    } finally {
+      setLoadingUsuarios(false);
+    }
+  };
+
+  // Função para buscar usuários
+  const buscarUsuarios = async (termo) => {
+    if (!termo || termo.length < 2) {
+      setUsuariosOpcoes([]);
+      setUsuarioDropdownVisivel(false);
+      return;
+    }
+    if (todosUsuarios.length === 0) {
+      await carregarTodosUsuarios();
+    }
+    const filtrados = filtrarUsuarios(todosUsuarios, termo);
+    setUsuariosOpcoes(filtrados);
+    setUsuarioDropdownVisivel(true);
+    setUsuarioSelectedIndex(-1);
+  };
+
+  // Debounce para busca de usuários
+  const handleUsuarioChange = (e) => {
+    const valor = e.target.value;
+    setUsuarioSelecionado(valor);
+    if (!valor) {
+      setUsuariosOpcoes([]);
+      setUsuarioDropdownVisivel(false);
+      return;
+    }
+    if (usuarioDebounceRef.current) clearTimeout(usuarioDebounceRef.current);
+    usuarioDebounceRef.current = setTimeout(() => {
+      buscarUsuarios(valor);
+    }, 300);
+  };
+
+  // Selecionar usuário
+  const selecionarUsuario = (usuario) => {
+    const nomeCompleto = usuario.nome?.trim() || '';
+    setUsuarioSelecionado(nomeCompleto);
+    setUsuarioInfo({
+      matricula: usuario.matricula?.trim() || '',
+      nome: nomeCompleto,
+      cpf: usuario.cpf?.trim() || ''
+    });
+    setUsuarioDropdownVisivel(false);
+    setUsuariosOpcoes([]);
+
+    // Salvar no localStorage
+    localStorage.setItem('matricula', usuario.matricula?.trim() || '');
+    localStorage.setItem('nome', nomeCompleto);
+    localStorage.setItem('cpf', usuario.cpf?.trim() || '');
+  };
+
+  // Navegação por teclado para usuários
+  const handleUsuarioKeyDown = (e) => {
+    if (!usuarioDropdownVisivel || usuariosOpcoes.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      setUsuarioSelectedIndex((prev) => Math.min(prev + 1, usuariosOpcoes.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      setUsuarioSelectedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter' && usuarioSelectedIndex >= 0) {
+      selecionarUsuario(usuariosOpcoes[ usuarioSelectedIndex ]);
+    }
+  };
+
+  // Função para limpar erro de um campo específico
+  const limparErroCampo = (campo) => {
+    setCamposComErro(prev => {
+      const novoErros = { ...prev };
+      delete novoErros[campo];
+      return novoErros;
+    });
+  };
+
   // Função para limpar todos os campos do modal
   const limparCampos = () => {
     // Limpar inputs de texto
@@ -109,7 +343,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     // Resetar estados do React
     setUsuarios([]);
     setServicos([]);
-    setNovoUsuario('');
     setIsLider(false);
     setOcorrenciaSemEndereco(false);
 
@@ -132,10 +365,23 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
       clearTimeout(equipeDebounceRef.current);
     }
 
+    // Resetar estados do usuário
+    setUsuariosOpcoes([]);
+    setUsuarioDropdownVisivel(false);
+    setUsuarioSelectedIndex(-1);
+    setUsuarioSelecionado('');
+    setUsuarioInfo({ matricula: '', nome: '', cpf: '' });
+    if (usuarioDebounceRef.current) {
+      clearTimeout(usuarioDebounceRef.current);
+    }
+
     // Resetar estados do alert
     setAlertVisible(false);
     setAlertMessage('');
     setAlertColor('success');
+
+    // Limpar erros de validação
+    setCamposComErro({});
   };
 
   // Função para exibir alertas
@@ -144,11 +390,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     setAlertColor(color);
     setAlertVisible(true);
 
-    // Auto-hide após 4 segundos
+    // Auto-hide após tempo variável dependendo do tipo
+    const timeoutDuration = color === 'danger' ? 8000 : 4000; // 8 segundos para erros, 4 para sucesso
     setTimeout(() => {
       setAlertVisible(false);
-    }, 4000);
-    
+    }, timeoutDuration);
+
     // Se houver função de alerta no componente pai, também exibe lá
     if (showAlertParent) {
       showAlertParent(message, color);
@@ -188,10 +435,26 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     }
   }, [ visible ]);
 
+  // Esconde erros individuais após 5 segundos
+  useEffect(() => {
+    if (Object.keys(camposComErro).length > 0) {
+      const timeout = setTimeout(() => {
+        setCamposComErro({});
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [ camposComErro ]);
+
   const adicionarUsuario = () => {
-    if (novoUsuario.trim() !== '') {
-      setUsuarios([ ...usuarios, { nome: novoUsuario, lider: isLider } ]);
-      setNovoUsuario('');
+    if (usuarioInfo.nome && usuarioInfo.matricula) {
+      setUsuarios([ ...usuarios, {
+        nome: usuarioInfo.nome,
+        matricula: usuarioInfo.matricula,
+        cpf: usuarioInfo.cpf,
+        lider: isLider
+      } ]);
+      setUsuarioSelecionado('');
+      setUsuarioInfo({ matricula: '', nome: '', cpf: '' });
       setIsLider(false);
     }
   };
@@ -233,12 +496,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
 
     try {
       console.log('Carregando todos os serviços do Protheus...');
-      
+
       // Usar a função consultarServicosProtheus sem parâmetros para buscar todos
       const dados = await consultarServicosProtheus();
-      
+
       console.log('Dados recebidos da API:', dados);
-      
+
       // A função já retorna diretamente o array de dados
       if (Array.isArray(dados)) {
         setTodosServicos(dados);
@@ -327,9 +590,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     atualizarServico(index, 'servico', textoExibicao);
     atualizarServico(index, 'servicoSelecionado', servico);
 
-    // Preencher automaticamente apenas o valor do grupo se disponível
+    // Preencher automaticamente o valor do grupo e valor do serviço
     if (servico.valorGrupo && servico.valorGrupo > 0) {
       atualizarServico(index, 'valorGrupo', servico.valorGrupo.toString());
+    }
+    if (servico.valorPontos && servico.valorPontos > 0) {
+      atualizarServico(index, 'valorServico', servico.valorPontos.toString());
     }
 
     setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
@@ -374,7 +640,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   const handleCentroCustoChange = (e) => {
     const valor = e.target.value;
     setCentroCustoSelecionado(valor);
-    
+
     // Encontrar o objeto completo do centro de custo selecionado
     const centroCusto = centroCustoOpcoes.find(cc => cc.centroCusto === valor);
     console.log('Centro de custo selecionado:', centroCusto);
@@ -492,7 +758,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
       case 'Enter':
         e.preventDefault();
         if (equipeSelectedIndex >= 0 && equipeSelectedIndex < maxResults) {
-          selecionarEquipe(equipesOpcoes[equipeSelectedIndex]);
+          selecionarEquipe(equipesOpcoes[ equipeSelectedIndex ]);
         }
         break;
       case 'Escape':
@@ -519,6 +785,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         setEquipeDropdownVisivel(false);
         setEquipeSelectedIndex(-1);
       }
+
+      // Fechar dropdown de usuários quando clicar fora
+      if (usuarioRef.current && !usuarioRef.current.contains(event.target)) {
+        setUsuarioDropdownVisivel(false);
+        setUsuarioSelectedIndex(-1);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -533,6 +805,10 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
       // Limpar timeout das equipes
       if (equipeDebounceRef.current) {
         clearTimeout(equipeDebounceRef.current);
+      }
+      // Limpar timeout dos usuários
+      if (usuarioDebounceRef.current) {
+        clearTimeout(usuarioDebounceRef.current);
       }
     };
   }, []);
@@ -558,17 +834,24 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
             color={alertColor}
             dismissible
             onClose={() => setAlertVisible(false)}
-            className="d-flex align-items-center mb-3"
-            style={{ animation: 'fadeIn 0.3s' }}
+            className={`d-flex align-items-start mb-3 ${alertColor === 'danger' ? 'border-danger' : ''}`}
+            style={{ 
+              animation: 'fadeIn 0.3s',
+              boxShadow: alertColor === 'danger' ? '0 4px 12px rgba(220, 53, 69, 0.3)' : '0 4px 12px rgba(25, 135, 84, 0.3)',
+              zIndex: 1060
+            }}
           >
-            <div>
+            <div className="flex-shrink-0 me-2 mt-1">
               {alertColor === 'success' ? (
-                <CIcon icon={cilCheckAlt} className="me-2" />
+                <CIcon icon={cilCheckAlt} />
               ) : (
-                <CIcon icon={cilX} className="me-2" />
+                <CIcon icon={cilX} />
               )}
-              {alertMessage}
             </div>
+            <div 
+              className="flex-grow-1" 
+              dangerouslySetInnerHTML={{ __html: alertMessage }}
+            />
           </CAlert>
         )}
 
@@ -576,15 +859,40 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CRow className="mb-4">
           <CCol md={3}>
             <CFormLabel htmlFor="numeroOS" className="mb-1">Número OS:</CFormLabel>
-            <CFormInput id="numeroOS" />
+            <CFormInput 
+              id="numeroOS" 
+              className={camposComErro.numeroOS ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('numeroOS')}
+            />
+            {camposComErro.numeroOS && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.numeroOS}
+              </div>
+            )}
           </CCol>
           <CCol md={3}>
             <CFormLabel htmlFor="unConsumidora" className="mb-1">UN. Consumidora:</CFormLabel>
-            <CFormInput id="unConsumidora" />
+            <CFormInput 
+              id="unConsumidora" 
+              className={camposComErro.unConsumidora ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('unConsumidora')}
+            />
+            {camposComErro.unConsumidora && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.unConsumidora}
+              </div>
+            )}
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="status" className="mb-1">Status:</CFormLabel>
-            <CFormSelect id="status">
+            <CFormSelect 
+              id="status"
+              className={camposComErro.status ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('status')}
+            >
+              <option value="">Selecione...</option>
               <option value="cancelado">Cancelado</option>
               <option value="concluido">Concluído</option>
               <option value="dsr">DSR</option>
@@ -601,6 +909,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               <option value="reprovado">Reprovado</option>
               <option value="trocar_status">Trocar Status</option>
             </CFormSelect>
+            {camposComErro.status && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.status}
+              </div>
+            )}
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="data" className="mb-1">Data:</CFormLabel>
@@ -608,12 +922,30 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               type="date"
               id="data"
               placeholder="dd/mm/aaaa"
+              className={camposComErro.data ? 'campo-erro' : ''}
             />
+            {camposComErro.data && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.data}
+              </div>
+            )}
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="hora" className="mb-1">Hora:</CFormLabel>
             <div>
-              <CFormInput type="time" id="hora" placeholder="--" />
+              <CFormInput 
+                type="time" 
+                id="hora" 
+                placeholder="--" 
+                className={camposComErro.hora ? 'campo-erro' : ''}
+              />
+              {camposComErro.hora && (
+                <div className="texto-erro fade-in-error">
+                  <CIcon icon={cilX} size="sm" />
+                  {camposComErro.hora}
+                </div>
+              )}
             </div>
           </CCol>
         </CRow>
@@ -622,19 +954,136 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CRow className="mb-4">
           <CCol md={5}>
             <CFormLabel htmlFor="endereco" className="mb-1">Endereço:</CFormLabel>
-            <CFormInput id="endereco" readOnly={ocorrenciaSemEndereco} className={ocorrenciaSemEndereco ? 'bg-light' : ''} />
+            <CFormInput 
+              id="endereco" 
+              readOnly={ocorrenciaSemEndereco} 
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.endereco ? 'campo-erro' : ''}`} 
+            />
+            {camposComErro.endereco && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.endereco}
+              </div>
+            )}
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="bairro" className="mb-1">Bairro:</CFormLabel>
-            <CFormInput id="bairro" readOnly={ocorrenciaSemEndereco} className={ocorrenciaSemEndereco ? 'bg-light' : ''} />
+            <CFormInput 
+              id="bairro" 
+              readOnly={ocorrenciaSemEndereco} 
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.bairro ? 'campo-erro' : ''}`} 
+            />
+            {camposComErro.bairro && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.bairro}
+              </div>
+            )}
           </CCol>
           <CCol md={3}>
             <CFormLabel htmlFor="municipio" className="mb-1">Município:</CFormLabel>
-            <CFormInput id="municipio" />
+            <div style={{ position: 'relative' }} ref={municipioRef}>
+              <CFormInput
+                id="municipio"
+                value={municipioSelecionado}
+                onChange={handleMunicipioChange}
+                onKeyDown={handleMunicipioKeyDown}
+                placeholder="Digite o município"
+                autoComplete="off"
+                className={camposComErro.municipio ? 'campo-erro' : ''}
+              />
+              {camposComErro.municipio && (
+                <div className="texto-erro fade-in-error">
+                  <CIcon icon={cilX} size="sm" />
+                  {camposComErro.municipio}
+                </div>
+              )}
+              {loadingMunicipios && municipioDropdownVisivel && (
+                <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                  <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                    <span className="visually-hidden">Carregando...</span>
+                  </div>
+                </div>
+              )}
+              {municipioDropdownVisivel && municipiosOpcoes.length > 0 && (
+                <div
+                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                  style={{
+                    zIndex: 1050,
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                    top: '100%'
+                  }}
+                >
+                  <CListGroup flush>
+                    {municipiosOpcoes.slice(0, 10).map((m, idx) => (
+                      <CListGroupItem
+                        key={m.codigo}
+                        className={`cursor-pointer py-1 px-2 ${municipioSelectedIndex === idx ? 'bg-light' : ''}`}
+                        style={{
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s',
+                          backgroundColor: municipioSelectedIndex === idx ? '#f8f9fa' : 'white',
+                          fontSize: '0.8rem'
+                        }}
+                        onMouseDown={() => selecionarMunicipio(m)}
+                        onMouseEnter={(e) => {
+                          if (municipioSelectedIndex !== idx) {
+                            e.target.style.backgroundColor = '#f8f9fa';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (municipioSelectedIndex !== idx) {
+                            e.target.style.backgroundColor = 'white';
+                          }
+                        }}
+                      >
+                        <div>
+                          <strong>{m.codigo.trim()}</strong>
+                          {m.descricao && (
+                            <div className="text-muted small">
+                              {m.descricao.trim()} ({m.estado.trim()})
+                            </div>
+                          )}
+                        </div>
+                      </CListGroupItem>
+                    ))}
+                    {municipiosOpcoes.length >= 20 && (
+                      <CListGroupItem className="text-center text-muted py-1">
+                        <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                      </CListGroupItem>
+                    )}
+                  </CListGroup>
+                </div>
+              )}
+              {municipioDropdownVisivel && municipiosOpcoes.length === 0 && !loadingMunicipios && municipioSelecionado.length >= 2 && (
+                <div
+                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                  style={{
+                    zIndex: 1050,
+                    top: '100%'
+                  }}
+                >
+                  <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                    Nenhum município encontrado
+                  </div>
+                </div>
+              )}
+            </div>
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="cep" className="mb-1">CEP:</CFormLabel>
-            <CFormInput id="cep" readOnly={ocorrenciaSemEndereco} className={ocorrenciaSemEndereco ? 'bg-light' : ''} />
+            <CFormInput 
+              id="cep" 
+              readOnly={ocorrenciaSemEndereco} 
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.cep ? 'campo-erro' : ''}`} 
+            />
+            {camposComErro.cep && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.cep}
+              </div>
+            )}
           </CCol>
         </CRow>
 
@@ -654,11 +1103,31 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CRow className="mb-4">
           <CCol md={4}>
             <CFormLabel htmlFor="latitude" className="mb-1">Latitude:</CFormLabel>
-            <CFormInput id="latitude" readOnly={ocorrenciaSemEndereco} className={ocorrenciaSemEndereco ? 'bg-light' : ''} />
+            <CFormInput 
+              id="latitude" 
+              readOnly={ocorrenciaSemEndereco} 
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.latitude ? 'campo-erro' : ''}`} 
+            />
+            {camposComErro.latitude && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.latitude}
+              </div>
+            )}
           </CCol>
           <CCol md={4}>
             <CFormLabel htmlFor="longitude" className="mb-1">Longitude:</CFormLabel>
-            <CFormInput id="longitude" readOnly={ocorrenciaSemEndereco} className={ocorrenciaSemEndereco ? 'bg-light' : ''} />
+            <CFormInput 
+              id="longitude" 
+              readOnly={ocorrenciaSemEndereco} 
+              className={`${ocorrenciaSemEndereco ? 'bg-light' : ''} ${camposComErro.longitude ? 'campo-erro' : ''}`} 
+            />
+            {camposComErro.longitude && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.longitude}
+              </div>
+            )}
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="dataConclusao" className="mb-1">Data Conclusão:</CFormLabel>
@@ -666,16 +1135,30 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               type="date"
               id="dataConclusao"
               placeholder="dd/mm/aaaa"
+              className={camposComErro.dataConclusao ? 'campo-erro' : ''}
             />
+            {camposComErro.dataConclusao && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.dataConclusao}
+              </div>
+            )}
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="horaConclusao" className="mb-1">Hora Conclusão:</CFormLabel>
-            <div >
+            <div>
               <CFormInput
                 type="time"
                 id="horaConclusao"
                 placeholder="--"
+                className={camposComErro.horaConclusao ? 'campo-erro' : ''}
               />
+              {camposComErro.horaConclusao && (
+                <div className="texto-erro fade-in-error">
+                  <CIcon icon={cilX} size="sm" />
+                  {camposComErro.horaConclusao}
+                </div>
+              )}
             </div>
           </CCol>
         </CRow>
@@ -692,7 +1175,14 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 onKeyDown={handleEquipeKeyDown}
                 placeholder="Digite número ou descrição..."
                 autoComplete="off"
+                className={camposComErro.numeroOperacional ? 'campo-erro' : ''}
               />
+              {camposComErro.numeroOperacional && (
+                <div className="texto-erro fade-in-error">
+                  <CIcon icon={cilX} size="sm" />
+                  {camposComErro.numeroOperacional}
+                </div>
+              )}
               {loadingEquipes && equipeDropdownVisivel && (
                 <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
                   <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
@@ -784,6 +1274,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                   id="centroDeCustos"
                   value={centroCustoSelecionado}
                   onChange={handleCentroCustoChange}
+                  className={camposComErro.centroDeCustos ? 'campo-erro' : ''}
                 >
                   <option value="">Selecione um centro de custo</option>
                   {centroCustoOpcoes.map((centroCusto, index) => (
@@ -792,6 +1283,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                     </option>
                   ))}
                 </CFormSelect>
+              )}
+              {camposComErro.centroDeCustos && (
+                <div className="texto-erro fade-in-error">
+                  <CIcon icon={cilX} size="sm" />
+                  {camposComErro.centroDeCustos}
+                </div>
               )}
             </div>
           </CCol>
@@ -809,18 +1306,103 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               Adicionar Usuário
             </CButton>
           </div>
+          {camposComErro.usuarios && (
+            <div className="texto-erro fade-in-error mb-2">
+              <CIcon icon={cilX} size="sm" />
+              {camposComErro.usuarios}
+            </div>
+          )}
+          {camposComErro.lider && (
+            <div className="texto-erro fade-in-error mb-2">
+              <CIcon icon={cilX} size="sm" />
+              {camposComErro.lider}
+            </div>
+          )}
 
           <CCard className="border">
             <CCardBody className="p-3">
               <CRow className="mb-3 align-items-center">
-                <CCol md={8}>
-                  <CFormInput
-                    value={novoUsuario}
-                    onChange={(e) => setNovoUsuario(e.target.value)}
-                    placeholder="Nome do usuário"
-                  />
+                <CCol md={7}>
+                  <div className="position-relative" ref={usuarioRef}>
+                    <CFormInput
+                      value={usuarioSelecionado}
+                      onChange={handleUsuarioChange}
+                      onKeyDown={handleUsuarioKeyDown}
+                      placeholder="Digite nome, matrícula ou CPF do usuário"
+                      autoComplete="off"
+                    />
+                    {loadingUsuarios && usuarioDropdownVisivel && (
+                      <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                        <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                          <span className="visually-hidden">Carregando...</span>
+                        </div>
+                      </div>
+                    )}
+                    {usuarioDropdownVisivel && usuariosOpcoes.length > 0 && (
+                      <div
+                        className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                        style={{
+                          zIndex: 1050,
+                          maxHeight: '150px',
+                          overflowY: 'auto',
+                          top: '100%'
+                        }}
+                      >
+                        <CListGroup flush>
+                          {usuariosOpcoes.slice(0, 10).map((u, idx) => (
+                            <CListGroupItem
+                              key={u.matricula}
+                              className={`cursor-pointer py-1 px-2 ${usuarioSelectedIndex === idx ? 'bg-light' : ''}`}
+                              style={{
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s',
+                                backgroundColor: usuarioSelectedIndex === idx ? '#f8f9fa' : 'white',
+                                fontSize: '0.8rem'
+                              }}
+                              onMouseDown={() => selecionarUsuario(u)}
+                              onMouseEnter={(e) => {
+                                if (usuarioSelectedIndex !== idx) {
+                                  e.target.style.backgroundColor = '#f8f9fa';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (usuarioSelectedIndex !== idx) {
+                                  e.target.style.backgroundColor = 'white';
+                                }
+                              }}
+                            >
+                              <div>
+                                <strong>{u.nome?.trim()}</strong>
+                                <div className="text-muted small">
+                                  Mat: {u.matricula} | CPF: {u.cpf} | Tipo: {u.tipoUsuario}
+                                </div>
+                              </div>
+                            </CListGroupItem>
+                          ))}
+                          {usuariosOpcoes.length >= 20 && (
+                            <CListGroupItem className="text-center text-muted py-1">
+                              <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                            </CListGroupItem>
+                          )}
+                        </CListGroup>
+                      </div>
+                    )}
+                    {usuarioDropdownVisivel && usuariosOpcoes.length === 0 && !loadingUsuarios && usuarioSelecionado.length >= 2 && (
+                      <div
+                        className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                        style={{
+                          zIndex: 1050,
+                          top: '100%'
+                        }}
+                      >
+                        <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                          Nenhum usuário encontrado
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CCol>
-                <CCol md={2} className="text-center">
+                <CCol md={3} className="text-center">
                   <CFormCheck
                     id="checkLider"
                     label="Líder"
@@ -841,6 +1423,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>Usuário</CTableHeaderCell>
+                    <CTableHeaderCell>Matrícula</CTableHeaderCell>
                     <CTableHeaderCell className="text-center">Líder</CTableHeaderCell>
                     <CTableHeaderCell className="text-center">Ação</CTableHeaderCell>
                   </CTableRow>
@@ -849,6 +1432,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                   {usuarios.map((usuario, index) => (
                     <CTableRow key={index}>
                       <CTableDataCell>{usuario.nome}</CTableDataCell>
+                      <CTableDataCell>{usuario.matricula}</CTableDataCell>
                       <CTableDataCell className="text-center">
                         {usuario.lider ? (
                           <CIcon icon={cilCheckAlt} className="text-success" />
@@ -885,6 +1469,12 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               Adicionar Serviço
             </CButton>
           </div>
+          {camposComErro.servicos && (
+            <div className="texto-erro fade-in-error mb-2">
+              <CIcon icon={cilX} size="sm" />
+              {camposComErro.servicos}
+            </div>
+          )}
 
           <CCard className="border">
             <CCardHeader className="bg-light py-2">
@@ -1024,6 +1614,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                         placeholder="Valor"
                         type="number"
                         step="0.01"
+                        readOnly
+                        className="bg-light" // Adiciona um estilo visual para campos readonly
                       />
                     </CCol>
                     <CCol md={2}>
@@ -1034,6 +1626,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                         placeholder="Valor"
                         type="number"
                         step="0.01"
+                        className="bg-light" // Adiciona um estilo visual para campos readonly
                       />
                     </CCol>
                     <CCol md={1}>
@@ -1081,47 +1674,119 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
             // Ativar loading
             setIsSubmitting(true);
             if (setLoadingParent) setLoadingParent(true);
-            
+
             try {
-              // Validação básica
-              const numeroOs = document.getElementById('numeroOS').value;
-              if (!numeroOs) {
-                mostrarAlert('O número da OS é obrigatório', 'danger');
+              // Função para validar campos obrigatórios
+              const validarCampos = () => {
+                const erros = {};
+
+                // Limpar erros anteriores
+                setCamposComErro({});
+
+                // Campos sempre obrigatórios
+                const numeroOs = document.getElementById('numeroOS').value.trim();
+                const unConsumidora = document.getElementById('unConsumidora').value.trim();
+                const status = document.getElementById('status').value;
+                const data = document.getElementById('data').value;
+                const hora = document.getElementById('hora').value;
+                const dataConclusao = document.getElementById('dataConclusao').value;
+                const horaConclusao = document.getElementById('horaConclusao').value;
+                const numeroOperacional = document.getElementById('numeroOperacional').value.trim();
+                const municipio = document.getElementById('municipio').value.trim();
+
+                // Validar campos sempre obrigatórios
+                if (!numeroOs) erros.numeroOS = 'Este campo é obrigatório';
+                if (!unConsumidora) erros.unConsumidora = 'Este campo é obrigatório';
+                if (!status) erros.status = 'Este campo é obrigatório';
+                if (!data) erros.data = 'Este campo é obrigatório';
+                if (!hora) erros.hora = 'Este campo é obrigatório';
+                if (!dataConclusao) erros.dataConclusao = 'Este campo é obrigatório';
+                if (!horaConclusao) erros.horaConclusao = 'Este campo é obrigatório';
+                if (!numeroOperacional) erros.numeroOperacional = 'Este campo é obrigatório';
+                if (!municipio) erros.municipio = 'Este campo é obrigatório';
+                if (!centroCustoSelecionado) erros.centroDeCustos = 'Este campo é obrigatório';
+
+                // Campos condicionais - só obrigatórios se NÃO for ocorrência sem endereço
+                if (!ocorrenciaSemEndereco) {
+                  const endereco = document.getElementById('endereco').value.trim();
+                  const bairro = document.getElementById('bairro').value.trim();
+                  const cep = document.getElementById('cep').value.trim();
+                  const latitude = document.getElementById('latitude').value.trim();
+                  const longitude = document.getElementById('longitude').value.trim();
+
+                  if (!endereco) erros.endereco = 'Este campo é obrigatório';
+                  if (!bairro) erros.bairro = 'Este campo é obrigatório';
+                  if (!cep) erros.cep = 'Este campo é obrigatório';
+                  if (!latitude) erros.latitude = 'Este campo é obrigatório';
+                  if (!longitude) erros.longitude = 'Este campo é obrigatório';
+                }
+
+                // Validar se tem pelo menos um usuário
+                if (usuarios.length === 0) {
+                  erros.usuarios = 'Pelo menos um usuário deve ser adicionado';
+                }
+
+                // Validar se tem pelo menos um serviço
+                if (servicos.length === 0) {
+                  erros.servicos = 'Pelo menos um serviço deve ser adicionado';
+                }
+
+                // Validar se pelo menos um usuário é líder
+                const temLider = usuarios.some(u => u.lider);
+                if (usuarios.length > 0 && !temLider) {
+                  erros.lider = 'Pelo menos um usuário deve ser marcado como líder';
+                }
+
+                // Definir erros nos campos
+                if (Object.keys(erros).length > 0) {
+                  setCamposComErro(erros);
+                }
+
+                return Object.keys(erros).length > 0;
+              };
+
+              // Executar validação
+              const temErros = validarCampos();
+
+              if (temErros) {
+                mostrarAlert('Por favor, corrija os campos destacados em vermelho.', 'danger');
                 setIsSubmitting(false);
                 if (setLoadingParent) setLoadingParent(false);
                 return;
               }
-              
-              // Coleta dos dados dos inputs
-              const unidadeConsumidora = document.getElementById('unConsumidora').value;
+
+              // Coleta dos dados dos inputs (após validação)
+              const numeroOs = document.getElementById('numeroOS').value.trim();
+              const unidadeConsumidora = document.getElementById('unConsumidora').value.trim();
               const status = document.getElementById('status').value;
               const data = document.getElementById('data').value.replace(/-/g, '');
               const hora = document.getElementById('hora').value;
-              const endereco = document.getElementById('endereco').value;
-              const bairro = document.getElementById('bairro').value;
-              const codMunicipio = document.getElementById('municipio').value;
-              const cep = document.getElementById('cep').value;
-              const latitude = document.getElementById('latitude').value;
-              const longitude = document.getElementById('longitude').value;
+              const endereco = ocorrenciaSemEndereco ? '' : document.getElementById('endereco').value.trim();
+              const bairro = ocorrenciaSemEndereco ? '' : document.getElementById('bairro').value.trim();
+              const codMunicipio = document.getElementById('municipio').value.trim();
+              const cep = ocorrenciaSemEndereco ? '' : document.getElementById('cep').value.trim();
+              const latitude = ocorrenciaSemEndereco ? '' : document.getElementById('latitude').value.trim();
+              const longitude = ocorrenciaSemEndereco ? '' : document.getElementById('longitude').value.trim();
               const dataConclusao = document.getElementById('dataConclusao').value.replace(/-/g, '');
               const horaConclusao = document.getElementById('horaConclusao').value;
-              const centroCusto = centroCustoSelecionado || '';
-              const numOperacional = document.getElementById('numeroOperacional').value;
+              const centroCusto = centroCustoSelecionado;
+              const numOperacional = document.getElementById('numeroOperacional').value.trim();
+              
               // Pega o CPF e matrícula do usuário logado do localStorage
               const cpfInclusao = localStorage.getItem('cpf') || '00000000000';
               const matInclusao = localStorage.getItem('matricula') || '000000';
 
               // Monta array de usuários
               const usuariosReq = usuarios.map(u => ({
-                cpf: localStorage.getItem('cpf') || '00000000000', // CPF do usuário logado
-                matricula: localStorage.getItem('matricula') || '000000', // Matrícula do usuário logado
+                cpf: u.cpf || '00000000000',
+                matricula: u.matricula || '000000',
                 lider: u.lider ? 'S' : 'N'
               }));
 
               // Monta array de serviços
               const servicosReq = servicos.map(s => ({
                 idServico: s.servicoSelecionado?.idServico || s.servico,
-                observacao: s.observacao,
+                observacao: s.observacao || '',
                 quantidade: Number(s.quantidade) || 0,
                 valPontos: Number(s.valorServico) || 0,
                 valGrupo: Number(s.valorGrupo) || 0,
@@ -1166,15 +1831,15 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
 
               if (response.ok) {
                 mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
-                
+
                 if (onSuccess && typeof onSuccess === 'function') {
                   onSuccess();
                 }
-                
+
                 setTimeout(() => {
                   limparCampos();
                   setVisible(false);
-                }, 1000); 
+                }, 1000);
               } else {
                 const errorMsg = result.message || 'Erro ao registrar ordem de serviço. Tente novamente.';
                 mostrarAlert(errorMsg, 'danger');
@@ -1192,7 +1857,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         >
           {isSubmitting ? (
             <>
-              <CSpinner size="sm" className="me-2" /> 
+              <CSpinner size="sm" className="me-2" />
               Processando...
             </>
           ) : (

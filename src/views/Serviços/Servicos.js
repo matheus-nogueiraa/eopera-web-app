@@ -17,6 +17,16 @@ const styles = `
     from { opacity: 0; transform: translateY(-20px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  
+  .alert-danger {
+    border-left: 4px solid #dc3545 !important;
+  }
+  
+  .alert-danger ul {
+    margin: 0;
+    padding-left: 1rem;
+    line-height: 1.6;
+  }
 `;
 
 const criarConteudos = () => {
@@ -52,10 +62,11 @@ const criarConteudos = () => {
       color
     });
 
-    // Esconder alerta após 5 segundos
+    // Esconder alerta após tempo variável dependendo do tipo
+    const timeoutDuration = color === 'danger' ? 10000 : 5000; // 10 segundos para erros, 5 para sucesso
     setTimeout(() => {
       setAlert(prev => ({ ...prev, visible: false }));
-    }, 5000);
+    }, timeoutDuration);
   };
 
   const handleCadastroSucesso = () => {
@@ -77,18 +88,25 @@ const criarConteudos = () => {
           color={alert.color}
           dismissible
           onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
-          className="mb-4 animate-alert"
+          className={`mb-4 animate-alert d-flex align-items-start ${alert.color === 'danger' ? 'border-danger' : ''}`}
           style={{ 
             animation: 'fadeSlideDown 0.5s ease-out',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            boxShadow: alert.color === 'danger' ? '0 4px 12px rgba(220, 53, 69, 0.3)' : '0 4px 12px rgba(25, 135, 84, 0.3)',
+            position: 'relative',
+            zIndex: 1050
           }}
         >
-          {alert.color === 'success' ? (
-            <CIcon icon={cilCheckCircle} className="me-2" />
-          ) : (
-            <CIcon icon={cilX} className="me-2" />
-          )}
-          {alert.message}
+          <div className="flex-shrink-0 me-2 mt-1">
+            {alert.color === 'success' ? (
+              <CIcon icon={cilCheckCircle} />
+            ) : (
+              <CIcon icon={cilX} />
+            )}
+          </div>
+          <div 
+            className="flex-grow-1" 
+            dangerouslySetInnerHTML={{ __html: alert.message }}
+          />
         </CAlert>
       )}
       
