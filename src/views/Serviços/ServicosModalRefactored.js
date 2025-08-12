@@ -25,7 +25,7 @@ import TabsContainer from './components/TabsContainer';
 // Import utilities
 import { validateForm, hasValidationErrors } from './utils/validations';
 import { formatFormDataForSubmission } from './utils/formatters';
-import { HIDE_FIELD_ERROR_DELAY, CSS_STYLES } from './utils/constants';
+import { HIDE_FIELD_ERROR_DELAY } from './utils/constants';
 
 // Import services
 import { consultarCentroCusto } from '../../services/centroCustoService';
@@ -34,20 +34,14 @@ import { consultarEquipes } from '../../services/equipesService';
 import { consultarUsuariosEoperaX } from '../../services/usuariosService';
 import httpRequest from '../../utils/httpRequests';
 
-// Add styles to document head
-if (!document.head.querySelector('#servicos-modal-styles')) {
-  const styleSheet = document.createElement("style");
-  styleSheet.id = "servicos-modal-styles";
-  styleSheet.type = "text/css";
-  styleSheet.innerText = CSS_STYLES;
-  document.head.appendChild(styleSheet);
-}
+// Import styles
+import './styles/ServicosModal.css';
 
 /**
  * Refactored ServicosModal Component
  * @param {Object} props - Component props
  */
-const ServicosModal = ({ 
+const ServicosModalRefactored = ({ 
   visible, 
   setVisible, 
   setLoadingParent, 
@@ -420,7 +414,7 @@ const ServicosModal = ({
   );
 };
 
-ServicosModal.propTypes = {
+ServicosModalRefactored.propTypes = {
   visible: PropTypes.bool.isRequired,
   setVisible: PropTypes.func.isRequired,
   setLoadingParent: PropTypes.func,
@@ -428,10 +422,10 @@ ServicosModal.propTypes = {
   onSuccess: PropTypes.func
 };
 
-ServicosModal.defaultProps = {
+ServicosModalRefactored.defaultProps = {
   setLoadingParent: null,
   showAlertParent: null,
   onSuccess: null
 };
 
-export default ServicosModal;
+export default ServicosModalRefactored;
