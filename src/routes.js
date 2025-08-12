@@ -10,7 +10,7 @@ const Atestados = React.lazy(() => import('./views/atestados/Atestados'))
 const ConsultaAtestados = React.lazy(() => import('./views/consulta-atestados/ConsultarAtestados'))
 const Certificados = React.lazy(() => import('./views/certificados/Certificados'))
 const Turmas = React.lazy(() => import('./views/turmas/Turmas'))
-const Servicos = React.lazy(() => import('./views/serviços/servicos'))
+const Servicos = React.lazy(() => import('./views/Serviços/Servicos'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home' },
