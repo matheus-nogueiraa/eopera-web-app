@@ -71,7 +71,7 @@ const Login = () => {
         body: JSON.stringify({ cpf, senha }),
       });
 
-      const responseText = await response.text();
+      const responseText = await response;
       
       let data;
       try {
@@ -141,7 +141,7 @@ const Login = () => {
             top: 20,
             right: 20,
             zIndex: 9999,
-            background: toast.type === 'success' ? '#90171B' : '#dc3545',
+            background: toast.type === 'success' ? '#28a745' : '#dc3545',
             color: '#fff',
             padding: '12px 24px',
             borderRadius: 8,
