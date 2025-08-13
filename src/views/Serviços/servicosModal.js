@@ -2287,10 +2287,10 @@ const ServicosModal = ({
                         type="number"
                         step="0.01"
                         className="bg-light" // Adiciona um estilo visual para campos readonly
-                      />
-                    </CCol>
-                    <CCol md={1}>
-                      <CFormInput
+                        />
+                      </CCol>
+                      <CCol md={1}>
+                        <CFormInput
                         value={servico.quantidade}
                         onChange={(e) => atualizarServico(index, 'quantidade', e.target.value)}
                         size="sm"
@@ -2298,10 +2298,10 @@ const ServicosModal = ({
                         type="number"
                         min="1"
                         readOnly={modoVisualizacao}
-                      />
-                    </CCol>
-                    <CCol md={3}>
-                      <div className="mb-2">
+                        />
+                      </CCol>
+                      <CCol md={3}>
+                        <div className="mb-2">
                         <input
                           type="file"
                           accept="image/*"
@@ -2320,71 +2320,72 @@ const ServicosModal = ({
                           <CIcon icon={cilCamera} className="me-1" />
                           Adicionar Fotos
                         </CButton>
-                      </div>
-                      {servico.fotos && servico.fotos.length > 0 && (
+                        </div>
+                        {servico.fotos && servico.fotos.length > 0 && servico.fotos.some(f => f.base64) ? (
                         <div className="d-flex flex-wrap gap-1">
                           {servico.fotos.map((foto, fotoIndex) => (
+                          foto.base64 ? (
                             <div key={fotoIndex} className="position-relative" style={{ width: '40px', height: '40px' }}>
-                              <img
-                                src={`data:image/jpeg;base64,${foto.base64}`}
-                                alt={`Foto ${fotoIndex + 1}`}
-                                style={{
-                                  width: '40px',
-                                  height: '40px',
-                                  objectFit: 'cover',
-                                  borderRadius: '4px',
-                                  border: '1px solid #dee2e6'
-                                }}
-                              />
-                              <button
-                                type="button"
-                                className="btn btn-danger btn-sm position-absolute"
-                                style={{
-                                  top: '-5px',
-                                  right: '-5px',
-                                  width: '18px',
-                                  height: '18px',
-                                  padding: '0',
-                                  borderRadius: '50%',
-                                  fontSize: '10px',
-                                  lineHeight: '1'
-                                }}
-                                onClick={() => removerFoto(index, fotoIndex)}
-                                title="Remover foto"
-                              >
-                                ×
-                              </button>
+                            <img
+                              src={`data:image/jpeg;base64,${foto.base64}`}
+                              style={{
+                              width: '40px',
+                              height: '40px',
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #dee2e6'
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm position-absolute"
+                              style={{
+                              top: '-5px',
+                              right: '-5px',
+                              width: '18px',
+                              height: '18px',
+                              padding: '0',
+                              borderRadius: '50%',
+                              fontSize: '10px',
+                              lineHeight: '1'
+                              }}
+                              onClick={() => removerFoto(index, fotoIndex)}
+                              title="Remover foto"
+                            >
+                              ×
+                            </button>
                             </div>
+                          ) : null
                           ))}
                         </div>
-                      )}
-                      {servico.fotos && servico.fotos.length > 0 && (
+                        ) : null}
+                        {servico.fotos && servico.fotos.length > 0 && (
                         <small className="text-muted d-block mt-1">
                           {servico.fotos.length} foto{servico.fotos.length > 1 ? 's' : ''} adicionada{servico.fotos.length > 1 ? 's' : ''}
                         </small>
-                      )}
-                    </CCol>
-                    <CCol md={1} className="text-center">
-                      <CButton
+                        )}
+                      </CCol>
+                      <CCol md={1} className="text-center">
+                        <CButton
                         color="light"
                         size="sm"
                         onClick={() => removerServico(index)}
                         title="Remover serviço"
-                      >
+                        >
                         <CIcon icon={cilX} />
-                      </CButton>
-                    </CCol>
-                  </CRow>
-                ))
-              )}
-            </CCardBody>
-          </CCard>
-        </div>
-      </CModalBody>
-      <CModalFooter className="bg-light border-top">
-        <CButton
-          color="secondary"
-          onClick={() => {
+                        </CButton>
+                      </CCol>
+                      </CRow>
+                    ))
+                    )}
+                  </CCardBody>
+                  </CCard>
+                </div>
+                </CModalBody>
+                <CModalFooter className="bg-light border-top">
+                <CButton
+                  color="secondary"
+                  onClick={() => {
             if (!modoVisualizacao) {
               limparCampos();
             }
