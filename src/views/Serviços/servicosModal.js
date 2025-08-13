@@ -322,9 +322,11 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   const limparCampos = () => {
     // Limpar inputs de texto
     const inputs = [
-      'numeroOS', 'unConsumidora', 'data', 'hora', 'endereco', 'bairro',
+      'numeroOS', 'unConsumidora', 'data', 'endereco', 'bairro',
       'municipio', 'cep', 'latitude', 'longitude', 'dataConclusao',
-      'horaConclusao', 'numeroOperacional'
+      'numeroOperacional', 'hrInicialDeslocamento', 'hrInicioAtividade', 
+      'hrInicioIntervalo', 'hrFimIntervalo', 'hrPrimeiroContatoCoi', 
+      'hrAutorizacaoCoi', 'hrFechamentoCoi', 'hrFimAtividade', 'hrFimDeslocamento'
     ];
 
     inputs.forEach(id => {
@@ -1025,7 +1027,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               </div>
             )}
           </CCol>
-          <CCol md={3}>
+          <CCol md={2}>
             <CFormLabel htmlFor="unConsumidora" className="mb-1">UN. Consumidora:</CFormLabel>
             <CFormInput
               id="unConsumidora"
@@ -1039,7 +1041,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               </div>
             )}
           </CCol>
-          <CCol md={2}>
+          <CCol md={3}>
             <CFormLabel htmlFor="status" className="mb-1">Status:</CFormLabel>
             <CFormSelect
               id="status"
@@ -1085,22 +1087,20 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               </div>
             )}
           </CCol>
-          <CCol md={2}>
-            <CFormLabel htmlFor="hora" className="mb-1">Hora:</CFormLabel>
-            <div>
-              <CFormInput
-                type="time"
-                id="hora"
-                placeholder="--"
-                className={camposComErro.hora ? 'campo-erro' : ''}
-              />
-              {camposComErro.hora && (
-                <div className="texto-erro fade-in-error">
-                  <CIcon icon={cilX} size="sm" />
-                  {camposComErro.hora}
-                </div>
-              )}
-            </div>
+            <CCol md={2}>
+            <CFormLabel htmlFor="dataConclusao" className="mb-1">Data Conclusão:</CFormLabel>
+            <CFormInput
+              type="date"
+              id="dataConclusao"
+              placeholder="dd/mm/aaaa"
+              className={camposComErro.dataConclusao ? 'campo-erro' : ''}
+            />
+            {camposComErro.dataConclusao && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.dataConclusao}
+              </div>
+            )}
           </CCol>
         </CRow>
 
@@ -1242,18 +1242,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           </CCol>
         </CRow>
 
-        {/* Terceira linha */}
-        <CRow className="mb-4">
-          <CCol xs={12}>
-            <CFormCheck
-              id="ocorrenciaSemEndereco"
-              label="Ocorrência sem endereço"
-              checked={ocorrenciaSemEndereco}
-              onChange={e => setOcorrenciaSemEndereco(e.target.checked)}
-            />
-          </CCol>
-        </CRow>
-
         {/* Quarta linha */}
         <CRow className="mb-4">
           <CCol md={4}>
@@ -1284,41 +1272,170 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               </div>
             )}
           </CCol>
-          <CCol md={2}>
-            <CFormLabel htmlFor="dataConclusao" className="mb-1">Data Conclusão:</CFormLabel>
-            <CFormInput
-              type="date"
-              id="dataConclusao"
-              placeholder="dd/mm/aaaa"
-              className={camposComErro.dataConclusao ? 'campo-erro' : ''}
+        </CRow>
+
+        {/* Terceira linha */}
+        <CRow className="mb-4">
+          <CCol xs={12}>
+            <CFormCheck
+              id="ocorrenciaSemEndereco"
+              label="Ocorrência sem endereço"
+              checked={ocorrenciaSemEndereco}
+              onChange={e => setOcorrenciaSemEndereco(e.target.checked)}
             />
-            {camposComErro.dataConclusao && (
-              <div className="texto-erro fade-in-error">
-                <CIcon icon={cilX} size="sm" />
-                {camposComErro.dataConclusao}
-              </div>
-            )}
-          </CCol>
-          <CCol md={2}>
-            <CFormLabel htmlFor="horaConclusao" className="mb-1">Hora Conclusão:</CFormLabel>
-            <div>
-              <CFormInput
-                type="time"
-                id="horaConclusao"
-                placeholder="--"
-                className={camposComErro.horaConclusao ? 'campo-erro' : ''}
-              />
-              {camposComErro.horaConclusao && (
-                <div className="texto-erro fade-in-error">
-                  <CIcon icon={cilX} size="sm" />
-                  {camposComErro.horaConclusao}
-                </div>
-              )}
-            </div>
           </CCol>
         </CRow>
 
-        {/* Quinta linha */}
+        <hr className="my-4" />
+        {/* Quinta linha - Campos de Horário */}
+        <CRow >
+          <CCol md={12}>
+            <h6 >Horários</h6>
+          </CCol>
+        </CRow>
+        <CRow>
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrInicialDeslocamento" className="mb-1">Hora Inicial do Deslocamento:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrInicialDeslocamento"
+              className={camposComErro.hrInicialDeslocamento ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrInicialDeslocamento')}
+            />
+            {camposComErro.hrInicialDeslocamento && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrInicialDeslocamento}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrInicioAtividade" className="mb-1">Hora Início da Atividade:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrInicioAtividade"
+              className={camposComErro.hrInicioAtividade ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrInicioAtividade')}
+            />
+            {camposComErro.hrInicioAtividade && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrInicioAtividade}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrInicioIntervalo" className="mb-1">Hora Início de Intervalo:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrInicioIntervalo"
+              className={camposComErro.hrInicioIntervalo ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrInicioIntervalo')}
+            />
+            {camposComErro.hrInicioIntervalo && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrInicioIntervalo}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrFimIntervalo" className="mb-1">Hora Fim do Intervalo:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrFimIntervalo"
+              className={camposComErro.hrFimIntervalo ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrFimIntervaloHora Fim da Atividade:')}
+            />
+            {camposComErro.hrFimIntervalo && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrFimIntervalo}
+              </div>
+            )}
+          </CCol>
+        </CRow>
+        <CRow className="mb-4 mt-3">
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrPrimeiroContatoCoi" className="mb-1">Horário de Primeiro Contato com o COI:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrPrimeiroContatoCoi"
+              className={camposComErro.hrPrimeiroContatoCoi ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrPrimeiroContatoCoi')}
+            />
+            {camposComErro.hrPrimeiroContatoCoi && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrPrimeiroContatoCoi}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrAutorizacaoCoi" className="mb-1">Horário de Autorização da Atividade COI:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrAutorizacaoCoi"
+              className={camposComErro.hrAutorizacaoCoi ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrAutorizacaoCoi')}
+            />
+            {camposComErro.hrAutorizacaoCoi && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrAutorizacaoCoi}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrFechamentoCoi" className="mb-1">Horário de Contato de Fechamento com o COI:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrFechamentoCoi"
+              className={camposComErro.hrFechamentoCoi ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrFechamentoCoi')}
+            />
+            {camposComErro.hrFechamentoCoi && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrFechamentoCoi}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrFimAtividade" className="mt-3">Hora Fim da Atividade:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrFimAtividade"
+              className={camposComErro.hrFimAtividade ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrFimAtividade')}
+            />
+            {camposComErro.hrFimAtividade && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrFimAtividade}
+              </div>
+            )}
+          </CCol>
+        </CRow>
+        <CRow className="mb-4">
+          <CCol md={3}>
+            <CFormLabel htmlFor="hrFimDeslocamento" className="mb-1">Horário Final do Deslocamento:</CFormLabel>
+            <CFormInput
+              type="time"
+              id="hrFimDeslocamento"
+              className={camposComErro.hrFimDeslocamento ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('hrFimDeslocamento')}
+            />
+            {camposComErro.hrFimDeslocamento && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.hrFimDeslocamento}
+              </div>
+            )}
+          </CCol>
+        </CRow>
+             <hr className="my-4" />
+        {/* Sexta linha */}
         <CRow className="mb-4">
           <CCol md={3}>
             <CFormLabel htmlFor="numeroOperacional" className="mb-1">Número Operacional:</CFormLabel>
@@ -1927,11 +2044,13 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 const unConsumidora = document.getElementById('unConsumidora').value.trim();
                 const status = document.getElementById('status').value;
                 const data = document.getElementById('data').value;
-                const hora = document.getElementById('hora').value;
                 const dataConclusao = document.getElementById('dataConclusao').value;
-                const horaConclusao = document.getElementById('horaConclusao').value;
                 const numeroOperacional = document.getElementById('numeroOperacional').value.trim();
                 const municipio = document.getElementById('municipio').value.trim();
+                const hrInicialDeslocamento = document.getElementById('hrInicialDeslocamento').value;
+                const hrInicioAtividade = document.getElementById('hrInicioAtividade').value;
+                const hrFimAtividade = document.getElementById('hrFimAtividade').value;
+                const hrFimDeslocamento = document.getElementById('hrFimDeslocamento').value;
 
                 // Validar campos sempre obrigatórios
                 // Pelo menos um dos campos deve ser preenchido
@@ -1942,12 +2061,14 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
 
                 if (!status) erros.status = 'Este campo é obrigatório';
                 if (!data) erros.data = 'Este campo é obrigatório';
-                if (!hora) erros.hora = 'Este campo é obrigatório';
                 if (!dataConclusao) erros.dataConclusao = 'Este campo é obrigatório';
-                if (!horaConclusao) erros.horaConclusao = 'Este campo é obrigatório';
                 if (!numeroOperacional) erros.numeroOperacional = 'Este campo é obrigatório';
                 if (!municipio) erros.municipio = 'Este campo é obrigatório';
                 if (!centroCustoSelecionado) erros.centroDeCustos = 'Este campo é obrigatório';
+                if (!hrInicialDeslocamento) erros.hrInicialDeslocamento = 'Este campo é obrigatório';
+                if (!hrInicioAtividade) erros.hrInicioAtividade = 'Este campo é obrigatório';
+                if (!hrFimAtividade) erros.hrFimAtividade = 'Este campo é obrigatório';
+                if (!hrFimDeslocamento) erros.hrFimDeslocamento = 'Este campo é obrigatório';
 
                 // Campos condicionais - só obrigatórios se NÃO for ocorrência sem endereço
                 if (!ocorrenciaSemEndereco) {
@@ -1997,7 +2118,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               const unidadeConsumidora = document.getElementById('unConsumidora').value.trim();
               const status = document.getElementById('status').value;
               const data = document.getElementById('data').value.replace(/-/g, '');
-              const hora = document.getElementById('hora').value;
               const endereco = ocorrenciaSemEndereco ? '' : document.getElementById('endereco').value.trim();
               const bairro = ocorrenciaSemEndereco ? '' : document.getElementById('bairro').value.trim();
               const codMunicipio = document.getElementById('municipio').value.trim().split('-')[ 0 ];
@@ -2005,9 +2125,19 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               const latitude = ocorrenciaSemEndereco ? '' : document.getElementById('latitude').value.trim();
               const longitude = ocorrenciaSemEndereco ? '' : document.getElementById('longitude').value.trim();
               const dataConclusao = document.getElementById('dataConclusao').value.replace(/-/g, '');
-              const horaConclusao = document.getElementById('horaConclusao').value;
               const centroCusto = centroCustoSelecionado;
               const numOperacional = document.getElementById('numeroOperacional').value.trim().split('-')[ 0 ];
+              
+              // Novos campos de horário - conversão para formato 00:00:00
+              const hrInicialDeslocamento = document.getElementById('hrInicialDeslocamento').value + ':00';
+              const hrInicioAtividade = document.getElementById('hrInicioAtividade').value + ':00';
+              const hrInicioIntervalo = document.getElementById('hrInicioIntervalo').value ? document.getElementById('hrInicioIntervalo').value + ':00' : '';
+              const hrFimIntervalo = document.getElementById('hrFimIntervalo').value ? document.getElementById('hrFimIntervalo').value + ':00' : '';
+              const hrPrimeiroContatoCoi = document.getElementById('hrPrimeiroContatoCoi').value ? document.getElementById('hrPrimeiroContatoCoi').value + ':00' : '';
+              const hrAutorizacaoCoi = document.getElementById('hrAutorizacaoCoi').value ? document.getElementById('hrAutorizacaoCoi').value + ':00' : '';
+              const hrFechamentoCoi = document.getElementById('hrFechamentoCoi').value ? document.getElementById('hrFechamentoCoi').value + ':00' : '';
+              const hrFimAtividade = document.getElementById('hrFimAtividade').value + ':00';
+              const hrFimDeslocamento = document.getElementById('hrFimDeslocamento').value + ':00';
 
               // Pega o CPF e matrícula do usuário logado do localStorage
               const cpfInclusao = localStorage.getItem('cpf') || '00000000000';
@@ -2035,7 +2165,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 unidadeConsumidora,
                 status,
                 data,
-                hora,
                 semEndereco: ocorrenciaSemEndereco ? 'S' : 'N',
                 endereco,
                 bairro,
@@ -2044,11 +2173,19 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 latitude,
                 longitude,
                 dataConclusao,
-                horaConclusao,
                 centroCusto,
                 numOperacional,
                 cpfInclusao,
                 matInclusao,
+                hrInicialDeslocamento,
+                hrInicioAtividade,
+                hrInicioIntervalo,
+                hrFimIntervalo,
+                hrPrimeiroContatoCoi,
+                hrAutorizacaoCoi,
+                hrFechamentoCoi,
+                hrFimAtividade,
+                hrFimDeslocamento,
                 usuarios: usuariosReq,
                 servicos: servicosReq,
                 incrementos: []
