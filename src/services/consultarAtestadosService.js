@@ -13,7 +13,6 @@ export const atestadosService = {
         throw new Error(`Erro ao consultar atestados: ${response.statusText}`);
       }
       const responseData = await response.json();
-      console.log('Atestados consultados com sucesso:', responseData);
       return responseData
     } catch (error) {
       console.error('Erro ao consultar atestados:', error)

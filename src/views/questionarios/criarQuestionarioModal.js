@@ -129,7 +129,6 @@ const CriarQuestionarioModal = ({ visible, onClose, onSave }) => {
 
   // Função para salvar e logar o formulário
   const handleSave = () => {
-    console.log('Formulário criado:', perguntas)
     if (onSave) onSave(perguntas)
   }
   return (

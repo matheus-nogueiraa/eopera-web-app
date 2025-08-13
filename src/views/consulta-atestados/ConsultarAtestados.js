@@ -374,7 +374,6 @@ const ConsultaAtestados = () => {
       setBuscaRealizada(true)
       setPaginaAtual(1)
       
-      console.log(`Dados recarregados. ${resultados.length} atestados encontrados.`)
     } catch (error) {
       console.error('Erro ao recarregar dados:', error)
       setErro('Erro ao recarregar dados: ' + error.message)

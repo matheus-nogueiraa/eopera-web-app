@@ -80,7 +80,15 @@ styleSheet.type = "text/css";
 styleSheet.innerText = styles;
 document.head.appendChild(styleSheet);
 
-const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent, onSuccess }) => {
+const ServicosModal = ({ 
+  visible, 
+  setVisible, 
+  setLoadingParent, 
+  showAlertParent, 
+  onSuccess,
+  modoVisualizacao = false,
+  dadosOcorrencia = null
+}) => {
   const [ usuarios, setUsuarios ] = useState([]);
   const [ servicos, setServicos ] = useState([]);
   const [ novoUsuario, setNovoUsuario ] = useState('');
@@ -145,6 +153,14 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   const usuarioRef = useRef(null);
   const usuarioDebounceRef = useRef(null);
 
+  // Estados para dados de visualização
+  const [ dadosVisualizacao, setDadosVisualizacao ] = useState({
+    centroCustoNome: '',
+    numeroOperacionalNome: '',
+    municipioNome: '',
+    servicosNomes: []
+  });
+
   // Função para carregar todos os municípios (uma vez só)
   const carregarTodosMunicipios = async () => {
     if (todosMunicipios.length > 0) return;
@@ -167,6 +183,146 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
       setTodosMunicipios([]);
     } finally {
       setLoadingMunicipios(false);
+    }
+  };
+
+  // Funções para buscar dados por ID para visualização
+  const buscarCentroCustoPorId = async (centroCustoId) => {
+    try {
+      const response = await consultarCentroCusto({
+        retornaInativos: 'N',
+        numCCusto: centroCustoId
+      });
+      
+      if (response?.status && response?.data && response.data.length > 0) {
+        const centroCusto = response.data[0];
+        return `${centroCusto.centroCusto?.trim()} - ${centroCusto.descricaoCCusto?.trim()}`;
+      }
+      return centroCustoId; // Retorna o ID se não encontrar
+    } catch (error) {
+      console.error('Erro ao buscar centro de custo:', error);
+      return centroCustoId;
+    }
+  };
+
+  const buscarNumeroOperacionalPorId = async (numeroOperacionalId) => {
+    try {
+      const response = await consultarEquipes({
+        retornaInativos: 'S',
+        numOperacional: numeroOperacionalId
+      });
+      
+      if (response?.status && response?.data && response.data.length > 0) {
+        const equipe = response.data[0];
+        return `${equipe.numOperacional?.trim()} - ${equipe.descricao?.trim()}`;
+      }
+      return numeroOperacionalId; // Retorna o ID se não encontrar
+    } catch (error) {
+      console.error('Erro ao buscar número operacional:', error);
+      return numeroOperacionalId;
+    }
+  };
+
+  const buscarMunicipioPorCodigo = async (codigoMunicipio) => {
+    try {
+      // Primeiro tenta carregar todos os municípios se ainda não carregou
+      if (todosMunicipios.length === 0) {
+        await carregarTodosMunicipios();
+      }
+      
+      // Procura o município pelo código
+      const municipio = todosMunicipios.find(m => m.codigo === codigoMunicipio);
+      if (municipio) {
+        return `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+      }
+      return codigoMunicipio; // Retorna o código se não encontrar
+    } catch (error) {
+      console.error('Erro ao buscar município:', error);
+      return codigoMunicipio;
+    }
+  };
+
+  const buscarServicosPorIds = async (servicosArray) => {
+    if (!servicosArray || !Array.isArray(servicosArray)) return [];
+    try {
+      // Mapeia cada serviço para buscar sua descrição fazendo requisições individuais
+      const servicosComNomes = await Promise.all(
+        servicosArray.map(async (servico, index) => {
+          
+          if (servico.servicoSelecionado && servico.servicoSelecionado.idServico) {
+            // Se já tem o objeto completo, usa ele
+            return {
+              ...servico,
+              servicoNome: `${servico.servicoSelecionado.idServico} - ${servico.servicoSelecionado.descricaoServico}`
+            };
+          } else if (servico.servico || servico.idServico) {
+            // Usa servico.servico (para dados de formulário) ou servico.idServico (para dados salvos)
+            const servicoId = servico.servico || servico.idServico;
+            try {
+              
+              // Faz requisição específica para o ID do serviço
+              const response = await httpRequest(`/consultaServicosProtheus?idServico=${servicoId}`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
+                },
+              });
+              
+              const json = await response.json();
+              
+              if (json.status && json.data && json.data.length > 0) {
+                const servicoEncontrado = json.data[0];
+                return {
+                  ...servico,
+                  servicoNome: `${servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
+                };
+              } else {
+                // Se não encontrar na API, tenta buscar nos serviços já carregados
+                if (todosServicos.length > 0) {
+                  const servicoEncontrado = todosServicos.find(s => 
+                    s.idServico === servicoId || 
+                    s.codServico === servicoId
+                  );
+                  
+                  if (servicoEncontrado) {
+                    return {
+                      ...servico,
+                      servicoNome: `${servicoEncontrado.idServico} - ${servicoEncontrado.descricaoServico}`
+                    };
+                  }
+                }
+                
+                // Se não encontrar em lugar nenhum, retorna o ID
+                return {
+                  ...servico,
+                  servicoNome: servicoId || 'Serviço não identificado'
+                };
+              }
+            } catch (error) {
+              console.error(`Erro ao buscar serviço ${servicoId}:`, error);
+              return {
+                ...servico,
+                servicoNome: servicoId || 'Erro ao carregar serviço'
+              };
+            }
+          }
+          
+          // Se não tem serviço definido
+          return {
+            ...servico,
+            servicoNome: 'Serviço não identificado'
+          };
+        })
+      );
+      
+      return servicosComNomes;
+    } catch (error) {
+      console.error('Erro ao buscar serviços por IDs:', error);
+      return servicosArray.map(servico => ({
+        ...servico,
+        servicoNome: servico.servico || servico.idServico || 'Erro ao carregar'
+      }));
     }
   };
 
@@ -435,15 +591,172 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
   // UseEffect para limpar campos quando o modal abrir
   useEffect(() => {
     if (visible) {
-      console.log('ServicosModal aberto - limpando campos');
       // Usar setTimeout para garantir que os elementos DOM estejam disponíveis
       setTimeout(() => {
-        limparCampos();
+        if (!modoVisualizacao) {
+          limparCampos();
+        }
         // Carregar todos os centros de custo ao abrir o modal
         carregarTodosCentrosCusto();
       }, 100);
     }
   }, [ visible ]);
+
+  // UseEffect para preencher dados em modo visualização
+  useEffect(() => {
+    if (visible && modoVisualizacao && dadosOcorrencia) {
+      // Função para carregar dados de visualização
+      const carregarDadosVisualizacao = async () => {
+        const novosDados = { ...dadosVisualizacao };
+        
+        // Buscar centro de custo por ID
+        if (dadosOcorrencia.centroCusto) {
+          const centroCustoNome = await buscarCentroCustoPorId(dadosOcorrencia.centroCusto);
+          novosDados.centroCustoNome = centroCustoNome;
+        }
+        
+        // Buscar número operacional por ID
+        if (dadosOcorrencia.numeroOperacional) {
+          const numeroOperacionalNome = await buscarNumeroOperacionalPorId(dadosOcorrencia.numeroOperacional);
+          novosDados.numeroOperacionalNome = numeroOperacionalNome;
+        }
+        
+        // Buscar município por código
+        if (dadosOcorrencia.codMunicipio) {
+          const municipioNome = await buscarMunicipioPorCodigo(dadosOcorrencia.codMunicipio);
+          novosDados.municipioNome = municipioNome;
+        }
+        
+        // Buscar serviços por IDs
+        if (dadosOcorrencia.servicos && Array.isArray(dadosOcorrencia.servicos)) {
+          const servicosComNomes = await buscarServicosPorIds(dadosOcorrencia.servicos);
+          novosDados.servicosNomes = servicosComNomes;
+        }
+        
+        setDadosVisualizacao(novosDados);
+      };
+      
+      // Usar setTimeout para garantir que os elementos DOM estejam disponíveis
+      setTimeout(() => {
+        // Preencher campos básicos
+        if (dadosOcorrencia.numeroOs) {
+          const numeroOSEl = document.getElementById('numeroOS');
+          if (numeroOSEl) numeroOSEl.value = dadosOcorrencia.numeroOs;
+        }
+        
+        if (dadosOcorrencia.unidadeConsumidora) {
+          const unConsumidoraEl = document.getElementById('unConsumidora');
+          if (unConsumidoraEl) unConsumidoraEl.value = dadosOcorrencia.unidadeConsumidora;
+        }
+        
+        if (dadosOcorrencia.status) {
+          const statusEl = document.getElementById('status');
+          if (statusEl) statusEl.value = dadosOcorrencia.status;
+        }
+        
+        if (dadosOcorrencia.data) {
+          const dataEl = document.getElementById('data');
+          if (dataEl) {
+            // Converter de YYYYMMDD para YYYY-MM-DD
+            const ano = dadosOcorrencia.data.substring(0, 4);
+            const mes = dadosOcorrencia.data.substring(4, 6);
+            const dia = dadosOcorrencia.data.substring(6, 8);
+            dataEl.value = `${ano}-${mes}-${dia}`;
+          }
+        }
+        
+        if (dadosOcorrencia.dataConclusao) {
+          const dataConclusaoEl = document.getElementById('dataConclusao');
+          if (dataConclusaoEl) {
+            // Converter de YYYYMMDD para YYYY-MM-DD
+            const ano = dadosOcorrencia.dataConclusao.substring(0, 4);
+            const mes = dadosOcorrencia.dataConclusao.substring(4, 6);
+            const dia = dadosOcorrencia.dataConclusao.substring(6, 8);
+            dataConclusaoEl.value = `${ano}-${mes}-${dia}`;
+          }
+        }
+        
+        if (dadosOcorrencia.endereco) {
+          const enderecoEl = document.getElementById('endereco');
+          if (enderecoEl) enderecoEl.value = dadosOcorrencia.endereco;
+        }
+        
+        if (dadosOcorrencia.bairro) {
+          const bairroEl = document.getElementById('bairro');
+          if (bairroEl) bairroEl.value = dadosOcorrencia.bairro;
+        }
+        
+        if (dadosOcorrencia.centroCusto) {
+          setCentroCustoSelecionado(dadosOcorrencia.centroCusto);
+        }
+        
+        // Preencher horários
+        if (dadosOcorrencia.hrInicialDeslocamento) {
+          const hrInicialDeslocamentoEl = document.getElementById('hrInicialDeslocamento');
+          if (hrInicialDeslocamentoEl) hrInicialDeslocamentoEl.value = dadosOcorrencia.hrInicialDeslocamento;
+        }
+        
+        if (dadosOcorrencia.hrInicioAtividade) {
+          const hrInicioAtividadeEl = document.getElementById('hrInicioAtividade');
+          if (hrInicioAtividadeEl) hrInicioAtividadeEl.value = dadosOcorrencia.hrInicioAtividade;
+        }
+        
+        if (dadosOcorrencia.hrInicioIntervalo) {
+          const hrInicioIntervaloEl = document.getElementById('hrInicioIntervalo');
+          if (hrInicioIntervaloEl) hrInicioIntervaloEl.value = dadosOcorrencia.hrInicioIntervalo;
+        }
+        
+        if (dadosOcorrencia.hrFimIntervalo) {
+          const hrFimIntervaloEl = document.getElementById('hrFimIntervalo');
+          if (hrFimIntervaloEl) hrFimIntervaloEl.value = dadosOcorrencia.hrFimIntervalo;
+        }
+        
+        if (dadosOcorrencia.hrPrimeiroContatoCoi) {
+          const hrPrimeiroContatoCoiEl = document.getElementById('hrPrimeiroContatoCoi');
+          if (hrPrimeiroContatoCoiEl) hrPrimeiroContatoCoiEl.value = dadosOcorrencia.hrPrimeiroContatoCoi;
+        }
+        
+        if (dadosOcorrencia.hrAutorizacaoCoi) {
+          const hrAutorizacaoCoiEl = document.getElementById('hrAutorizacaoCoi');
+          if (hrAutorizacaoCoiEl) hrAutorizacaoCoiEl.value = dadosOcorrencia.hrAutorizacaoCoi;
+        }
+        
+        if (dadosOcorrencia.hrFechamentoCoi) {
+          const hrFechamentoCoiEl = document.getElementById('hrFechamentoCoi');
+          if (hrFechamentoCoiEl) hrFechamentoCoiEl.value = dadosOcorrencia.hrFechamentoCoi;
+        }
+        
+        if (dadosOcorrencia.hrFimAtividade) {
+          const hrFimAtividadeEl = document.getElementById('hrFimAtividade');
+          if (hrFimAtividadeEl) hrFimAtividadeEl.value = dadosOcorrencia.hrFimAtividade;
+        }
+        
+        if (dadosOcorrencia.hrFimDeslocamento) {
+          const hrFimDeslocamentoEl = document.getElementById('hrFimDeslocamento');
+          if (hrFimDeslocamentoEl) hrFimDeslocamentoEl.value = dadosOcorrencia.hrFimDeslocamento;
+        }
+        
+        // Preencher usuários
+        if (dadosOcorrencia.usuarios && Array.isArray(dadosOcorrencia.usuarios)) {
+          setUsuarios(dadosOcorrencia.usuarios);
+        }
+        
+        // Preencher serviços
+        if (dadosOcorrencia.servicos && Array.isArray(dadosOcorrencia.servicos)) {
+          setServicos(dadosOcorrencia.servicos);
+        }
+        
+        // Definir se ocorrência sem endereço
+        if (dadosOcorrencia.semEndereco === 'S') {
+          setOcorrenciaSemEndereco(true);
+        }
+        
+        // Carregar dados de visualização (nomes dos campos)
+        carregarDadosVisualizacao();
+        
+      }, 200);
+    }
+  }, [visible, modoVisualizacao, dadosOcorrencia]);
 
   // Esconde erros individuais após 5 segundos
   useEffect(() => {
@@ -552,17 +865,14 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     setLoadingServicos(true);
 
     try {
-      console.log('Carregando todos os serviços do Protheus...');
 
       // Usar a função consultarServicosProtheus sem parâmetros para buscar todos
       const dados = await consultarServicosProtheus();
 
-      console.log('Dados recebidos da API:', dados);
 
       // A função já retorna diretamente o array de dados
       if (Array.isArray(dados)) {
         setTodosServicos(dados);
-        console.log(`${dados.length} serviços carregados com sucesso`);
       } else {
         console.warn('Resposta da API não é um array:', dados);
         setTodosServicos([]);
@@ -581,17 +891,14 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
     setLoadingServicos(true);
 
     try {
-      console.log(`Carregando serviços do centro de custo: ${centroCusto}`);
 
       // Usar a função consultarServicosProtheus com o parâmetro centroCusto
       const dados = await consultarServicosProtheus({ centroCusto });
 
-      console.log('Serviços recebidos para o centro de custo:', dados);
 
       // A função já retorna diretamente o array de dados
       if (Array.isArray(dados)) {
         setTodosServicos(dados);
-        console.log(`${dados.length} serviços carregados para o centro de custo ${centroCusto}`);
       } else {
         console.warn('Resposta da API não é um array:', dados);
         setTodosServicos([]);
@@ -760,7 +1067,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
 
     // Encontrar o objeto completo do centro de custo selecionado
     const centroCusto = centroCustoOpcoes.find(cc => cc.centroCusto === valor);
-    console.log('Centro de custo selecionado:', centroCusto);
 
     // Limpar os serviços anteriores
     setTodosServicos([]);
@@ -981,7 +1287,9 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         keyboard={false}
       >
       <CModalHeader>
-        <CModalTitle>Ordem de Serviço</CModalTitle>
+        <CModalTitle>
+          {modoVisualizacao ? 'Visualizar Ordem de Serviço' : 'Ordem de Serviço'}
+        </CModalTitle>
       </CModalHeader>
       <CModalBody className="pb-0">
         {/* Alert de sucesso/erro */}
@@ -1019,6 +1327,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="numeroOS"
               className={camposComErro.numeroOS ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('numeroOS')}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.numeroOS && (
               <div className="texto-erro fade-in-error">
@@ -1033,6 +1342,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="unConsumidora"
               className={camposComErro.unConsumidora ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('unConsumidora')}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.unConsumidora && (
               <div className="texto-erro fade-in-error">
@@ -1047,6 +1357,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="status"
               className={camposComErro.status ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('status')}
+              disabled={modoVisualizacao}
             >
               <option value="">Selecione...</option>
               <option value="01">Cancelado</option>
@@ -1079,6 +1390,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="data"
               placeholder="dd/mm/aaaa"
               className={camposComErro.data ? 'campo-erro' : ''}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.data && (
               <div className="texto-erro fade-in-error">
@@ -1094,6 +1406,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="dataConclusao"
               placeholder="dd/mm/aaaa"
               className={camposComErro.dataConclusao ? 'campo-erro' : ''}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.dataConclusao && (
               <div className="texto-erro fade-in-error">
@@ -1136,94 +1449,104 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
           </CCol>
           <CCol md={3}>
             <CFormLabel htmlFor="municipio" className="mb-1">Município:</CFormLabel>
-            <div style={{ position: 'relative' }} ref={municipioRef}>
+            {modoVisualizacao ? (
               <CFormInput
                 id="municipio"
-                value={municipioSelecionado}
-                onChange={handleMunicipioChange}
-                onKeyDown={handleMunicipioKeyDown}
-                placeholder="Digite o município"
-                autoComplete="off"
-                className={camposComErro.municipio ? 'campo-erro' : ''}
+                value={dadosVisualizacao.municipioNome || 'Carregando...'}
+                readOnly
+                className="bg-light"
               />
-              {camposComErro.municipio && (
-                <div className="texto-erro fade-in-error">
-                  <CIcon icon={cilX} size="sm" />
-                  {camposComErro.municipio}
-                </div>
-              )}
-              {loadingMunicipios && municipioDropdownVisivel && (
-                <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
-                  <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
-                    <span className="visually-hidden">Carregando...</span>
+            ) : (
+              <div style={{ position: 'relative' }} ref={municipioRef}>
+                <CFormInput
+                  id="municipio"
+                  value={municipioSelecionado}
+                  onChange={handleMunicipioChange}
+                  onKeyDown={handleMunicipioKeyDown}
+                  placeholder="Digite o município"
+                  autoComplete="off"
+                  className={camposComErro.municipio ? 'campo-erro' : ''}
+                  readOnly={modoVisualizacao}
+                />
+                {camposComErro.municipio && (
+                  <div className="texto-erro fade-in-error">
+                    <CIcon icon={cilX} size="sm" />
+                    {camposComErro.municipio}
                   </div>
-                </div>
-              )}
-              {municipioDropdownVisivel && municipiosOpcoes.length > 0 && (
-                <div
-                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                  style={{
-                    zIndex: 1050,
-                    maxHeight: '150px',
-                    overflowY: 'auto',
-                    top: '100%'
-                  }}
-                >
-                  <CListGroup flush>
-                    {municipiosOpcoes.slice(0, 10).map((m, idx) => (
-                      <CListGroupItem
-                        key={m.codigo}
-                        className={`cursor-pointer py-1 px-2 ${municipioSelectedIndex === idx ? 'bg-light' : ''}`}
-                        style={{
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s',
-                          backgroundColor: municipioSelectedIndex === idx ? '#f8f9fa' : 'white',
-                          fontSize: '0.8rem'
-                        }}
-                        onMouseDown={() => selecionarMunicipio(m)}
-                        onMouseEnter={(e) => {
-                          if (municipioSelectedIndex !== idx) {
-                            e.target.style.backgroundColor = '#f8f9fa';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (municipioSelectedIndex !== idx) {
-                            e.target.style.backgroundColor = 'white';
-                          }
-                        }}
-                      >
-                        <div>
-                          <strong>{m.codigo.trim()}</strong>
-                          {m.descricao && (
-                            <div className="text-muted small">
-                              {m.descricao.trim()} ({m.estado.trim()})
-                            </div>
-                          )}
-                        </div>
-                      </CListGroupItem>
-                    ))}
-                    {municipiosOpcoes.length >= 20 && (
-                      <CListGroupItem className="text-center text-muted py-1">
-                        <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
-                      </CListGroupItem>
-                    )}
-                  </CListGroup>
-                </div>
-              )}
-              {municipioDropdownVisivel && municipiosOpcoes.length === 0 && !loadingMunicipios && municipioSelecionado.length >= 2 && (
-                <div
-                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                  style={{
-                    zIndex: 1050,
-                    top: '100%'
-                  }}
-                >
-                  <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
-                    Nenhum município encontrado
+                )}
+                {loadingMunicipios && municipioDropdownVisivel && (
+                  <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                    <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+                {municipioDropdownVisivel && municipiosOpcoes.length > 0 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                      top: '100%'
+                    }}
+                  >
+                    <CListGroup flush>
+                      {municipiosOpcoes.slice(0, 10).map((m, idx) => (
+                        <CListGroupItem
+                          key={m.codigo}
+                          className={`cursor-pointer py-1 px-2 ${municipioSelectedIndex === idx ? 'bg-light' : ''}`}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s',
+                            backgroundColor: municipioSelectedIndex === idx ? '#f8f9fa' : 'white',
+                            fontSize: '0.8rem'
+                          }}
+                          onMouseDown={() => selecionarMunicipio(m)}
+                          onMouseEnter={(e) => {
+                            if (municipioSelectedIndex !== idx) {
+                              e.target.style.backgroundColor = '#f8f9fa';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (municipioSelectedIndex !== idx) {
+                              e.target.style.backgroundColor = 'white';
+                            }
+                          }}
+                        >
+                          <div>
+                            <strong>{m.codigo.trim()}</strong>
+                            {m.descricao && (
+                              <div className="text-muted small">
+                                {m.descricao.trim()} ({m.estado.trim()})
+                              </div>
+                            )}
+                          </div>
+                        </CListGroupItem>
+                      ))}
+                      {municipiosOpcoes.length >= 20 && (
+                        <CListGroupItem className="text-center text-muted py-1">
+                          <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                        </CListGroupItem>
+                      )}
+                    </CListGroup>
+                  </div>
+                )}
+                {municipioDropdownVisivel && municipiosOpcoes.length === 0 && !loadingMunicipios && municipioSelecionado.length >= 2 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      top: '100%'
+                    }}
+                  >
+                    <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                      Nenhum município encontrado
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </CCol>
           <CCol md={2}>
             <CFormLabel htmlFor="cep" className="mb-1">CEP:</CFormLabel>
@@ -1331,6 +1654,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="hrInicioIntervalo"
               className={camposComErro.hrInicioIntervalo ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('hrInicioIntervalo')}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.hrInicioIntervalo && (
               <div className="texto-erro fade-in-error">
@@ -1346,6 +1670,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="hrFimIntervalo"
               className={camposComErro.hrFimIntervalo ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('hrFimIntervaloHora Fim da Atividade:')}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.hrFimIntervalo && (
               <div className="texto-erro fade-in-error">
@@ -1363,6 +1688,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="hrPrimeiroContatoCoi"
               className={camposComErro.hrPrimeiroContatoCoi ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('hrPrimeiroContatoCoi')}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.hrPrimeiroContatoCoi && (
               <div className="texto-erro fade-in-error">
@@ -1378,6 +1704,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="hrAutorizacaoCoi"
               className={camposComErro.hrAutorizacaoCoi ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('hrAutorizacaoCoi')}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.hrAutorizacaoCoi && (
               <div className="texto-erro fade-in-error">
@@ -1393,6 +1720,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               id="hrFechamentoCoi"
               className={camposComErro.hrFechamentoCoi ? 'campo-erro' : ''}
               onChange={() => limparErroCampo('hrFechamentoCoi')}
+              readOnly={modoVisualizacao}
             />
             {camposComErro.hrFechamentoCoi && (
               <div className="texto-erro fade-in-error">
@@ -1439,140 +1767,160 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CRow className="mb-4">
           <CCol md={3}>
             <CFormLabel htmlFor="numeroOperacional" className="mb-1">Número Operacional:</CFormLabel>
-            <div className="position-relative" ref={equipeRef}>
+            {modoVisualizacao ? (
               <CFormInput
                 id="numeroOperacional"
-                value={numeroOperacionalSelecionado}
-                onChange={handleNumeroOperacionalChange}
-                onKeyDown={handleEquipeKeyDown}
-                placeholder="Digite número ou descrição..."
-                autoComplete="off"
-                className={camposComErro.numeroOperacional ? 'campo-erro' : ''}
+                value={dadosVisualizacao.numeroOperacionalNome || 'Carregando...'}
+                readOnly
+                className="bg-light"
               />
-              {camposComErro.numeroOperacional && (
-                <div className="texto-erro fade-in-error">
-                  <CIcon icon={cilX} size="sm" />
-                  {camposComErro.numeroOperacional}
-                </div>
-              )}
-              {loadingEquipes && equipeDropdownVisivel && (
-                <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
-                  <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
-                    <span className="visually-hidden">Carregando...</span>
+            ) : (
+              <div className="position-relative" ref={equipeRef}>
+                <CFormInput
+                  id="numeroOperacional"
+                  value={numeroOperacionalSelecionado}
+                  onChange={handleNumeroOperacionalChange}
+                  onKeyDown={handleEquipeKeyDown}
+                  placeholder="Digite número ou descrição..."
+                  autoComplete="off"
+                  className={camposComErro.numeroOperacional ? 'campo-erro' : ''}
+                  readOnly={modoVisualizacao}
+                />
+                {camposComErro.numeroOperacional && (
+                  <div className="texto-erro fade-in-error">
+                    <CIcon icon={cilX} size="sm" />
+                    {camposComErro.numeroOperacional}
                   </div>
-                </div>
-              )}
-              {equipeDropdownVisivel && equipesOpcoes.length > 0 && (
-                <div
-                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                  style={{
-                    zIndex: 1050,
-                    maxHeight: '150px',
-                    overflowY: 'auto',
-                    top: '100%'
-                  }}
-                >
-                  <CListGroup flush>
-                    {equipesOpcoes.slice(0, 10).map((equipeOpcao, opcaoIndex) => (
-                      <CListGroupItem
-                        key={opcaoIndex}
-                        className={`cursor-pointer py-1 px-2 ${equipeSelectedIndex === opcaoIndex ? 'bg-light' : ''}`}
-                        style={{
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s',
-                          backgroundColor: equipeSelectedIndex === opcaoIndex ? '#f8f9fa' : 'white',
-                          fontSize: '0.8rem'
-                        }}
-                        onClick={() => selecionarEquipe(equipeOpcao)}
-                        onMouseEnter={(e) => {
-                          if (equipeSelectedIndex !== opcaoIndex) {
-                            e.target.style.backgroundColor = '#f8f9fa';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (equipeSelectedIndex !== opcaoIndex) {
-                            e.target.style.backgroundColor = 'white';
-                          }
-                        }}
-                      >
-                        <div>
-                          <strong>{equipeOpcao.numOperacional?.trim()}</strong>
-                          {equipeOpcao.descricao && (
-                            <div className="text-muted small">
-                              {equipeOpcao.descricao.trim()}
-                            </div>
-                          )}
-                          <small className={`${equipeOpcao.ativo === 'S' ? 'text-success' : 'text-danger'}`}>
-                            {equipeOpcao.ativo === 'S' ? 'Ativo' : 'Inativo'}
-                          </small>
-                        </div>
-                      </CListGroupItem>
-                    ))}
-                    {equipesOpcoes.length >= 20 && (
-                      <CListGroupItem className="text-center text-muted py-1">
-                        <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
-                      </CListGroupItem>
-                    )}
-                  </CListGroup>
-                </div>
-              )}
-              {equipeDropdownVisivel && equipesOpcoes.length === 0 && !loadingEquipes && numeroOperacionalSelecionado.length >= 2 && (
-                <div
-                  className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                  style={{
-                    zIndex: 1050,
-                    top: '100%'
-                  }}
-                >
-                  <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
-                    Nenhuma equipe encontrada
+                )}
+                {loadingEquipes && equipeDropdownVisivel && (
+                  <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                    <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+                {equipeDropdownVisivel && equipesOpcoes.length > 0 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                      top: '100%'
+                    }}
+                  >
+                    <CListGroup flush>
+                      {equipesOpcoes.slice(0, 10).map((equipeOpcao, opcaoIndex) => (
+                        <CListGroupItem
+                          key={opcaoIndex}
+                          className={`cursor-pointer py-1 px-2 ${equipeSelectedIndex === opcaoIndex ? 'bg-light' : ''}`}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s',
+                            backgroundColor: equipeSelectedIndex === opcaoIndex ? '#f8f9fa' : 'white',
+                            fontSize: '0.8rem'
+                          }}
+                          onClick={() => selecionarEquipe(equipeOpcao)}
+                          onMouseEnter={(e) => {
+                            if (equipeSelectedIndex !== opcaoIndex) {
+                              e.target.style.backgroundColor = '#f8f9fa';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (equipeSelectedIndex !== opcaoIndex) {
+                              e.target.style.backgroundColor = 'white';
+                            }
+                          }}
+                        >
+                          <div>
+                            <strong>{equipeOpcao.numOperacional?.trim()}</strong>
+                            {equipeOpcao.descricao && (
+                              <div className="text-muted small">
+                                {equipeOpcao.descricao.trim()}
+                              </div>
+                            )}
+                            <small className={`${equipeOpcao.ativo === 'S' ? 'text-success' : 'text-danger'}`}>
+                              {equipeOpcao.ativo === 'S' ? 'Ativo' : 'Inativo'}
+                            </small>
+                          </div>
+                        </CListGroupItem>
+                      ))}
+                      {equipesOpcoes.length >= 20 && (
+                        <CListGroupItem className="text-center text-muted py-1">
+                          <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                        </CListGroupItem>
+                      )}
+                    </CListGroup>
+                  </div>
+                )}
+                {equipeDropdownVisivel && equipesOpcoes.length === 0 && !loadingEquipes && numeroOperacionalSelecionado.length >= 2 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      top: '100%'
+                    }}
+                  >
+                    <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                      Nenhuma equipe encontrada
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </CCol>
           <CCol md={4}>
             <CFormLabel htmlFor="centroDeCustos" className="mb-1">Centro de Custos: </CFormLabel>
-            <div className="position-relative">
-              {loadingCentroCusto ? (
-                <div className="d-flex align-items-center">
-                  <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-                    <span className="visually-hidden">Carregando...</span>
-                  </div>
-                  <span>Carregando centros de custo...</span>
-                </div>
-              ) : (
-                <CFormSelect
-                  id="centroDeCustos"
-                  value={centroCustoSelecionado}
-                  onChange={handleCentroCustoChange}
-                  className={camposComErro.centroDeCustos ? 'campo-erro' : ''}
-                >
-                  <option value="">Selecione um centro de custo</option>
-                  {centroCustoOpcoes.map((centroCusto, index) => (
-                    <option key={index} value={centroCusto.centroCusto}>
-                      {centroCusto.centroCusto?.trim()} - {centroCusto.descricaoCCusto?.trim()}
-                    </option>
-                  ))}
-                </CFormSelect>
-              )}
-              {loadingServicos && centroCustoSelecionado && (
-                <div className="mt-2 text-info">
+            {modoVisualizacao ? (
+              <CFormInput
+                id="centroDeCustos"
+                value={dadosVisualizacao.centroCustoNome || 'Carregando...'}
+                readOnly
+                className="bg-light"
+              />
+            ) : (
+              <div className="position-relative">
+                {loadingCentroCusto ? (
                   <div className="d-flex align-items-center">
-                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                    <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
                       <span className="visually-hidden">Carregando...</span>
                     </div>
-                    <small>Carregando serviços do centro de custo...</small>
+                    <span>Carregando centros de custo...</span>
                   </div>
-                </div>
-              )}
-              {camposComErro.centroDeCustos && (
-                <div className="texto-erro fade-in-error">
-                  <CIcon icon={cilX} size="sm" />
-                  {camposComErro.centroDeCustos}
-                </div>
-              )}
-            </div>
+                ) : (
+                  <CFormSelect
+                    id="centroDeCustos"
+                    value={centroCustoSelecionado}
+                    onChange={handleCentroCustoChange}
+                    className={camposComErro.centroDeCustos ? 'campo-erro' : ''}
+                    disabled={modoVisualizacao}
+                  >
+                    <option value="">Selecione um centro de custo</option>
+                    {centroCustoOpcoes.map((centroCusto, index) => (
+                      <option key={index} value={centroCusto.centroCusto}>
+                        {centroCusto.centroCusto?.trim()} - {centroCusto.descricaoCCusto?.trim()}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                )}
+                {loadingServicos && centroCustoSelecionado && (
+                  <div className="mt-2 text-info">
+                    <div className="d-flex align-items-center">
+                      <div className="spinner-border spinner-border-sm me-2" role="status">
+                        <span className="visually-hidden">Carregando...</span>
+                      </div>
+                      <small>Carregando serviços do centro de custo...</small>
+                    </div>
+                  </div>
+                )}
+                {camposComErro.centroDeCustos && (
+                  <div className="texto-erro fade-in-error">
+                    <CIcon icon={cilX} size="sm" />
+                    {camposComErro.centroDeCustos}
+                  </div>
+                )}
+              </div>
+            )}
           </CCol>
         </CRow>
 
@@ -1584,6 +1932,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               color="dark"
               size="sm"
               onClick={adicionarUsuario}
+              disabled={modoVisualizacao}
+              style={{ display: modoVisualizacao ? 'none' : 'inline-block' }}
             >
               Adicionar Usuário
             </CButton>
@@ -1747,6 +2097,8 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
               color="dark"
               size="sm"
               onClick={adicionarServico}
+              disabled={modoVisualizacao}
+              style={{ display: modoVisualizacao ? 'none' : 'inline-block' }}
             >
               Adicionar Serviço
             </CButton>
@@ -1793,103 +2145,117 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 servicos.map((servico, index) => (
                   <CRow key={index} className="align-items-start mb-3 border-bottom pb-3">
                     <CCol md={3}>
-                      <div
-                        className="position-relative"
-                        ref={el => servicosRefs.current[ `ref_${index}` ] = el}
-                      >
+                      {modoVisualizacao ? (
                         <CFormInput
-                          value={servico.servico}
-                          onChange={(e) => handleServicoChange(e, index)}
-                          onKeyDown={(e) => handleServicoKeyDown(e, index)}
+                          value={
+                            dadosVisualizacao.servicosNomes && dadosVisualizacao.servicosNomes[index] 
+                              ? dadosVisualizacao.servicosNomes[index].servicoNome || 'Carregando...'
+                              : 'Carregando...'
+                          }
                           size="sm"
-                          placeholder={centroCustoSelecionado ? "Digite ID ou descrição do serviço..." : "Selecione um centro de custo primeiro"}
-                          autoComplete="off"
-                          disabled={!centroCustoSelecionado}
-                          style={{
-                            backgroundColor: !centroCustoSelecionado ? '#f8f9fa' : 'white',
-                            cursor: !centroCustoSelecionado ? 'not-allowed' : 'text'
-                          }}
+                          readOnly
+                          className="bg-light"
                         />
-                        {loadingServicos && servicoDropdownVisivel[ index ] && (
-                          <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
-                            <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
-                              <span className="visually-hidden">Carregando...</span>
-                            </div>
-                          </div>
-                        )}
-                        {servicoDropdownVisivel[ index ] && servicosOpcoes.length > 0 && (
-                          <div
-                            className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                      ) : (
+                        <div
+                          className="position-relative"
+                          ref={el => servicosRefs.current[ `ref_${index}` ] = el}
+                        >
+                          <CFormInput
+                            value={servico.servico}
+                            onChange={(e) => handleServicoChange(e, index)}
+                            onKeyDown={(e) => handleServicoKeyDown(e, index)}
+                            size="sm"
+                            placeholder={centroCustoSelecionado ? "Digite ID ou descrição do serviço..." : "Selecione um centro de custo primeiro"}
+                            autoComplete="off"
+                            disabled={!centroCustoSelecionado || modoVisualizacao}
+                            readOnly={modoVisualizacao}
                             style={{
-                              zIndex: 1050,
-                              maxHeight: '150px',
-                              overflowY: 'auto',
-                              top: '100%'
+                              backgroundColor: !centroCustoSelecionado ? '#f8f9fa' : 'white',
+                              cursor: !centroCustoSelecionado ? 'not-allowed' : 'text'
                             }}
-                          >
-                            <CListGroup flush>
-                              {servicosOpcoes.slice(0, 10).map((servicoOpcao, opcaoIndex) => (
-                                <CListGroupItem
-                                  key={opcaoIndex}
-                                  className={`cursor-pointer py-1 px-2 ${servicoSelectedIndex[ index ] === opcaoIndex ? 'bg-light' : ''}`}
-                                  style={{
-                                    cursor: 'pointer',
-                                    transition: 'background-color 0.2s',
-                                    backgroundColor: servicoSelectedIndex[ index ] === opcaoIndex ? '#f8f9fa' : 'white',
-                                    fontSize: '0.8rem'
-                                  }}
-                                  onClick={() => selecionarServico(servicoOpcao, index)}
-                                  onMouseEnter={(e) => {
-                                    if (servicoSelectedIndex[ index ] !== opcaoIndex) {
-                                      e.target.style.backgroundColor = '#f8f9fa';
-                                    }
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    if (servicoSelectedIndex[ index ] !== opcaoIndex) {
-                                      e.target.style.backgroundColor = 'white';
-                                    }
-                                  }}
-                                >
-                                  <div>
-                                    <strong>{servicoOpcao.idServico?.trim()}</strong>
-                                    {servicoOpcao.siglaUp && (
-                                      <div className="text-primary small fw-bold">Sigla UP: {servicoOpcao.siglaUp.trim()}</div>
-                                    )}
-                                    {servicoOpcao.descricaoServico && (
-                                      <div className="text-muted small">
-                                        {servicoOpcao.descricaoServico.trim()}
-                                      </div>
-                                    )}
-                                    {servicoOpcao.valorGrupo > 0 && (
-                                      <small className="text-success">
-                                        Valor: R$ {servicoOpcao.valorGrupo.toFixed(2)}
-                                      </small>
-                                    )}
-                                  </div>
-                                </CListGroupItem>
-                              ))}
-                              {servicosOpcoes.length >= 20 && (
-                                <CListGroupItem className="text-center text-muted py-1">
-                                  <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
-                                </CListGroupItem>
-                              )}
-                            </CListGroup>
-                          </div>
-                        )}
-                        {servicoDropdownVisivel[ index ] && servicosOpcoes.length === 0 && !loadingServicos && servico.servico.length >= 2 && (
-                          <div
-                            className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                            style={{
-                              zIndex: 1050,
-                              top: '100%'
-                            }}
-                          >
-                            <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
-                              Nenhum serviço encontrado
+                          />
+                          {loadingServicos && servicoDropdownVisivel[ index ] && (
+                            <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                              <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                                <span className="visually-hidden">Carregando...</span>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                          {servicoDropdownVisivel[ index ] && servicosOpcoes.length > 0 && (
+                            <div
+                              className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                              style={{
+                                zIndex: 1050,
+                                maxHeight: '150px',
+                                overflowY: 'auto',
+                                top: '100%'
+                              }}
+                            >
+                              <CListGroup flush>
+                                {servicosOpcoes.slice(0, 10).map((servicoOpcao, opcaoIndex) => (
+                                  <CListGroupItem
+                                    key={opcaoIndex}
+                                    className={`cursor-pointer py-1 px-2 ${servicoSelectedIndex[ index ] === opcaoIndex ? 'bg-light' : ''}`}
+                                    style={{
+                                      cursor: 'pointer',
+                                      transition: 'background-color 0.2s',
+                                      backgroundColor: servicoSelectedIndex[ index ] === opcaoIndex ? '#f8f9fa' : 'white',
+                                      fontSize: '0.8rem'
+                                    }}
+                                    onClick={() => selecionarServico(servicoOpcao, index)}
+                                    onMouseEnter={(e) => {
+                                      if (servicoSelectedIndex[ index ] !== opcaoIndex) {
+                                        e.target.style.backgroundColor = '#f8f9fa';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (servicoSelectedIndex[ index ] !== opcaoIndex) {
+                                        e.target.style.backgroundColor = 'white';
+                                      }
+                                    }}
+                                  >
+                                    <div>
+                                      <strong>{servicoOpcao.idServico?.trim()}</strong>
+                                      {servicoOpcao.siglaUp && (
+                                        <div className="text-primary small fw-bold">Sigla UP: {servicoOpcao.siglaUp.trim()}</div>
+                                      )}
+                                      {servicoOpcao.descricaoServico && (
+                                        <div className="text-muted small">
+                                          {servicoOpcao.descricaoServico.trim()}
+                                        </div>
+                                      )}
+                                      {servicoOpcao.valorGrupo > 0 && (
+                                        <small className="text-success">
+                                          Valor: R$ {servicoOpcao.valorGrupo.toFixed(2)}
+                                        </small>
+                                      )}
+                                    </div>
+                                  </CListGroupItem>
+                                ))}
+                                {servicosOpcoes.length >= 20 && (
+                                  <CListGroupItem className="text-center text-muted py-1">
+                                    <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                                  </CListGroupItem>
+                                )}
+                              </CListGroup>
+                            </div>
+                          )}
+                          {servicoDropdownVisivel[ index ] && servicosOpcoes.length === 0 && !loadingServicos && servico.servico.length >= 2 && (
+                            <div
+                              className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                              style={{
+                                zIndex: 1050,
+                                top: '100%'
+                              }}
+                            >
+                              <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                                Nenhum serviço encontrado
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </CCol>
                     <CCol md={2}>
                       <CFormInput
@@ -1897,6 +2263,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                         onChange={(e) => atualizarServico(index, 'observacao', e.target.value)}
                         size="sm"
                         placeholder="Observação"
+                        readOnly={modoVisualizacao}
                       />
                     </CCol>
                     <CCol md={1}>
@@ -1930,6 +2297,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                         placeholder="Qtd"
                         type="number"
                         min="1"
+                        readOnly={modoVisualizacao}
                       />
                     </CCol>
                     <CCol md={3}>
@@ -1947,6 +2315,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                           size="sm"
                           onClick={() => document.getElementById(`fileInput-${index}`).click()}
                           className="mb-2"
+                          style={{ display: modoVisualizacao ? 'none' : 'inline-flex' }}
                         >
                           <CIcon icon={cilCamera} className="me-1" />
                           Adicionar Fotos
@@ -2016,17 +2385,20 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
         <CButton
           color="secondary"
           onClick={() => {
-            limparCampos();
+            if (!modoVisualizacao) {
+              limparCampos();
+            }
             setVisible(false);
           }}
           className="me-2"
           disabled={isSubmitting}
         >
-          Cancelar
+          {modoVisualizacao ? 'Fechar' : 'Cancelar'}
         </CButton>
-        <CButton
-          color="primary"
-          onClick={async () => {
+        {!modoVisualizacao && (
+          <CButton
+            color="primary"
+            onClick={async () => {
             // Ativar loading
             setIsSubmitting(true);
             if (setLoadingParent) setLoadingParent(true);
@@ -2191,7 +2563,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 incrementos: []
               };
 
-              console.log('Enviando corpo:', body);
               const response = await httpRequest('/incluirOcorrencia', {
                 method: 'POST',
                 headers: {
@@ -2201,7 +2572,6 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
                 body: JSON.stringify(body)
               });
               const result = await response.json();
-              console.log('Resultado:', result);
 
               if (response.ok) {
                 mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
@@ -2238,6 +2608,7 @@ const ServicosModal = ({ visible, setVisible, setLoadingParent, showAlertParent,
             'Registrar'
           )}
         </CButton>
+        )}
       </CModalFooter>
     </CModal>
 

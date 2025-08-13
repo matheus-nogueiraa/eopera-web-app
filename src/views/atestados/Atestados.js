@@ -226,8 +226,6 @@ const Atestados = () => {
         nomeAnexo: file?.name || (fileInputRef.current?.files[ 0 ]?.name ?? ''),
       }
 
-      console.log('Dados do formulário:', dadosFormulario)
-
       await enviarAtestado(dadosFormulario)
       limparFormulario(setValidated, fileInputRef)
       setShowSuccessAlert(true)
@@ -400,7 +398,6 @@ const Atestados = () => {
                       options={cidOptions}
                       value={selectedCid}
                       onChange={(selected) => {
-                        console.log('CID selecionado:', selected)
                         setSelectedCid(selected)
                         // Limpar o input após seleção para melhor UX
                         if (selected) {
