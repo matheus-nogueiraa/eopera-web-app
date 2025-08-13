@@ -93,7 +93,7 @@ const Login = () => {
           if (operadorResp.status === 200) {
             const operadorData = await operadorResp.json();
             if (operadorData.status && operadorData.data) {
-              localStorage.setItem('matricula', operadorData.data.matricula);
+              localStorage.setItem('matricula', operadorData.data.matricula || '');
               localStorage.setItem('nomeUsuario', operadorData.data.nome);
               localStorage.setItem('cpf', operadorData.data.cpf);
             }

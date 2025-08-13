@@ -8,6 +8,7 @@ import {
   cilGroup,
   cilPeople,
   cilClipboard,
+  cilContact,
   cilHome
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
@@ -52,6 +53,12 @@ const _nav = [
     name: 'Ordens de Serviço',
     to: '/servicos',
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Gestão de Usuários',
+    to: '/usuarios',
+    icon: <CIcon icon={cilPeople} customClassName="nav-icon" />
   },
   // {
   //   component: CNavTitle,

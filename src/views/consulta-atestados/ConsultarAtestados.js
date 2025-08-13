@@ -186,13 +186,6 @@ const ConsultaAtestados = () => {
           }
         }
 
-        if (!encontrouMatricula) {
-          setErro('Usuário não está logado. Redirecionando para login...')
-          setTimeout(() => {
-            window.location.href = '/login'
-          }, 3000)
-          return
-        }
       }
 
       // Carregar e consultar atestados automaticamente ao montar o componente
@@ -313,7 +306,7 @@ const ConsultaAtestados = () => {
       const matriculaUsuario = localStorage.getItem('matricula')
 
       if (!matriculaUsuario) {
-        throw new Error('Usuário não está logado. Faça login novamente.')
+        throw new Error('Matricula não encontrada.')
       }
 
       // Buscar dados frescos da API
@@ -357,7 +350,7 @@ const ConsultaAtestados = () => {
   const recarregarDados = async () => {
     try {
       const dadosFrescos = await buscarAtestadosAPI()
-      
+
       // Limpar filtros
       const filtrosLimpos = {
         dataInicio: '',
@@ -367,13 +360,13 @@ const ConsultaAtestados = () => {
         especificacao: '',
       }
       setFiltros(filtrosLimpos)
-      
+
       // Aplicar busca automaticamente com filtros limpos
       const resultados = filtrarAtestados(dadosFrescos, filtrosLimpos)
       setAtestadosFiltrados(resultados)
       setBuscaRealizada(true)
       setPaginaAtual(1)
-      
+
     } catch (error) {
       console.error('Erro ao recarregar dados:', error)
       setErro('Erro ao recarregar dados: ' + error.message)
@@ -468,10 +461,23 @@ const ConsultaAtestados = () => {
           <h1 className="h3 mb-0 text-gray-800">Consultar Atestados Enviados</h1>
           {/* Debug info - remover em produção */}
           <small className="text-muted">
-            Matrícula: {localStorage.getItem('matricula') || 'NÃO ENCONTRADA'} | Nome:{' '}
-            {localStorage.getItem('nomeUsuario') ||
-              localStorage.getItem('nome') ||
-              'NÃO ENCONTRADO'}
+            {localStorage.getItem('matricula') ? (
+              <>
+                Matrícula: {localStorage.getItem('matricula') || ''} | Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }
+              </>
+            ) : (
+              <span>Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }</span>
+            )}
           </small>
         </div>
       </div>

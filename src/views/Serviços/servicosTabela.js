@@ -284,7 +284,7 @@ const ServicosTabela = forwardRef((props, ref) => {
                     <div className="mt-2">Carregando serviços...</div>
                   </div>
                 ) : (
-                  <CTable hover className="mb-0">
+                  <CTable hover bordered className="mb-0">
                     <CTableHead className="bg-light">
                       <CTableRow>
                         <CTableHeaderCell className="text-nowrap">Número OS</CTableHeaderCell>

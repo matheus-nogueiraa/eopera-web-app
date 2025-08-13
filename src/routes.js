@@ -1,24 +1,28 @@
 import React from 'react'
 import ProtectedRoute from './components/ProtectedRoute'
 
+const Home = React.lazy(() => import('./views/home/home'))
+const Atestados = React.lazy(() => import('./views/atestados/Atestados'))
+const ConsultaAtestados = React.lazy(() => import('./views/consulta-atestados/ConsultarAtestados'))
+const Servicos = React.lazy(() => import('./views/serviços/servicos'))
+const Usuarios = React.lazy(() => import('./views/usuarios/Usuarios'))
+
 const Treinamentos = React.lazy(() => import('./views/treinamentos/treinamentos'))
 const TreinamentoDetalhe = React.lazy(() => import('./views/treinamentos/TreinamentoDetalhe'))
 const CriarCursos = React.lazy(() => import('./views/cursos/criarCursos'))
 const CriarQuestionario = React.lazy(() => import('./views/questionarios/criarQuestionario'))
-const Atestados = React.lazy(() => import('./views/atestados/Atestados'))
-const ConsultaAtestados = React.lazy(() => import('./views/consulta-atestados/ConsultarAtestados'))
 const Certificados = React.lazy(() => import('./views/certificados/Certificados'))
 const Turmas = React.lazy(() => import('./views/turmas/Turmas'))
-const Servicos = React.lazy(() => import('./views/serviços/servicos'))
-const Home = React.lazy(() => import('./views/home/home'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home', element: () => <ProtectedRoute><Home /></ProtectedRoute> },
   { path: '/home', name: 'Home', element: () => <ProtectedRoute><Home /></ProtectedRoute> },
-  { path: '/ranking', name: 'Dashboard', element: () => <ProtectedRoute><Dashboard /></ProtectedRoute> },
   { path: '/atestados', name: 'Atestados', element: () => <ProtectedRoute><Atestados /></ProtectedRoute> },
   { path: '/consulta-atestados', name: 'Consultar Atestados', element: () => <ProtectedRoute><ConsultaAtestados /></ProtectedRoute> },
   { path: '/servicos', name: 'Ordens de Serviço', element: () => <ProtectedRoute><Servicos /></ProtectedRoute> },
+  { path: '/usuarios', name: 'Usuários', element: () => <ProtectedRoute><Usuarios /></ProtectedRoute> },
+  
+  // { path: '/ranking', name: 'Dashboard', element: () => <ProtectedRoute><Dashboard /></ProtectedRoute> },
   // { path: '/treinamentos', name: 'Treinamentos', element: () => <ProtectedRoute><Treinamentos /></ProtectedRoute> },
   // { path: '/treinamentos/:id', name: 'Detalhe do Treinamento', element: () => <ProtectedRoute><TreinamentoDetalhe /></ProtectedRoute> },
   // { path: '/criar-cursos', name: 'Criar Cursos', element: () => <ProtectedRoute><CriarCursos /></ProtectedRoute> },
