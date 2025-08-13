@@ -104,7 +104,7 @@ const Login = () => {
         setToast({ show: true, message: 'Login realizado com sucesso!', type: 'success' });
         setTimeout(() => {
           setLoading(false);
-          navigate('/atestados');
+          navigate('/home');
         }, 1200);
       } else {
         setLoading(false);

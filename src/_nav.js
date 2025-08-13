@@ -7,7 +7,8 @@ import {
   cilBadge,
   cilGroup,
   cilPeople,
-  cilClipboard
+  cilClipboard,
+  cilHome
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
@@ -18,6 +19,12 @@ const _nav = [
   //   to: '/ranking',
   //   icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
   // },
+  {
+    component: CNavItem,
+    name: 'Home',
+    to: '/home',
+    icon: <CIcon icon={cilHome} customClassName="nav-icon" />,
+  },
   {
     component: CNavTitle,
     name: 'E-opera X',
@@ -41,11 +48,11 @@ const _nav = [
     ],
   },
   {
-      component: CNavItem,
-      name: 'Ordens de Serviço',
-      to: '/servicos',
-      icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-    },
+    component: CNavItem,
+    name: 'Ordens de Serviço',
+    to: '/servicos',
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+  },
   // {
   //   component: CNavTitle,
   //   name: 'Eopera Academy',
