@@ -1,7 +1,6 @@
 import React from 'react'
 import ProtectedRoute from './components/ProtectedRoute'
 
-const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
 const Treinamentos = React.lazy(() => import('./views/treinamentos/treinamentos'))
 const TreinamentoDetalhe = React.lazy(() => import('./views/treinamentos/TreinamentoDetalhe'))
 const CriarCursos = React.lazy(() => import('./views/cursos/criarCursos'))
@@ -12,9 +11,11 @@ const Certificados = React.lazy(() => import('./views/certificados/Certificados'
 const Turmas = React.lazy(() => import('./views/turmas/Turmas'))
 const Servicos = React.lazy(() => import('./views/serviços/servicos'))
 const Usuarios = React.lazy(() => import('./views/usuarios/Usuarios'))
+const Home = React.lazy(() => import('./views/home/home'))
 
 const routes = [
-  { path: '/', exact: true, name: 'Home' },
+  { path: '/', exact: true, name: 'Home', element: () => <ProtectedRoute><Home /></ProtectedRoute> },
+  { path: '/home', name: 'Home', element: () => <ProtectedRoute><Home /></ProtectedRoute> },
   { path: '/ranking', name: 'Dashboard', element: () => <ProtectedRoute><Dashboard /></ProtectedRoute> },
   { path: '/atestados', name: 'Atestados', element: () => <ProtectedRoute><Atestados /></ProtectedRoute> },
   { path: '/consulta-atestados', name: 'Consultar Atestados', element: () => <ProtectedRoute><ConsultaAtestados /></ProtectedRoute> },

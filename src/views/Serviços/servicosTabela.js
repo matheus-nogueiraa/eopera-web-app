@@ -22,8 +22,9 @@ import {
   CAlert,
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-import { cilMagnifyingGlass, cilCloudDownload } from '@coreui/icons';
+import { cilMagnifyingGlass, cilCloudDownload, cilInfo } from '@coreui/icons';
 import httpRequest from '../../utils/httpRequests';
+import ServicosModal from './servicosModal';
 
 const ServicosTabela = forwardRef((props, ref) => {
   // Estados para os dados da tabela
@@ -38,6 +39,11 @@ const ServicosTabela = forwardRef((props, ref) => {
   
   // Estados para filtros
   const [filtroConteudo, setFiltroConteudo] = useState('');
+
+  // Estados para modal de visualização
+  const [modalVisualizar, setModalVisualizar] = useState(false);
+  const [dadosOcorrencia, setDadosOcorrencia] = useState(null);
+  const [loadingDetalhes, setLoadingDetalhes] = useState(false);
 
   // Função para carregar serviços da API
   const carregarServicos = async () => {
@@ -102,6 +108,39 @@ const ServicosTabela = forwardRef((props, ref) => {
       return `${dia}/${mes}/${ano} ${horaFormatada}`;
     } catch (e) {
       return data;
+    }
+  };
+
+  // Função para buscar detalhes da ocorrência
+  const buscarDetalhesOcorrencia = async (idOcorrencia) => {
+    setLoadingDetalhes(true);
+    try {
+      const response = await httpRequest(`/consultarOcorrencia?idOcorrencia=${idOcorrencia}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.status && result.data) {
+        setDadosOcorrencia(result.data);
+        setModalVisualizar(true);
+      } else {
+        setError(result.message || 'Erro ao carregar detalhes da ocorrência');
+      }
+    } catch (err) {
+      setError('Erro ao carregar detalhes da ocorrência. Tente novamente.');
+      console.error('Erro ao buscar detalhes:', err);
+    } finally {
+      setLoadingDetalhes(false);
     }
   };
 
@@ -252,6 +291,7 @@ const ServicosTabela = forwardRef((props, ref) => {
                         <CTableHeaderCell className="text-nowrap">UN. Consumidora</CTableHeaderCell>
                         <CTableHeaderCell className="text-nowrap">Data/Hora Início</CTableHeaderCell>
                         <CTableHeaderCell className="text-nowrap">Usuário Registro</CTableHeaderCell>
+                        <CTableHeaderCell className="text-nowrap text-center">Visualizar</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
                     <CTableBody>
@@ -262,11 +302,23 @@ const ServicosTabela = forwardRef((props, ref) => {
                             <CTableDataCell>{servico.unidadeConsumidora}</CTableDataCell>
                             <CTableDataCell className="text-nowrap">{servico.dataInicio}</CTableDataCell>
                             <CTableDataCell>{servico.usuarioRegistro}</CTableDataCell>
+                            <CTableDataCell className="text-center">
+                              <CButton
+                                color="info"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => buscarDetalhesOcorrencia(servico.id)}
+                                disabled={loadingDetalhes}
+                                title="Visualizar detalhes"
+                              >
+                                <CIcon icon={cilInfo} />
+                              </CButton>
+                            </CTableDataCell>
                           </CTableRow>
                         ))
                       ) : (
                         <CTableRow>
-                          <CTableDataCell colSpan={4} className="text-center py-4">
+                          <CTableDataCell colSpan={5} className="text-center py-4">
                             <div className="text-muted">
                               <div>Nenhum serviço encontrado</div>
                               {filtroConteudo && (
@@ -349,6 +401,14 @@ const ServicosTabela = forwardRef((props, ref) => {
           </CCard>
         </CCol>
       </CRow>
+
+      {/* Modal de Visualização - Reutilizando o ServicosModal existente */}
+      <ServicosModal
+        visible={modalVisualizar}
+        setVisible={setModalVisualizar}
+        modoVisualizacao={true}
+        dadosOcorrencia={dadosOcorrencia}
+      />
     </div>
   );
 });

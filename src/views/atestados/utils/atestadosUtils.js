@@ -226,8 +226,7 @@ export const limparFormulario = (setValidated, fileInputRef) => {
     })
   }, 100)
 
-  // Log para debug
-  console.log('📋 Formulário limpo e pronto para novo envio')
+
 }
 
 // Função para validar tipos de arquivo
