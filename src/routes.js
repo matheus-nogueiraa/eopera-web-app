@@ -11,6 +11,7 @@ const ConsultaAtestados = React.lazy(() => import('./views/consulta-atestados/Co
 const Certificados = React.lazy(() => import('./views/certificados/Certificados'))
 const Turmas = React.lazy(() => import('./views/turmas/Turmas'))
 const Servicos = React.lazy(() => import('./views/serviços/servicos'))
+const Usuarios = React.lazy(() => import('./views/usuarios/Usuarios'))
 
 const routes = [
   { path: '/', exact: true, name: 'Home' },
@@ -18,6 +19,7 @@ const routes = [
   { path: '/atestados', name: 'Atestados', element: () => <ProtectedRoute><Atestados /></ProtectedRoute> },
   { path: '/consulta-atestados', name: 'Consultar Atestados', element: () => <ProtectedRoute><ConsultaAtestados /></ProtectedRoute> },
   { path: '/servicos', name: 'Ordens de Serviço', element: () => <ProtectedRoute><Servicos /></ProtectedRoute> },
+  { path: '/usuarios', name: 'Usuários', element: () => <ProtectedRoute><Usuarios /></ProtectedRoute> },
   // { path: '/treinamentos', name: 'Treinamentos', element: () => <ProtectedRoute><Treinamentos /></ProtectedRoute> },
   // { path: '/treinamentos/:id', name: 'Detalhe do Treinamento', element: () => <ProtectedRoute><TreinamentoDetalhe /></ProtectedRoute> },
   // { path: '/criar-cursos', name: 'Criar Cursos', element: () => <ProtectedRoute><CriarCursos /></ProtectedRoute> },

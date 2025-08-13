@@ -7,7 +7,8 @@ import {
   cilBadge,
   cilGroup,
   cilPeople,
-  cilClipboard
+  cilClipboard,
+  cilContact,
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
@@ -41,11 +42,18 @@ const _nav = [
     ],
   },
   {
-      component: CNavItem,
-      name: 'Ordens de Serviço',
-      to: '/servicos',
-      icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-    },
+    component: CNavItem,
+    name: 'Ordens de Serviço',
+    to: '/servicos',
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: 'Gestão de Usuários',
+    to: '/usuarios',
+    icon: <CIcon icon={cilContact} customClassName="nav-icon" />
+  },
+
   // {
   //   component: CNavTitle,
   //   name: 'Eopera Academy',
