@@ -2113,22 +2113,22 @@ const ServicosModal = ({
           <CCard className="border">
             <CCardHeader className="bg-light py-2">
               <CRow className="align-items-center">
-                <CCol md={3}>
+                <CCol md={2}>
                   <span className="fw-semibold">Serviço</span>
                 </CCol>
                 <CCol md={2}>
                   <span className="fw-semibold">Observação</span>
                 </CCol>
-                <CCol md={1}>
+                <CCol md={2}>
                   <span className="fw-semibold">Valor Grupo</span>
                 </CCol>
-                <CCol md={1}>
+                <CCol md={2}>
                   <span className="fw-semibold">Valor Serviço</span>
                 </CCol>
                 <CCol md={1}>
                   <span className="fw-semibold">Quantidade</span>
                 </CCol>
-                <CCol md={3}>
+                <CCol md={2}>
                   <span className="fw-semibold">Fotos</span>
                 </CCol>
                 <CCol md={1} className="text-center">
@@ -2144,7 +2144,7 @@ const ServicosModal = ({
               ) : (
                 servicos.map((servico, index) => (
                   <CRow key={index} className="align-items-start mb-3 border-bottom pb-3">
-                    <CCol md={3}>
+                    <CCol md={2}>
                       {modoVisualizacao ? (
                         <CFormInput
                           value={
@@ -2266,7 +2266,7 @@ const ServicosModal = ({
                         readOnly={modoVisualizacao}
                       />
                     </CCol>
-                    <CCol md={1}>
+                    <CCol md={2}>
                       <CFormInput
                         value={servico.valorGrupo}
                         onChange={(e) => atualizarServico(index, 'valorGrupo', e.target.value)}
@@ -2278,7 +2278,7 @@ const ServicosModal = ({
                         className="bg-light" // Adiciona um estilo visual para campos readonly
                       />
                     </CCol>
-                    <CCol md={1}>
+                    <CCol md={2}>
                       <CFormInput
                         value={servico.valorServico}
                         onChange={(e) => atualizarServico(index, 'valorServico', e.target.value)}
@@ -2300,7 +2300,7 @@ const ServicosModal = ({
                         readOnly={modoVisualizacao}
                         />
                       </CCol>
-                      <CCol md={3}>
+                      <CCol md={2}>
                         <div className="mb-2">
                         <input
                           type="file"
@@ -2318,7 +2318,7 @@ const ServicosModal = ({
                           style={{ display: modoVisualizacao ? 'none' : 'inline-flex' }}
                         >
                           <CIcon icon={cilCamera} className="me-1" />
-                          Adicionar Fotos
+                          Adicionar
                         </CButton>
                         </div>
                         {servico.fotos && servico.fotos.length > 0 && servico.fotos.some(f => f.base64) ? (

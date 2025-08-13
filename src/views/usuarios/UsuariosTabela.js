@@ -10,13 +10,14 @@ import {
   CButtonGroup,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash } from '@coreui/icons'
+import { cilPencil, cilTrash, cilLockLocked } from '@coreui/icons'
 
 const UsuariosTabela = ({
   paginatedUsuarios,
   formatarCPF,
   getTipoUsuarioBadge,
   handleEdit,
+  handleEditPermissao,
   handleDelete,
   loading,
   termoPesquisa,
@@ -29,7 +30,7 @@ const UsuariosTabela = ({
           <CTableHeaderCell >Nome</CTableHeaderCell>
           <CTableHeaderCell className='text-center'>CPF</CTableHeaderCell>
           <CTableHeaderCell className='text-center'>Tipo de Usuário</CTableHeaderCell>
-          {/*<CTableHeaderCell>Ações</CTableHeaderCell>*/}
+          <CTableHeaderCell>Ações</CTableHeaderCell>
         </CTableRow>
       </CTableHead>
       <CTableBody>
@@ -42,16 +43,25 @@ const UsuariosTabela = ({
             <CTableDataCell className='text-center'>{formatarCPF(user.cpf)}</CTableDataCell>
             <CTableDataCell className='text-center'>{getTipoUsuarioBadge(user.tipoUsuario)}</CTableDataCell>
           
-            {/*<CTableDataCell>
+            <CTableDataCell>
               <CButtonGroup className="w-100">
                 <CButton
                   className="flex-fill"
-                  color="secondary"
+                  color="warning"
                   size="sm"
                   onClick={() => handleEdit(user)}
                   disabled={loading}
                 >
                   <CIcon icon={cilPencil} />
+                </CButton>
+                <CButton
+                  className="flex-fill"
+                  color="info"
+                  size="sm"
+                  onClick={() => handleEditPermissao(user)}
+                  disabled={loading}
+                >
+                  <CIcon icon={cilLockLocked} />
                 </CButton>
                 <CButton
                   color="primary"
@@ -62,7 +72,7 @@ const UsuariosTabela = ({
                   <CIcon icon={cilTrash} />
                 </CButton>
               </CButtonGroup>
-            </CTableDataCell>*/}
+            </CTableDataCell>
           </CTableRow>
         ))}
         {paginatedUsuarios.length === 0 && !loading && (

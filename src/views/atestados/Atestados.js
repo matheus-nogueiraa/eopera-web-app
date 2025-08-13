@@ -287,10 +287,23 @@ const Atestados = () => {
         <div>
           <h1 className="h3 mb-0 text-gray-800">Enviar Atestados</h1>
           <small className="text-muted">
-            Matrícula: {localStorage.getItem('matricula') || 'NÃO ENCONTRADA'} | Nome:{' '}
-            {localStorage.getItem('nomeUsuario') ||
-              localStorage.getItem('nome') ||
-              'NÃO ENCONTRADO'}
+            {localStorage.getItem('matricula') ? (
+              <>
+                Matrícula: {localStorage.getItem('matricula') || ''} | Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }
+              </>
+            ) : (
+              <span>Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }</span>
+            )}
           </small>
         </div>
       </div>

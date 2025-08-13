@@ -24,6 +24,7 @@ import CIcon from '@coreui/icons-react'
 import { cilPencil, cilTrash, cilPlus, cilX } from '@coreui/icons'
 import UsuariosModal from './UsuariosModal'
 import UsuariosTabela from './UsuariosTabela'
+import UsuarioPermissaoModal from './usuarioPermisaoModal'
 
 // Importar o service de usuários
 import { consultarUsuariosEoperaX } from '../../services/usuariosService'
@@ -45,6 +46,10 @@ const Usuarios = () => {
     tipoUsuario: '',
   })
   const [formErrors, setFormErrors] = useState({})
+
+  // Estados para modal de permissões
+  const [showPermissaoModal, setShowPermissaoModal] = useState(false)
+  const [editingUserPermissao, setEditingUserPermissao] = useState(null)
 
   // Estados da paginação
   const [currentPage, setCurrentPage] = useState(1)
@@ -299,6 +304,11 @@ const Usuarios = () => {
     setShowModal(true)
   }
 
+  const handleEditPermissao = (user) => {
+    setEditingUserPermissao(user)
+    setShowPermissaoModal(true)
+  }
+
   const handleDelete = (matricula) => {
     const user = usuarios.find((u) => u.matricula === matricula)
     setUserToDelete(user)
@@ -473,10 +483,13 @@ const Usuarios = () => {
                 formatarCPF={formatarCPF}
                 getTipoUsuarioBadge={getTipoUsuarioBadge}
                 handleEdit={handleEdit}
+                handleEditPermissao={handleEditPermissao}
                 handleDelete={handleDelete}
                 loading={loading}
                 termoPesquisa={termoPesquisa}
               />
+
+              
 
               {totalPages > 1 && (
                 <div className="d-flex justify-content-end">
@@ -541,6 +554,13 @@ const Usuarios = () => {
         cancelDelete={cancelDelete}
         confirmDelete={confirmDelete}
       />
+
+      <UsuarioPermissaoModal
+        showModal={showPermissaoModal}
+        setShowModal={setShowPermissaoModal}
+        editingUser={editingUserPermissao}
+      />
+      
     </div>
   )
 }
