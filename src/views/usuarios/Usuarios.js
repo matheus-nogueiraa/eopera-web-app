@@ -5,21 +5,10 @@ import {
   CCardHeader,
   CCol,
   CRow,
-  CForm,
-  CFormLabel,
   CFormInput,
-  CFormSelect,
-  CFormTextarea,
   CButton,
-  CFormFeedback,
   CInputGroup,
   CAlert,
-  CTable,
-  CTableHead,
-  CTableRow,
-  CTableHeaderCell,
-  CTableBody,
-  CTableDataCell,
   CBadge,
   CModal,
   CModalHeader,
@@ -32,18 +21,23 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilPlus, cilUser, cilCheckAlt, cilX, cilSearch } from '@coreui/icons'
+import { cilPencil, cilTrash, cilPlus, cilX } from '@coreui/icons'
+import UsuariosModal from './UsuariosModal'
+import UsuariosTabela from './UsuariosTabela'
+
+// Importar o service de usuários
+import { consultarUsuariosEoperaX } from '../../services/usuariosService'
 
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState([])
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([])
   const [termoPesquisa, setTermoPesquisa] = useState('')
+  const [alert, setAlert] = useState({ show: false, message: '', color: 'success' })
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [userToDelete, setUserToDelete] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
-  const [alert, setAlert] = useState({ show: false, message: '', color: 'success' })
   const [formData, setFormData] = useState({
     matricula: '',
     nome: '',
@@ -56,7 +50,7 @@ const Usuarios = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10 // Quantidade de usuários por página
 
-  // Simulação de dados iniciais com os campos da API
+  // Carregar usuários da API ao montar componente
   useEffect(() => {
     carregarUsuarios()
   }, [])
@@ -81,11 +75,29 @@ const Usuarios = () => {
   const carregarUsuarios = async () => {
     setLoading(true)
     try {
-      // Aqui você fará a chamada real para sua API
-      // const response = await fetch('/api/usuarios')
-      // const dados = await response.json()
+      console.log('Iniciando carregamento de usuários...')
+      const dadosUsuarios = await consultarUsuariosEoperaX()
 
-      // Simulação de dados para desenvolvimento
+      console.log('Dados recebidos da API:', dadosUsuarios)
+
+      // Transformar os dados da API para o formato esperado pelo componente
+      const usuariosFormatados = dadosUsuarios.map((usuario) => ({
+        matricula: usuario.matricula || '',
+        nome: usuario.nome || '',
+        cpf: usuario.cpf || '',
+        tipoUsuario: usuario.tipoUsuario || '',
+      }))
+
+      setUsuarios(usuariosFormatados)
+      console.log(`${usuariosFormatados.length} usuários carregados com sucesso`)
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error)
+      showAlert(
+        'Erro ao carregar usuários da API. Verifique a conexão ou contate o suporte.',
+        'danger',
+      )
+
+      // Em caso de erro, manter dados simulados para não quebrar a aplicação
       const dadosSimulados = [
         {
           matricula: '001134',
@@ -105,116 +117,9 @@ const Usuarios = () => {
           cpf: '98765432109',
           tipoUsuario: 'CLT',
         },
-        {
-          matricula: '001541',
-          nome: 'CARLOS FREITAS SOUZA',
-          cpf: '98765432147',
-          tipoUsuario: '',
-        },
-        {
-          matricula: '001542',
-          nome: 'ANA PAULA OLIVEIRA',
-          cpf: '12345678912',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001543',
-          nome: 'FELIPE GOMES DA SILVA',
-          cpf: '12345678913',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001544',
-          nome: 'JULIANA COSTA ALMEIDA',
-          cpf: '12345678914',
-          tipoUsuario: '',
-        },
-        {
-          matricula: '001545',
-          nome: 'GABRIELA SOUZA',
-          cpf: '12345678915',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001546',
-          nome: 'VITOR HUGO',
-          cpf: '12345678916',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001547',
-          nome: 'MARCOS SILVA',
-          cpf: '12345678917',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001548',
-          nome: 'LUIZ FERNANDO',
-          cpf: '12345678918',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001549',
-          nome: 'CARLA SOUZA',
-          cpf: '12345678919',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001550',
-          nome: 'FABIOLA MARTINS',
-          cpf: '12345678920',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001551',
-          nome: 'GUSTAVO SILVA',
-          cpf: '12345678921',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001552',
-          nome: 'FABIOLA MARTINS',
-          cpf: '12345678922',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001553',
-          nome: 'FABIOLA MARTINS',
-          cpf: '12345678923',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001554',
-          nome: 'FABIOLA MARTINS',
-          cpf: '12345678924',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001555',
-          nome: 'FABIOLA MARTINS',
-          cpf: '12345678925',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001556',
-          nome: 'FABIOLA MARTINS',
-          cpf: '12345678926',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001557',
-          nome: 'FABIOLA MARTINS',
-          cpf: '12345678927',
-          tipoUsuario: 'PJ',
-        },
       ]
-
-      setTimeout(() => {
-        setUsuarios(dadosSimulados)
-        setLoading(false)
-      }, 500) // Simula delay da API
-    } catch (error) {
-      showAlert('Erro ao carregar usuários: ' + error.message, 'danger')
+      setUsuarios(dadosSimulados)
+    } finally {
       setLoading(false)
     }
   }
@@ -227,10 +132,10 @@ const Usuarios = () => {
 
     const termo = termoPesquisa.toLowerCase().trim()
     const usuariosFiltrados = usuarios.filter((usuario) => {
-      const nome = usuario.nome.toLowerCase()
-      const cpf = usuario.cpf.replace(/[^\d]/g, '') // Remove formatação do CPF
-      const cpfFormatado = formatarCPF(usuario.cpf).toLowerCase()
-      const matricula = usuario.matricula.toLowerCase()
+      const nome = usuario.nome?.toLowerCase() || ''
+      const cpf = usuario.cpf?.replace(/[^\d]/g, '') || '' // Remove formatação do CPF
+      const cpfFormatado = formatarCPF(usuario.cpf || '').toLowerCase()
+      const matricula = usuario.matricula?.toLowerCase() || ''
 
       return (
         nome.includes(termo) ||
@@ -287,48 +192,12 @@ const Usuarios = () => {
   }
 
   const formatarCPF = (cpf) => {
+    if (!cpf) return ''
     cpf = cpf.replace(/[^\d]/g, '')
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-  }
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-
-    let newValue = value
-
-    // Formatação automática do CPF
-    if (name === 'cpf') {
-      // Remove caracteres não numéricos
-      newValue = value.replace(/[^\d]/g, '')
-
-      // Aplica formatação apenas quando necessário
-      if (newValue.length >= 11) {
-        newValue = newValue.substring(0, 11) // Limita a 11 dígitos
-        newValue = newValue.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-      } else if (newValue.length >= 7) {
-        newValue = newValue.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3')
-      } else if (newValue.length >= 4) {
-        newValue = newValue.replace(/(\d{3})(\d{1,3})/, '$1.$2')
-      }
+    if (cpf.length === 11) {
+      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
     }
-
-    // Converter nome para maiúsculas (como na API)
-    if (name === 'nome') {
-      newValue = value.toUpperCase()
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: newValue,
-    }))
-
-    // Limpar erro do campo
-    if (formErrors[name]) {
-      setFormErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }))
-    }
+    return cpf
   }
 
   const validateForm = () => {
@@ -367,9 +236,9 @@ const Usuarios = () => {
       errors.matricula = 'Esta matrícula já está em uso'
     }
 
-    // Verificar se CPF já existe - CORREÇÃO AQUI
+    // Verificar se CPF já existe
     const cpfExists = usuarios.some((user) => {
-      const cpfUsuario = user.cpf.replace(/[^\d]/g, '') // Remove formatação do CPF armazenado
+      const cpfUsuario = user.cpf?.replace(/[^\d]/g, '') || ''
       return cpfUsuario === cpfLimpo && user.matricula !== editingUser?.matricula
     })
     if (cpfExists) {
@@ -399,26 +268,12 @@ const Usuarios = () => {
 
       if (editingUser) {
         // Editar usuário - chamada PUT para API
-        // const response = await fetch(`/api/usuarios/${editingUser.matricula}`, {
-        //   method: 'PUT',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(dadosParaAPI)
-        // })
-
-        // Simulação para desenvolvimento
         setUsuarios((prev) =>
           prev.map((user) => (user.matricula === editingUser.matricula ? dadosParaAPI : user)),
         )
         showAlert('Usuário atualizado com sucesso!')
       } else {
         // Adicionar novo usuário - chamada POST para API
-        // const response = await fetch('/api/usuarios', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(dadosParaAPI)
-        // })
-
-        // Simulação para desenvolvimento
         setUsuarios((prev) => [...prev, dadosParaAPI])
         showAlert('Usuário cadastrado com sucesso!')
       }
@@ -426,6 +281,7 @@ const Usuarios = () => {
       setShowModal(false)
       resetForm()
     } catch (error) {
+      console.error('Erro ao salvar usuário:', error)
       showAlert('Erro ao salvar usuário: ' + error.message, 'danger')
     }
 
@@ -454,15 +310,12 @@ const Usuarios = () => {
 
     setLoading(true)
     try {
-      // Chamada DELETE para API
-      // await fetch(`/api/usuarios/${userToDelete.matricula}`, { method: 'DELETE' })
-
-      // Simulação para desenvolvimento
       setUsuarios((prev) => prev.filter((user) => user.matricula !== userToDelete.matricula))
       showAlert('Usuário excluído com sucesso!')
       setShowDeleteModal(false)
       setUserToDelete(null)
     } catch (error) {
+      console.error('Erro ao excluir usuário:', error)
       showAlert('Erro ao excluir usuário: ' + error.message, 'danger')
     }
     setLoading(false)
@@ -480,12 +333,59 @@ const Usuarios = () => {
 
   const getTipoUsuarioBadge = (tipo) => {
     const cores = {
-      PJ: 'info',
       CLT: 'success',
-      '': 'secondary',
+      PJ: 'info',
+      'NÃO INFORMADO': 'secondary',
     }
-    return <CBadge color={cores[tipo] || 'secondary'}>{tipo || 'NÃO INFORMADO'}</CBadge>
+
+    // Formatação dos valores
+    let tipoFormatado = ''
+    if (tipo === 'C') {
+      tipoFormatado = 'CLT'
+    } else if (tipo === 'P') {
+      tipoFormatado = 'PJ'
+    } else if (!tipo || tipo.trim() === '') {
+      tipoFormatado = 'NÃO INFORMADO'
+    } else {
+      // Para outros valores que já podem estar formatados (CLT, PJ)
+      tipoFormatado = tipo
+    }
+
+    return <CBadge color={cores[tipoFormatado] || 'secondary'}>{tipoFormatado}</CBadge>
   }
+
+  // Função para calcular as páginas a serem exibidas
+  const getVisiblePages = () => {
+    const delta = 2
+    const range = []
+    const rangeWithDots = []
+
+    for (
+      let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++
+    ) {
+      range.push(i)
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...')
+    } else {
+      rangeWithDots.push(1)
+    }
+
+    rangeWithDots.push(...range)
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages)
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages)
+    }
+
+    return rangeWithDots
+  }
+
+  const visiblePages = getVisiblePages()
 
   return (
     <div className="container-fluid">
@@ -495,341 +395,152 @@ const Usuarios = () => {
           <p className="mb-0 text-muted">Crie, exclua ou altere dados dos usuários.</p>
         </div>
       </div>
-      <>
-        <CRow>
-          <CCol xs={12}>
-            <CCard className="mb-4">
-              <CCardHeader>
-                <h6 className="m-0 font-weight-bold text-primary">Gerenciamento de Usuários</h6>
-              </CCardHeader>
-              <CCardBody>
-                <CRow className="mb-3">
-                  <CCol lg={5}>
-                    <CInputGroup>
-                      <CFormInput
-                        placeholder="Pesquisar por nome, CPF ou matrícula..."
-                        value={termoPesquisa}
-                        onChange={handlePesquisaChange}
-                      />
-                      <CButton
-                        type="button"
-                        color="secondary"
-                        variant="outline"
-                        onClick={limparPesquisa}
-                        disabled={!termoPesquisa}
-                      >
-                        <CIcon icon={cilX} />
-                      </CButton>
-                    </CInputGroup>
-                  </CCol>
-                  <CCol lg={7}>
+
+      <CRow>
+        <CCol xs={12}>
+          <CCard className="mb-4">
+            <CCardHeader className="d-flex justify-content-between align-items-center">
+              <h6 className="m-0 font-weight-bold text-primary">Gerenciamento de Usuários</h6>
+            </CCardHeader>
+            <CCardBody>
+              <CRow className="mb-3">
+                <CCol lg={6}>
+                  <CInputGroup>
+                    <CFormInput
+                      placeholder="Pesquisar por nome, CPF ou matrícula..."
+                      value={termoPesquisa}
+                      onChange={handlePesquisaChange}
+                    />
                     <CButton
-                      className="w-100"
-                      color="primary"
-                      onClick={handleNewUser}
-                      disabled={loading}
+                      type="button"
+                      color="secondary"
+                      variant="outline"
+                      onClick={limparPesquisa}
+                      disabled={!termoPesquisa}
                     >
-                      <CIcon icon={cilPlus} className="me-1" />
-                      Adicionar Novo Usuário
+                      <CIcon icon={cilX} />
                     </CButton>
-                  </CCol>
-                </CRow>
+                  </CInputGroup>
+                </CCol>
+                {/*<CCol lg={7}>
+                  <CButton
+                    className="w-100"
+                    color="primary"
+                    onClick={handleNewUser}
+                    disabled={loading}
+                  >
+                    <CIcon icon={cilPlus} className="me-1" />
+                    Adicionar Novo Usuário
+                  </CButton>
+                </CCol>*/}
+              </CRow>
 
-                {termoPesquisa && (
-                  <div className="mb-3">
-                    <small className="text-muted">
-                      Mostrando {usuariosFiltrados.length} de {usuarios.length} usuários
-                      {termoPesquisa && ` para "${termoPesquisa}"`}
-                    </small>
-                  </div>
-                )}
+              {termoPesquisa && (
+                <div className="mb-3">
+                  <small className="text-muted">
+                    Mostrando {usuariosFiltrados.length} de {usuarios.length} usuários
+                    {termoPesquisa && ` para "${termoPesquisa}"`}
+                  </small>
+                </div>
+              )}
 
-                {/* Informação da paginação */}
-                {usuariosFiltrados.length > itemsPerPage && (
-                  <div className="mb-3 d-flex justify-content-between align-items-center">
-                    <small className="text-muted">
-                      Página {currentPage} de {totalPages} - Exibindo{' '}
-                      {(currentPage - 1) * itemsPerPage + 1} a{' '}
-                      {Math.min(currentPage * itemsPerPage, usuariosFiltrados.length)} de{' '}
-                      {usuariosFiltrados.length} usuários
-                    </small>
-                  </div>
-                )}
+              {usuariosFiltrados.length > itemsPerPage && (
+                <div className="mb-3 d-flex justify-content-between align-items-center">
+                  <small className="text-muted">
+                    Página {currentPage} de {totalPages} - Exibindo{' '}
+                    {(currentPage - 1) * itemsPerPage + 1} a{' '}
+                    {Math.min(currentPage * itemsPerPage, usuariosFiltrados.length)} de{' '}
+                    {usuariosFiltrados.length} usuários
+                  </small>
+                </div>
+              )}
 
-                <hr />
-                {alert.show && (
-                  <CAlert color={alert.color} className="d-flex align-items-center">
-                    {alert.message}
-                  </CAlert>
-                )}
-                {loading && (
-                  <div className="text-center py-3">
-                    <CSpinner color="primary" />
-                  </div>
-                )}
-                <CTable hover bordered align="middle" responsive>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>Matrícula</CTableHeaderCell>
-                      <CTableHeaderCell>Nome</CTableHeaderCell>
-                      <CTableHeaderCell>CPF</CTableHeaderCell>
-                      <CTableHeaderCell>Tipo de Usuário</CTableHeaderCell>
-                      <CTableHeaderCell>Ações</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {paginatedUsuarios.map((user) => (
-                      <CTableRow key={user.matricula}>
-                        <CTableDataCell>
-                          <strong className="text-primary">{user.matricula}</strong>
-                        </CTableDataCell>
-                        <CTableDataCell>{user.nome}</CTableDataCell>
-                        <CTableDataCell>{formatarCPF(user.cpf)}</CTableDataCell>
-                        <CTableDataCell>{getTipoUsuarioBadge(user.tipoUsuario)}</CTableDataCell>
-                        <CTableDataCell>
-                          <CButtonGroup className="w-100">
-                            <CButton
-                              className="flex-fill"
-                              color="secondary"
-                              size="sm"
-                              onClick={() => handleEdit(user)}
-                              disabled={loading}
-                            >
-                              <CIcon icon={cilPencil} />
-                            </CButton>
-                            <CButton
-                              color="primary"
-                              size="sm"
-                              onClick={() => handleDelete(user.matricula)}
-                              disabled={loading}
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
-                          </CButtonGroup>
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                    {paginatedUsuarios.length === 0 && !loading && (
-                      <CTableRow>
-                        <CTableDataCell colSpan="5" className="text-center">
-                          {termoPesquisa
-                            ? 'Nenhum usuário encontrado para esta pesquisa'
-                            : 'Nenhum usuário cadastrado'}
-                        </CTableDataCell>
-                      </CTableRow>
-                    )}
-                  </CTableBody>
-                </CTable>
+              <hr />
+              {alert.show && (
+                <CAlert color={alert.color} className="d-flex align-items-center">
+                  {alert.message}
+                </CAlert>
+              )}
+              {loading && (
+                <div className="text-center py-3">
+                  <CSpinner color="primary" />
+                  <p className="mt-2 text-muted">Carregando usuários...</p>
+                </div>
+              )}
 
-                {/* Paginação */}
-                {totalPages > 1 && (
-                  <CPagination align="end" className="mt-3">
+              <UsuariosTabela
+                paginatedUsuarios={paginatedUsuarios}
+                formatarCPF={formatarCPF}
+                getTipoUsuarioBadge={getTipoUsuarioBadge}
+                handleEdit={handleEdit}
+                handleDelete={handleDelete}
+                loading={loading}
+                termoPesquisa={termoPesquisa}
+              />
+
+              {totalPages > 1 && (
+                <div className="d-flex justify-content-end">
+                  <CPagination className="mb-0">
                     <CPaginationItem
                       aria-label="Previous"
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                       style={{ cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
-                    >
+                    > 
                       <span aria-hidden="true">&laquo;</span>
                     </CPaginationItem>
 
-                    {Array.from({ length: totalPages }, (_, idx) => (
-                      <CPaginationItem
-                        key={idx + 1}
-                        active={currentPage === idx + 1}
-                        onClick={() => setCurrentPage(idx + 1)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {idx + 1}
-                      </CPaginationItem>
-                    ))}
+                    {visiblePages.map((page, idx) =>
+                      page === '...' ? (
+                        <CPaginationItem key={`dots-${idx}`} disabled>
+                          <span>...</span>
+                        </CPaginationItem>
+                      ) : (
+                        <CPaginationItem
+                          key={page}
+                          aria-label={`Page ${page}`}
+                          active={currentPage === page}
+                          onClick={() => setCurrentPage(page)}
+                          style={{ cursor: 'pointer' }}
+                        > 
+                          {page}
+                        </CPaginationItem>
+                      ),
+                    )}
 
                     <CPaginationItem
                       aria-label="Next"
-                      disabled={currentPage === totalPages || totalPages === 0}
+                      disabled={currentPage === totalPages}
                       onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
                       style={{ cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
                     >
                       <span aria-hidden="true">&raquo;</span>
                     </CPaginationItem>
+
+                    
                   </CPagination>
-                )}
-              </CCardBody>
-            </CCard>
-          </CCol>
-        </CRow>
-
-        {/* Modal para Adicionar/Editar Usuário */}
-        <CModal
-          alignment="center"
-          visible={showModal}
-          onClose={() => {
-            setShowModal(false)
-            resetForm()
-          }}
-          size="lg"
-        >
-          <CModalHeader>
-            <CModalTitle>{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</CModalTitle>
-          </CModalHeader>
-          <CForm onSubmit={handleSubmit}>
-            <CModalBody>
-              <CRow>
-                <CCol md={6}>
-                  <div className="mb-3">
-                    <CFormLabel htmlFor="matricula">
-                      Matrícula <span className="text-danger">*</span>
-                    </CFormLabel>
-                    <CFormInput
-                      type="text"
-                      id="matricula"
-                      name="matricula"
-                      value={formData.matricula}
-                      onChange={handleInputChange}
-                      invalid={!!formErrors.matricula}
-                      placeholder="Ex: 001134"
-                      // Não permite editar matrícula
-                    />
-                    <CFormFeedback invalid>{formErrors.matricula}</CFormFeedback>
-                  </div>
-                </CCol>
-                <CCol md={6}>
-                  <div className="mb-3">
-                    <CFormLabel htmlFor="cpf">
-                      CPF <span className="text-danger">*</span>
-                    </CFormLabel>
-                    <CFormInput
-                      type="text"
-                      id="cpf"
-                      name="cpf"
-                      value={formData.cpf}
-                      onChange={handleInputChange}
-                      invalid={!!formErrors.cpf}
-                      placeholder="000.000.000-00"
-                      maxLength={14}
-                    />
-                    <CFormFeedback invalid>{formErrors.cpf}</CFormFeedback>
-                  </div>
-                </CCol>
-              </CRow>
-              <div className="mb-3">
-                <CFormLabel htmlFor="nome">
-                  Nome Completo <span className="text-danger">*</span>
-                </CFormLabel>
-                <CFormInput
-                  type="text"
-                  id="nome"
-                  name="nome"
-                  value={formData.nome}
-                  onChange={handleInputChange}
-                  invalid={!!formErrors.nome}
-                  placeholder="DIGITE O NOME COMPLETO"
-                />
-                <CFormFeedback invalid>{formErrors.nome}</CFormFeedback>
-              </div>
-              <div className="mb-3">
-                <CFormLabel htmlFor="tipoUsuario">
-                  Tipo de Usuário <span className="text-danger">*</span>
-                </CFormLabel>
-                <CFormSelect
-                  id="tipoUsuario"
-                  name="tipoUsuario"
-                  value={formData.tipoUsuario}
-                  onChange={handleInputChange}
-                  invalid={!!formErrors.tipoUsuario}
-                >
-                  <option value="" disabled>
-                    Selecione o tipo de usuário...
-                  </option>
-                  <option value="PJ">PJ</option>
-                  <option value="CLT">CLT</option>
-                </CFormSelect>
-                <CFormFeedback invalid>{formErrors.tipoUsuario}</CFormFeedback>
-              </div>
-            </CModalBody>
-            <CModalFooter>
-              <CButtonGroup className="w-100">
-                <CButton
-                  className="flex-fill"
-                  color="secondary"
-                  onClick={() => {
-                    setShowModal(false)
-                    resetForm()
-                  }}
-                  disabled={loading}
-                >
-                  <CIcon icon={cilX} className="me-1" />
-                  Cancelar
-                </CButton>
-                <CButton className="flex-fill" color="primary" type="submit" disabled={loading}>
-                  <CIcon icon={cilCheckAlt} className="me-1" />
-                  {loading && <CSpinner size="sm" className="me-2" />}
-                  {editingUser ? 'Atualizar' : 'Cadastrar'}
-                </CButton>
-              </CButtonGroup>
-            </CModalFooter>
-          </CForm>
-        </CModal>
-
-        {/* Modal de Confirmação de Exclusão */}
-        <CModal alignment="center" visible={showDeleteModal} onClose={cancelDelete} size="md">
-          <CModalHeader>
-            <CModalTitle className="text-danger">
-              <CIcon icon={cilTrash} className="me-2" />
-              Confirmar Exclusão
-            </CModalTitle>
-          </CModalHeader>
-          <CModalBody>
-            <div className="text-center mb-3">
-              <CIcon icon={cilUser} size="3xl" className="text-muted mb-3" />
-              <p className="mb-2">
-                <strong>Tem certeza que deseja excluir este usuário?</strong>
-              </p>
-              {userToDelete && (
-                <div className="border rounded p-3 bg-light">
-                  <p className="mb-1">
-                    <strong>Matrícula:</strong> {userToDelete.matricula}
-                  </p>
-                  <p className="mb-1">
-                    <strong>Nome:</strong> {userToDelete.nome}
-                  </p>
-                  <p className="mb-0">
-                    <strong>CPF:</strong> {formatarCPF(userToDelete.cpf)}
-                  </p>
                 </div>
               )}
-              <p className="text-danger mt-3 mb-0">
-                <small>
-                  <strong>Atenção:</strong> Esta ação não pode ser desfeita.
-                </small>
-              </p>
-            </div>
-          </CModalBody>
-          <CModalFooter>
-            <CButtonGroup className="w-100">
-              <CButton
-                className="flex-fill"
-                color="secondary"
-                onClick={cancelDelete}
-                disabled={loading}
-              >
-                <CIcon icon={cilX} className="me-1" />
-                Cancelar
-              </CButton>
-              <CButton
-                className="flex-fill"
-                color="danger"
-                onClick={confirmDelete}
-                disabled={loading}
-              >
-                <CIcon icon={cilTrash} className="me-1" />
-                {loading && <CSpinner size="sm" className="me-2" />}
-                Excluir Usuário
-              </CButton>
-            </CButtonGroup>
-          </CModalFooter>
-        </CModal>
-      </>
+            </CCardBody>
+          </CCard>
+        </CCol>
+      </CRow>
+
+      <UsuariosModal
+        showModal={showModal}
+        setShowModal={setShowModal}
+        showDeleteModal={showDeleteModal}
+        setShowDeleteModal={setShowDeleteModal}
+        userToDelete={userToDelete}
+        editingUser={editingUser}
+        loading={loading}
+        formData={formData}
+        setFormData={setFormData}
+        formErrors={formErrors}
+        handleSubmit={handleSubmit}
+        cancelDelete={cancelDelete}
+        confirmDelete={confirmDelete}
+      />
     </div>
   )
 }
