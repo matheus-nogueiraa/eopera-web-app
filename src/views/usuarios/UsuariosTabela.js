@@ -8,6 +8,7 @@ import {
   CTableDataCell,
   CButton,
   CButtonGroup,
+  CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPencil, cilTrash, cilLockLocked } from '@coreui/icons'
@@ -42,10 +43,10 @@ const UsuariosTabela = ({
             <CTableDataCell>{user.nome}</CTableDataCell>
             <CTableDataCell className='text-center'>{formatarCPF(user.cpf)}</CTableDataCell>
             <CTableDataCell className='text-center'>{getTipoUsuarioBadge(user.tipoUsuario)}</CTableDataCell>
-          
+
             <CTableDataCell>
               <CButtonGroup className="w-100">
-                <CButton
+                {/* <CButton
                   className="flex-fill"
                   color="warning"
                   size="sm"
@@ -53,24 +54,29 @@ const UsuariosTabela = ({
                   disabled={loading}
                 >
                   <CIcon icon={cilPencil} />
-                </CButton>
-                <CButton
-                  className="flex-fill"
-                  color="info"
-                  size="sm"
-                  onClick={() => handleEditPermissao(user)}
-                  disabled={loading}
+                </CButton> */}
+                <CTooltip
+                  content="Alterar permissões"
+                  placement="right"
                 >
-                  <CIcon icon={cilLockLocked} />
-                </CButton>
-                <CButton
+                  <CButton
+                    className="flex-fill"
+                    color="info"
+                    size="sm"
+                    onClick={() => handleEditPermissao(user)}
+                    disabled={loading}
+                  >
+                    <CIcon icon={cilLockLocked} />
+                  </CButton>
+                </CTooltip>
+                {/* <CButton
                   color="primary"
                   size="sm"
                   onClick={() => handleDelete(user.matricula)}
                   disabled={loading}
                 >
                   <CIcon icon={cilTrash} />
-                </CButton>
+                </CButton> */}
               </CButtonGroup>
             </CTableDataCell>
           </CTableRow>
