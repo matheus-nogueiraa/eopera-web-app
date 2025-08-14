@@ -7,9 +7,10 @@ import {
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react';
-import { cilPlus, cilCloudDownload, cilCheckCircle, cilX } from '@coreui/icons'
+import { cilPlus, cilCloudDownload, cilCheckCircle, cilX, cilInfo } from '@coreui/icons'
 import ServicosModal from './servicosModal';
 import ServicosTabela from './servicosTabela';
+import { usePermissoesCRUD } from '../../contexts/PermissoesContext';
 
 // Adicionando estilos CSS para animação
 const styles = `
@@ -38,6 +39,18 @@ const criarConteudos = () => {
     message: '',
     color: 'success'
   });
+
+  // Hook para verificar permissões da rota /servicos
+  const { podeAdicionar, podeEditar, podeDeletar } = usePermissoesCRUD('/servicos');
+
+  // Debug - pode ser removido depois
+  useEffect(() => {
+    console.log('Permissões para /servicos:', {
+      podeAdicionar,
+      podeEditar,
+      podeDeletar
+    });
+  }, [podeAdicionar, podeEditar, podeDeletar]);
 
   // Referência para a tabela de serviços
   const tabelaRef = useRef(null);
@@ -108,23 +121,32 @@ const criarConteudos = () => {
       
       <CRow className="mb-4">
         <CCol lg={12} className="d-flex align-items-center gap-2 mb-4">
-          <CButton 
-            color="primary" 
-            style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }} 
-            onClick={() => setShowModal(true)}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <CSpinner size="sm" className="me-2" />
-                Processando...
-              </>
-            ) : (
-              <>
-                <CIcon icon={cilPlus} className="text-white" /> Adicionar OS
-              </>
-            )}
-          </CButton>
+          {podeAdicionar ? (
+            <CButton 
+              color="primary" 
+              style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }} 
+              onClick={() => setShowModal(true)}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <CSpinner size="sm" className="me-2" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <CIcon icon={cilPlus} className="text-white" /> Adicionar OS
+                </>
+              )}
+            </CButton>
+          ) : (
+            <div className="text-muted">
+              <small>
+                <CIcon icon={cilInfo} className="me-1" />
+                Você não tem permissão para adicionar serviços
+              </small>
+            </div>
+          )}
         </CCol>
         <ServicosTabela ref={tabelaRef} />
       </CRow>

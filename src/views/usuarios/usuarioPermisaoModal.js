@@ -371,7 +371,9 @@ const UsuarioPermissaoModal = ({
           <hr />
           
           <h6>Permissões Atuais</h6>
-          
+           <CAlert color="info" className="py-2 mb-3">
+            Algumas telas não possuem todas as operações (Criar, atualizar, deletar), portanto certas permissões podem não ter efeito.
+          </CAlert>
           {loading ? (
             <div className="text-center p-4">
               <CSpinner color="primary" />
