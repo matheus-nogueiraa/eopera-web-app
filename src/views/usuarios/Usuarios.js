@@ -10,18 +10,12 @@ import {
   CInputGroup,
   CAlert,
   CBadge,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CButtonGroup,
   CSpinner,
   CPagination,
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilPlus, cilX } from '@coreui/icons'
+import { cilPlus, cilX } from '@coreui/icons'
 import UsuariosModal from './UsuariosModal'
 import UsuariosTabela from './UsuariosTabela'
 
@@ -35,14 +29,20 @@ const Usuarios = () => {
   const [alert, setAlert] = useState({ show: false, message: '', color: 'success' })
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [userToDelete, setUserToDelete] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
   const [formData, setFormData] = useState({
     matricula: '',
     nome: '',
     cpf: '',
     tipoUsuario: '',
+    celular: '',
+    grupoCentralizador: '',
+    ativo: '',
+    supervisor: '',
+    numOperacional: '',
+    userIpal: '',
+    userSesmt: '',
+    senha: '',
   })
   const [formErrors, setFormErrors] = useState({})
 
@@ -98,26 +98,7 @@ const Usuarios = () => {
       )
 
       // Em caso de erro, manter dados simulados para não quebrar a aplicação
-      const dadosSimulados = [
-        {
-          matricula: '001134',
-          nome: 'LUCAS YAN BEZERRA DE OLIVEIRA',
-          cpf: '07391225177',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001135',
-          nome: 'MARIA SILVA SANTOS',
-          cpf: '12345678901',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001136',
-          nome: 'JOÃO CARLOS PEREIRA',
-          cpf: '98765432109',
-          tipoUsuario: 'CLT',
-        },
-      ]
+      const dadosSimulados = []
       setUsuarios(dadosSimulados)
     } finally {
       setLoading(false)
@@ -162,6 +143,14 @@ const Usuarios = () => {
       nome: '',
       cpf: '',
       tipoUsuario: '',
+      celular: '',
+      grupoCentralizador: '',
+      ativo: '',
+      supervisor: '',
+      numOperacional: '',
+      userIpal: '',
+      userSesmt: '',
+      senha: '',
     })
     setFormErrors({})
     setEditingUser(null)
@@ -200,21 +189,42 @@ const Usuarios = () => {
     return cpf
   }
 
+  const formatarCelular = (celular) => {
+    if (!celular) return ''
+    // Remove todos os caracteres não numéricos
+    celular = celular.replace(/[^\d]/g, '')
+    // Limita a exatamente 10 dígitos
+    celular = celular.slice(0, 10)
+
+    if (celular.length === 10) {
+      // Formato: (DD) NNNN-NNNN para 10 dígitos
+      return celular.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+    } else if (celular.length > 6) {
+      return celular.replace(/(\d{2})(\d{4})(\d+)/, '($1) $2-$3')
+    } else if (celular.length > 2) {
+      return celular.replace(/(\d{2})(\d+)/, '($1) $2')
+    }
+    return celular
+  }
+
   const validateForm = () => {
     const errors = {}
 
+    // Validação da matrícula
     if (!formData.matricula.trim()) {
       errors.matricula = 'Matrícula é obrigatória'
     } else if (formData.matricula.length < 6) {
       errors.matricula = 'Matrícula deve ter pelo menos 6 caracteres'
     }
 
+    // Validação do nome
     if (!formData.nome.trim()) {
       errors.nome = 'Nome é obrigatório'
     } else if (formData.nome.trim().length < 3) {
       errors.nome = 'Nome deve ter pelo menos 3 caracteres'
     }
 
+    // Validação do CPF
     const cpfLimpo = formData.cpf.replace(/[^\d]/g, '')
     if (!cpfLimpo) {
       errors.cpf = 'CPF é obrigatório'
@@ -224,8 +234,61 @@ const Usuarios = () => {
       errors.cpf = 'CPF inválido'
     }
 
+    // Validação do tipo de usuário
     if (!formData.tipoUsuario) {
       errors.tipoUsuario = 'Tipo de usuário é obrigatório'
+    }
+
+    // Validação do celular - SOMENTE 10 DÍGITOS
+    const celularLimpo = formData.celular.replace(/[^\d]/g, '')
+    if (!celularLimpo) {
+      errors.celular = 'Número de celular é obrigatório'
+    } else if (celularLimpo.length !== 10) {
+      errors.celular = 'Celular deve ter exatamente 10 dígitos (DDD + 8 dígitos)'
+    }
+
+    // Validação do grupo centralizador
+    if (!formData.grupoCentralizador.trim()) {
+      errors.grupoCentralizador = 'Grupo Centralizador é obrigatório'
+    } else {
+      // Verificar se o formato está correto (contém código - descrição)
+      // Exemplo esperado: "00049 - MULTSKILL CAMPO GRANDE"
+      const formatoCorreto = /^\d{5}\s*-\s*.+/.test(formData.grupoCentralizador.trim())
+      if (!formatoCorreto) {
+        errors.grupoCentralizador = 'Selecione um grupo válido da lista'
+      }
+    }
+
+    // Validação do status
+    if (!formData.ativo) {
+      errors.ativo = 'Status é obrigatório'
+    }
+
+    // Validação do supervisor
+    if (!formData.supervisor) {
+      errors.supervisor = 'Campo supervisor é obrigatório'
+    }
+
+    // Validação do numOperacional
+    if (!formData.numOperacional) {
+      errors.numOperacional = 'Campo possui equipe é obrigatório'
+    }
+
+    // Validação do userIpal
+    if (!formData.userIpal) {
+      errors.userIpal = 'Campo User IPAL é obrigatório'
+    }
+
+    // Validação do userSesmt
+    if (!formData.userSesmt) {
+      errors.userSesmt = 'Campo Usuário SESMT é obrigatório'
+    }
+
+    // Validação da senha
+    if (!formData.senha.trim()) {
+      errors.senha = 'Senha é obrigatória'
+    } else if (formData.senha.trim().length < 6) {
+      errors.senha = 'Senha deve ter pelo menos 6 caracteres'
     }
 
     // Verificar se matrícula já existe
@@ -264,6 +327,7 @@ const Usuarios = () => {
         nome: formData.nome.trim(),
         cpf: formData.cpf.replace(/[^\d]/g, ''),
         tipoUsuario: formData.tipoUsuario,
+        celular: formData.celular.replace(/[^\d]/g, ''), // Exatamente 10 dígitos
       }
 
       if (editingUser) {
@@ -290,40 +354,21 @@ const Usuarios = () => {
 
   const handleEdit = (user) => {
     setFormData({
-      matricula: user.matricula,
-      nome: user.nome,
-      cpf: formatarCPF(user.cpf),
-      tipoUsuario: user.tipoUsuario,
+      matricula: user.matricula || '',
+      nome: user.nome || '',
+      cpf: formatarCPF(user.cpf || ''),
+      tipoUsuario: user.tipoUsuario || '',
+      celular: user.celular || '',
+      grupoCentralizador: user.grupoCentralizador || '',
+      ativo: user.ativo || '',
+      supervisor: user.supervisor || '',
+      numOperacional: user.numOperacional || '',
+      userIpal: user.userIpal || '',
+      userSesmt: user.userSesmt || '',
+      senha: '', // Sempre vazio ao editar por segurança
     })
     setEditingUser(user)
     setShowModal(true)
-  }
-
-  const handleDelete = (matricula) => {
-    const user = usuarios.find((u) => u.matricula === matricula)
-    setUserToDelete(user)
-    setShowDeleteModal(true)
-  }
-
-  const confirmDelete = async () => {
-    if (!userToDelete) return
-
-    setLoading(true)
-    try {
-      setUsuarios((prev) => prev.filter((user) => user.matricula !== userToDelete.matricula))
-      showAlert('Usuário excluído com sucesso!')
-      setShowDeleteModal(false)
-      setUserToDelete(null)
-    } catch (error) {
-      console.error('Erro ao excluir usuário:', error)
-      showAlert('Erro ao excluir usuário: ' + error.message, 'danger')
-    }
-    setLoading(false)
-  }
-
-  const cancelDelete = () => {
-    setShowDeleteModal(false)
-    setUserToDelete(null)
   }
 
   const handleNewUser = () => {
@@ -392,7 +437,7 @@ const Usuarios = () => {
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
         <div>
           <h1 className="h3 mb-0 text-gray-800">Gestão de Usuários</h1>
-          <p className="mb-0 text-muted">Crie, exclua ou altere dados dos usuários.</p>
+          <p className="mb-0 text-muted">Crie ou altere dados dos usuários.</p>
         </div>
       </div>
 
@@ -404,7 +449,7 @@ const Usuarios = () => {
             </CCardHeader>
             <CCardBody>
               <CRow className="mb-3">
-                <CCol lg={6}>
+                <CCol lg={4}>
                   <CInputGroup>
                     <CFormInput
                       placeholder="Pesquisar por nome, CPF ou matrícula..."
@@ -422,7 +467,7 @@ const Usuarios = () => {
                     </CButton>
                   </CInputGroup>
                 </CCol>
-                {/*<CCol lg={7}>
+                <CCol lg={8}>
                   <CButton
                     className="w-100"
                     color="primary"
@@ -432,7 +477,7 @@ const Usuarios = () => {
                     <CIcon icon={cilPlus} className="me-1" />
                     Adicionar Novo Usuário
                   </CButton>
-                </CCol>*/}
+                </CCol>
               </CRow>
 
               {termoPesquisa && (
@@ -473,7 +518,6 @@ const Usuarios = () => {
                 formatarCPF={formatarCPF}
                 getTipoUsuarioBadge={getTipoUsuarioBadge}
                 handleEdit={handleEdit}
-                handleDelete={handleDelete}
                 loading={loading}
                 termoPesquisa={termoPesquisa}
               />
@@ -486,7 +530,7 @@ const Usuarios = () => {
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                       style={{ cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
-                    > 
+                    >
                       <span aria-hidden="true">&laquo;</span>
                     </CPaginationItem>
 
@@ -502,7 +546,7 @@ const Usuarios = () => {
                           active={currentPage === page}
                           onClick={() => setCurrentPage(page)}
                           style={{ cursor: 'pointer' }}
-                        > 
+                        >
                           {page}
                         </CPaginationItem>
                       ),
@@ -516,8 +560,6 @@ const Usuarios = () => {
                     >
                       <span aria-hidden="true">&raquo;</span>
                     </CPaginationItem>
-
-                    
                   </CPagination>
                 </div>
               )}
@@ -529,17 +571,15 @@ const Usuarios = () => {
       <UsuariosModal
         showModal={showModal}
         setShowModal={setShowModal}
-        showDeleteModal={showDeleteModal}
-        setShowDeleteModal={setShowDeleteModal}
-        userToDelete={userToDelete}
         editingUser={editingUser}
         loading={loading}
         formData={formData}
         setFormData={setFormData}
         formErrors={formErrors}
         handleSubmit={handleSubmit}
-        cancelDelete={cancelDelete}
-        confirmDelete={confirmDelete}
+        getTipoUsuarioBadge={getTipoUsuarioBadge}
+        formatarCPF={formatarCPF}
+        formatarCelular={formatarCelular}
       />
     </div>
   )
