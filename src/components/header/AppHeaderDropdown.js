@@ -21,23 +21,31 @@ import {
   cilUser,
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
+import { sessionManager } from '../../utils/GerenciarSessao'
+import { useNavigate } from 'react-router-dom'
 
 // Avatar dinâmico, não precisa importar imagem
 
 const AppHeaderDropdown = () => {
   const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
   const primeiraLetra = nomeUsuario.charAt(0).toUpperCase();
-  const navigate = window.location ? null : undefined;
+  const navigate = useNavigate(); // <--- usar useNavigate corretamente
+
   const handleLogout = () => {
-  localStorage.removeItem('nomeUsuario'); // Limpa nome do usuário
-  localStorage.removeItem('matricula');
-  localStorage.removeItem('cpf');
-  localStorage.removeItem('admin');
-  localStorage.removeItem('tipoUsuario');
-  localStorage.removeItem('supervisor');
-  localStorage.removeItem('dadosLogin')
-  window.location.href = '/login';
-}
+    try {
+      // Limpa sessão centralizada (sessionStorage + localStorage compat)
+      sessionManager.clearSession();
+
+      // Mantive remoção explícita por segurança/compatibilidade
+      localStorage.removeItem('dadosLogin');
+      // redireciona para login via router (sem reload completo)
+      navigate('/login');
+    } catch (err) {
+      // fallback: garante redirect mesmo em erro
+      window.location.href = '/login';
+    }
+  }
+
 
   return (
     <CDropdown variant="nav-item">

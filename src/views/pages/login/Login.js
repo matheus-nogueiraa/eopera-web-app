@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CButton,
@@ -10,22 +10,33 @@ import {
   CFormInput,
   CInputGroup,
   CInputGroupText,
+  CFormCheck,
   CRow,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
 import './login.css'
 import pkg from '../../../../package.json';
-import { color } from 'chart.js/helpers'
 import httpRequest from '../../../utils/httpRequests'
+import { sessionManager, useSession } from '../../../utils/GerenciarSessao'
 
 const Login = () => {
   const navigate = useNavigate();
-  const [ cpf, setCpf ] = useState('');
-  const [ senha, setSenha ] = useState('');
-  const [ error, setError ] = useState('');
-  const [ loading, setLoading ] = useState(false);
-  const [ toast, setToast ] = useState({ show: false, message: '', type: '', time: 300 });
+  const { login, isAuthenticated } = useSession();
+  
+  const [cpf, setCpf] = useState('');
+  const [senha, setSenha] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: '', time: 300 });
+
+  // Redireciona se já autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/home');
+    }
+  }, [isAuthenticated, navigate]);
 
   // Esconde o erro automaticamente após 2,5 segundos
   useEffect(() => {
@@ -33,7 +44,7 @@ const Login = () => {
       const timer = setTimeout(() => setError(''), 2500);
       return () => clearTimeout(timer);
     }
-  }, [ error ]);
+  }, [error]);
 
   // Esconde o toast após um tempo
   useEffect(() => {
@@ -41,12 +52,13 @@ const Login = () => {
       const timer = setTimeout(() => setToast({ ...toast, show: false }), 3000);
       return () => clearTimeout(timer);
     }
-  }, [ toast ]);
+  }, [toast]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
     if (!cpf && !senha) {
       setError('CPF e senha são obrigatórios.');
       setLoading(false);
@@ -76,20 +88,13 @@ const Login = () => {
       let data;
       try {
         data = JSON.parse(responseText);
-        
-        // Armazenar dados completos do login incluindo admin
-        if (data.status && data.data) {
-          localStorage.setItem('dadosLogin', JSON.stringify(data.data));
-          localStorage.setItem('admin', data.data.admin || 'N');
-          localStorage.setItem('tipoUsuario', data.data.tipoUsuario || '');
-          localStorage.setItem('supervisor', data.data.supervisor || 'N');
-        }
       } catch (jsonError) {
-        // Resposta não é JSON válido
+        throw new Error('Resposta inválida do servidor');
       }
       
-      if (response.status === 200) {
-        // Consulta operador após login
+      if (response.status === 200 && data.status && data.data) {
+        // Consulta dados do operador
+        let operadorData = null;
         try {
           const operadorResp = await httpRequest(`/consultarOperador?cpf=${cpf}`, {
             method: 'GET',
@@ -98,22 +103,46 @@ const Login = () => {
               'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
             },
           });
+          
           if (operadorResp.status === 200) {
-            const operadorData = await operadorResp.json();
-            if (operadorData.status && operadorData.data) {
-              localStorage.setItem('matricula', operadorData.data.matricula || '');
-              localStorage.setItem('nomeUsuario', operadorData.data.nome);
-              localStorage.setItem('cpf', operadorData.data.cpf);
+            const operadorResponse = await operadorResp.json();
+            if (operadorResponse.status && operadorResponse.data) {
+              operadorData = operadorResponse.data;
             }
           }
         } catch (err) {
-          // Erro ao consultar operador
+          console.warn('Erro ao consultar operador:', err);
         }
-        setToast({ show: true, message: 'Login realizado com sucesso!', type: 'success' });
-        setTimeout(() => {
-          setLoading(false);
-          navigate('/home');
-        }, 1200);
+
+        // Prepara dados do usuário para a sessão
+        const userData = {
+          id: data.data.id || cpf, // Use ID se disponível, senão CPF
+          nome: operadorData?.nome || data.data.nome || 'Usuário',
+          cpf: operadorData?.cpf || cpf,
+          matricula: operadorData?.matricula || '',
+          admin: data.data.admin || 'N',
+          tipoUsuario: data.data.tipoUsuario || '',
+          supervisor: data.data.supervisor || 'N'
+        };
+
+        // Cria sessão segura em vez de usar localStorage
+        const sessionCreated = login(userData, rememberMe);
+        
+        if (sessionCreated) {
+          setToast({ 
+            show: true, 
+            message: 'Login realizado com sucesso!', 
+            type: 'success' 
+          });
+          
+          setTimeout(() => {
+            setLoading(false);
+            navigate('/home');
+          }, 1200);
+        } else {
+          throw new Error('Erro ao criar sessão');
+        }
+        
       } else {
         setLoading(false);
         const errorMsg = data?.message || data?.error || `Erro ${response.status}`;
@@ -123,24 +152,23 @@ const Login = () => {
     } catch (err) {
       setLoading(false);
       
+      let errorMessage = 'Erro inesperado';
+      
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        setToast({ show: true, message: 'Erro de conexão: Não foi possível conectar ao servidor.', type: 'error' });
-        setError('Erro de conexão com o servidor.');
+        errorMessage = 'Erro de conexão: Não foi possível conectar ao servidor.';
       } else if (err.name === 'TypeError' && err.message.includes('NetworkError')) {
-        setToast({ show: true, message: 'Erro de rede: Verifique sua conexão.', type: 'error' });
-        setError('Erro de rede.');
-      } else {
-        setToast({ show: true, message: `Erro inesperado: ${err.message}`, type: 'error' });
-        setError(`Erro inesperado: ${err.message}`);
+        errorMessage = 'Erro de rede: Verifique sua conexão.';
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+      
+      setToast({ show: true, message: errorMessage, type: 'error' });
+      setError(errorMessage);
     }
   };
 
   return (
     <div className="login-page">
-      <style>
-      </style>
-
       {/* Toast */}
       {toast.show && (
         <div
@@ -239,6 +267,17 @@ const Login = () => {
                 </CInputGroup>
               </div>
 
+              <div className="mb-3">
+                <CFormCheck
+                  id="remember-me"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  label="Lembrar-me"
+                  className="text-white"
+                  disabled={loading}
+                />
+              </div>
+
               <CButton
                 type="submit"
                 color="primary"
@@ -258,6 +297,7 @@ const Login = () => {
           </div>
         </div>
       </div>
+      
       {/* Versão no canto inferior direito */}
       <div
         style={{
