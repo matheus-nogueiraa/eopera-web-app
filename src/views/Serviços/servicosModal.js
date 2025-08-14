@@ -2272,8 +2272,7 @@ const ServicosModal = ({
                         onChange={(e) => atualizarServico(index, 'valorGrupo', e.target.value)}
                         size="sm"
                         placeholder="Valor"
-                        type="number"
-                        step="0.01"
+                        type="text"
                         readOnly
                         className="bg-light" // Adiciona um estilo visual para campos readonly
                       />
@@ -2284,8 +2283,8 @@ const ServicosModal = ({
                         onChange={(e) => atualizarServico(index, 'valorServico', e.target.value)}
                         size="sm"
                         placeholder="Valor"
-                        type="number"
-                        step="0.01"
+                        type="text"
+                        readOnly
                         className="bg-light" // Adiciona um estilo visual para campos readonly
                         />
                       </CCol>
