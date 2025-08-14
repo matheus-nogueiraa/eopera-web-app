@@ -21,15 +21,19 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilPlus, cilX } from '@coreui/icons'
+import { cilPencil, cilTrash, cilPlus, cilX, cilInfo } from '@coreui/icons'
 import UsuariosModal from './UsuariosModal'
 import UsuariosTabela from './UsuariosTabela'
 import UsuarioPermissaoModal from './usuarioPermisaoModal'
+import { usePermissoesCRUD } from '../../contexts/PermissoesContext'
 
 // Importar o service de usuários
 import { consultarUsuariosEoperaX } from '../../services/usuariosService'
 
 const Usuarios = () => {
+  // Hook para verificar permissões da rota /usuarios
+  const { podeAdicionar, podeEditar, podeDeletar } = usePermissoesCRUD('/usuarios');
+  
   const [usuarios, setUsuarios] = useState([])
   const [usuariosFiltrados, setUsuariosFiltrados] = useState([])
   const [termoPesquisa, setTermoPesquisa] = useState('')
@@ -432,17 +436,26 @@ const Usuarios = () => {
                     </CButton>
                   </CInputGroup>
                 </CCol>
-                {/*<CCol lg={7}>
-                  <CButton
-                    className="w-100"
-                    color="primary"
-                    onClick={handleNewUser}
-                    disabled={loading}
-                  >
-                    <CIcon icon={cilPlus} className="me-1" />
-                    Adicionar Novo Usuário
-                  </CButton>
-                </CCol>*/}
+                {/* <CCol lg={7}>
+                  {podeAdicionar ? (
+                    <CButton
+                      className="w-100"
+                      color="primary"
+                      onClick={handleNewUser}
+                      disabled={loading}
+                    >
+                      <CIcon icon={cilPlus} className="me-1" />
+                      Adicionar Novo Usuário
+                    </CButton>
+                  ) : (
+                    <div className="text-muted text-center">
+                      <small>
+                        <CIcon icon={cilInfo} className="me-1" />
+                        Você não tem permissão para adicionar usuários
+                      </small>
+                    </div>
+                  )}
+                </CCol> */}
               </CRow>
 
               {termoPesquisa && (
@@ -487,6 +500,8 @@ const Usuarios = () => {
                 handleDelete={handleDelete}
                 loading={loading}
                 termoPesquisa={termoPesquisa}
+                podeEditar={podeEditar}
+                podeDeletar={podeDeletar}
               />
 
               

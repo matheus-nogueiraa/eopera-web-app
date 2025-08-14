@@ -15,7 +15,7 @@ import {
   cilCommentSquare,
   cilEnvelopeOpen,
   cilFile,
-  cilLockLocked,
+  cilArrowLeft,
   cilSettings,
   cilTask,
   cilUser,
@@ -30,6 +30,12 @@ const AppHeaderDropdown = () => {
   const navigate = window.location ? null : undefined;
   const handleLogout = () => {
   localStorage.removeItem('nomeUsuario'); // Limpa nome do usuário
+  localStorage.removeItem('matricula');
+  localStorage.removeItem('cpf');
+  localStorage.removeItem('admin');
+  localStorage.removeItem('tipoUsuario');
+  localStorage.removeItem('supervisor');
+  localStorage.removeItem('dadosLogin')
   window.location.href = '/login';
 }
 
@@ -72,7 +78,7 @@ const AppHeaderDropdown = () => {
       </CDropdownToggle>
       <CDropdownMenu className="pt-0" placement="bottom-end">
         <CDropdownItem onClick={handleLogout} style={{ cursor: 'pointer' }}>
-          <CIcon icon={cilLockLocked} className="me-2" />
+          <CIcon icon={cilArrowLeft} className="me-2" />
           Sair
         </CDropdownItem>
       </CDropdownMenu>

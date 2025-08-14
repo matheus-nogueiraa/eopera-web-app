@@ -22,6 +22,8 @@ const UsuariosTabela = ({
   handleDelete,
   loading,
   termoPesquisa,
+  podeEditar,
+  podeDeletar,
 }) => {
   return (
     <CTable hover bordered align="middle" responsive>
@@ -35,8 +37,8 @@ const UsuariosTabela = ({
         </CTableRow>
       </CTableHead>
       <CTableBody>
-        {paginatedUsuarios.map((user) => (
-          <CTableRow key={user.matricula}>
+        {paginatedUsuarios.map((user, index) => (
+          <CTableRow key={index}>
             <CTableDataCell className='text-center'>
               <strong className="text-primary">{user.matricula}</strong>
             </CTableDataCell>
@@ -46,18 +48,25 @@ const UsuariosTabela = ({
 
             <CTableDataCell>
               <CButtonGroup className="w-100">
-                {/* <CButton
-                  className="flex-fill"
-                  color="warning"
-                  size="sm"
-                  onClick={() => handleEdit(user)}
-                  disabled={loading}
-                >
-                  <CIcon icon={cilPencil} />
-                </CButton> */}
+                {/* {podeEditar && (
+                  <CTooltip
+                    content="Editar usuário"
+                    placement="top"
+                  >
+                    <CButton
+                      className="flex-fill"
+                      color="warning"
+                      size="sm"
+                      onClick={() => handleEdit(user)}
+                      disabled={loading}
+                    >
+                      <CIcon icon={cilPencil} />
+                    </CButton>
+                  </CTooltip>
+                )} */}
                 <CTooltip
                   content="Alterar permissões"
-                  placement="right"
+                  placement="top"
                 >
                   <CButton
                     className="flex-fill"
@@ -69,14 +78,21 @@ const UsuariosTabela = ({
                     <CIcon icon={cilLockLocked} />
                   </CButton>
                 </CTooltip>
-                {/* <CButton
-                  color="primary"
-                  size="sm"
-                  onClick={() => handleDelete(user.matricula)}
-                  disabled={loading}
-                >
-                  <CIcon icon={cilTrash} />
-                </CButton> */}
+                {/* {podeDeletar && (
+                  <CTooltip
+                    content="Deletar usuário"
+                    placement="top"
+                  >
+                    <CButton
+                      color="danger"
+                      size="sm"
+                      onClick={() => handleDelete(user.matricula)}
+                      disabled={loading}
+                    >
+                      <CIcon icon={cilTrash} />
+                    </CButton>
+                  </CTooltip>
+                )} */}
               </CButtonGroup>
             </CTableDataCell>
           </CTableRow>

@@ -61,7 +61,7 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Gestão de Usuários',
+    name: 'Painel de controle',
     to: '/usuarios',
     icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
     requiresPermission: true, // Esta rota precisa de permissão

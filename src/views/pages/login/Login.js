@@ -71,11 +71,19 @@ const Login = () => {
         body: JSON.stringify({ cpf, senha }),
       });
 
-      const responseText = await response;
+      const responseText = await response.text();
       
       let data;
       try {
         data = JSON.parse(responseText);
+        
+        // Armazenar dados completos do login incluindo admin
+        if (data.status && data.data) {
+          localStorage.setItem('dadosLogin', JSON.stringify(data.data));
+          localStorage.setItem('admin', data.data.admin || 'N');
+          localStorage.setItem('tipoUsuario', data.data.tipoUsuario || '');
+          localStorage.setItem('supervisor', data.data.supervisor || 'N');
+        }
       } catch (jsonError) {
         // Resposta não é JSON válido
       }

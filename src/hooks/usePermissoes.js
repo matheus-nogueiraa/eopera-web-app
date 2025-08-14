@@ -12,6 +12,38 @@ export const usePermissoes = () => {
       setLoading(true)
       setError(null)
       
+      // Verificar se o usuário é admin primeiro
+      const isAdmin = localStorage.getItem('admin') === 'T'
+      
+      if (isAdmin) {
+        // Se é admin, liberar todas as rotas e permissões
+        const todasAsRotas = [
+          '/home', 
+          '/atestados', 
+          '/consulta-atestados',
+          '/servicos',
+          '/usuarios',
+          '/treinamentos',
+          '/criar-cursos',
+          '/criar-questionarios',
+          '/turmas',
+          '/certificados'
+        ]
+        
+        // Criar permissões mockadas para admin (todas liberadas)
+        const permissoesAdmin = todasAsRotas.map(rota => ({
+          cpf: localStorage.getItem('cpf') || '',
+          idPath: rota,
+          post: 'T',
+          put: 'T',
+          del: 'T'
+        }))
+        
+        setPermissoes(permissoesAdmin)
+        setRotasPermitidas(todasAsRotas)
+        return
+      }
+      
       const cpf = localStorage.getItem('cpf')
       
       if (!cpf) {
@@ -51,20 +83,36 @@ export const usePermissoes = () => {
   }, [])
 
   const verificarPermissaoRota = (rota) => {
+    // Se é admin, libera todas as rotas
+    const isAdmin = localStorage.getItem('admin') === 'T'
+    if (isAdmin) return true
+    
     return rotasPermitidas.includes(rota)
   }
 
   const temPermissaoPost = (rota) => {
+    // Se é admin, libera todas as operações
+    const isAdmin = localStorage.getItem('admin') === 'T'
+    if (isAdmin) return true
+    
     const permissao = permissoes.find(p => p.idPath && p.idPath.trim() === rota)
     return permissao ? permissao.post === 'T' : false
   }
 
   const temPermissaoPut = (rota) => {
+    // Se é admin, libera todas as operações
+    const isAdmin = localStorage.getItem('admin') === 'T'
+    if (isAdmin) return true
+    
     const permissao = permissoes.find(p => p.idPath && p.idPath.trim() === rota)
     return permissao ? permissao.put === 'T' : false
   }
 
   const temPermissaoDelete = (rota) => {
+    // Se é admin, libera todas as operações
+    const isAdmin = localStorage.getItem('admin') === 'T'
+    if (isAdmin) return true
+    
     const permissao = permissoes.find(p => p.idPath && p.idPath.trim() === rota)
     return permissao ? permissao.del === 'T' : false
   }
