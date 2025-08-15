@@ -8,6 +8,7 @@ import {
   CTableDataCell,
   CButton,
   CButtonGroup,
+  CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilPencil } from '@coreui/icons'
@@ -20,6 +21,32 @@ const UsuariosTabela = ({
   loading,
   termoPesquisa,
 }) => {
+  // Função para formatar e exibir o grupo
+  const formatarGrupo = (grupo) => {
+    if (!grupo || grupo === 'Não definido') {
+      return (
+        <CBadge color="secondary" className="text-wrap">
+          Não definido
+        </CBadge>
+      )
+    }
+
+    // Se o grupo é muito longo, truncar para melhor visualização
+    if (grupo.length > 30) {
+      return (
+        <span className="text-wrap" title={grupo}>
+          {grupo.substring(0, 27)}...
+        </span>
+      )
+    }
+
+    return (
+      <span className="text-wrap" title={grupo}>
+        {grupo}
+      </span>
+    )
+  }
+
   return (
     <CTable hover bordered align="middle" responsive>
       <CTableHead>
@@ -33,7 +60,7 @@ const UsuariosTabela = ({
       </CTableHead>
       <CTableBody>
         {paginatedUsuarios.map((user, index) => (
-          <CTableRow key={index}>
+          <CTableRow key={user.id || index}>
             <CTableDataCell className="text-center">
               <strong className="text-primary">{user.matricula}</strong>
             </CTableDataCell>
@@ -55,7 +82,6 @@ const UsuariosTabela = ({
                 >
                   <CIcon icon={cilPencil} />
                 </CButton>
-
                 {/*Permissões do Usuario */}
                 <CButton
                   className="flex-fill"
@@ -72,7 +98,7 @@ const UsuariosTabela = ({
         ))}
         {paginatedUsuarios.length === 0 && !loading && (
           <CTableRow>
-            <CTableDataCell colSpan="5" className="text-center">
+            <CTableDataCell colSpan="6" className="text-center">
               {termoPesquisa
                 ? 'Nenhum usuário encontrado para esta pesquisa'
                 : 'Nenhum usuário encontrado na API'}

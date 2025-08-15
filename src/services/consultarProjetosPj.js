@@ -6,7 +6,7 @@ export const consultarListaProjetos = {
       console.log('=== DEBUG CONSULTA PROJETOS PJ ===')
       console.log('Iniciando consulta à API...')
 
-      const resposta = await httpRequest('/getGruposCentralizadores', {
+      const resposta = await httpRequest('/consultarListaProjetos', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ export const consultarListaProjetos = {
   consultarProjetosPorFiltro: async (filtros = {}) => {
     try {
       const params = new URLSearchParams(filtros).toString()
-      const url = `/getGruposCentralizadores${params ? `?${params}` : ''}`
+      const url = `/consultarListaProjetos${params ? `?${params}` : ''}`
 
       const resposta = await httpRequest(url, {
         method: 'GET',

@@ -56,5 +56,4 @@ export const gerenciarUsuarios = {
       throw erro
     }
   },
-
 }

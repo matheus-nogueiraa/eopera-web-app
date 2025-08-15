@@ -20,10 +20,11 @@ import {
   CInputGroupText,
 } from '@coreui/react'
 import { consultarFuncionarioClt } from '../../services/dadosPorCpf'
-import { gerenciarUsuarios } from '../../services/campoGruposCentralizados'
+import { gerenciaGruposCentralizados } from '../../services/campoGruposCentralizados'
+import { gerenciarUsuarios } from '../../services/gerenciarUsuarios'
 import { consultarListaProjetos } from '../../services/consultarProjetosPj'
 import CIcon from '@coreui/icons-react'
-import { cilSearch } from '@coreui/icons'
+import { cilSearch, cilCheckCircle, cilWarning } from '@coreui/icons'
 
 const UsuariosModal = ({
   showModal,
@@ -49,6 +50,10 @@ const UsuariosModal = ({
   const [carregandoProjetosPj, setCarregandoProjetosPj] = useState(false)
   const [searchProjetoPj, setSearchProjetoPj] = useState('')
   const [showDropdownProjetoPj, setShowDropdownProjetoPj] = useState(false)
+
+  // Estados para modal de confirmação
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [originalData, setOriginalData] = useState(null)
 
   // Carregar grupos centralizados ao abrir o modal
   useEffect(() => {
@@ -216,7 +221,7 @@ const UsuariosModal = ({
   const carregarGruposCentralizados = async () => {
     setCarregandoGrupos(true)
     try {
-      const grupos = await gerenciarUsuarios.getGruposCentralizados()
+      const grupos = await gerenciaGruposCentralizados.getGruposCentralizados()
       console.log('=== DEBUG CARREGAMENTO GRUPOS ===')
       console.log('Grupos carregados da API (tipo):', typeof grupos)
       console.log('Grupos carregados da API (é array?):', Array.isArray(grupos))
@@ -473,24 +478,26 @@ const UsuariosModal = ({
         // Verificar se ambos os campos existem e são válidos
         if (funcionario.ddd && funcionario.celular) {
           const ddd = funcionario.ddd.toString().replace(/[^\d]/g, '').padStart(2, '0')
-          const celularLimpo = funcionario.celular.toString().replace(/[^\d]/g, '')
+          let celularLimpo = funcionario.celular.toString().replace(/[^\d]/g, '')
 
           console.log('DDD processado:', ddd)
-          console.log('Celular limpo:', celularLimpo)
+          console.log('Celular original:', celularLimpo)
 
-          // Verificar se o celular tem 8 ou 9 dígitos
-          if (celularLimpo.length >= 8 && celularLimpo.length <= 9) {
-            // Formar número completo: DDD + celular
-            const numeroCompleto11ou10 = ddd + celularLimpo
-            console.log('Número completo antes da formatação:', numeroCompleto11ou10)
+          // Se o celular tem 9 dígitos, remover o primeiro 9 para ficar com 8 dígitos
+          if (celularLimpo.length === 9 && celularLimpo.startsWith('9')) {
+            celularLimpo = celularLimpo.substring(1)
+            console.log('Celular após remoção do 9:', celularLimpo)
+          }
 
-            // Formatação para 11 dígitos (DDD + 9 dígitos do celular)
-            if (numeroCompleto11ou10.length === 11) {
-              numeroCompleto = numeroCompleto11ou10.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
-            }
+          // Verificar se o celular tem 8 dígitos (formato desejado)
+          if (celularLimpo.length === 8) {
+            // Formar número completo: DDD + celular (total 10 dígitos)
+            const numeroCompleto10 = ddd + celularLimpo
+            console.log('Número completo antes da formatação:', numeroCompleto10)
+
             // Formatação para 10 dígitos (DDD + 8 dígitos do celular)
-            else if (numeroCompleto11ou10.length === 10) {
-              numeroCompleto = numeroCompleto11ou10.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+            if (numeroCompleto10.length === 10) {
+              numeroCompleto = numeroCompleto10.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
             }
 
             console.log('Número formatado:', numeroCompleto)
@@ -499,16 +506,35 @@ const UsuariosModal = ({
 
         // Se não conseguiu formar o número completo, tentar usar apenas o celular
         if (!numeroCompleto && funcionario.celular) {
-          const celularApenasNumeros = funcionario.celular.toString().replace(/[^\d]/g, '')
+          let celularApenasNumeros = funcionario.celular.toString().replace(/[^\d]/g, '')
 
-          // Se o celular já vem com DDD (10 ou 11 dígitos)
+          // Se o celular já vem com DDD e tem 11 dígitos, remover o 9 excedente
+          if (celularApenasNumeros.length === 11) {
+            const ddd = celularApenasNumeros.substring(0, 2)
+            let celular = celularApenasNumeros.substring(2)
+
+            // Se o celular tem 9 dígitos e começa com 9, remover o primeiro 9
+            if (celular.length === 9 && celular.startsWith('9')) {
+              celular = celular.substring(1)
+            }
+
+            celularApenasNumeros = ddd + celular
+          }
+
+          // Se o celular já vem com DDD e tem 10 dígitos
           if (celularApenasNumeros.length === 10) {
             numeroCompleto = celularApenasNumeros.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
-          } else if (celularApenasNumeros.length === 11) {
-            numeroCompleto = celularApenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+          } else if (celularApenasNumeros.length === 8) {
+            // Se tem apenas 8 dígitos, assumir DDD padrão (62 para Goiás)
+            numeroCompleto = ('62' + celularApenasNumeros).replace(
+              /(\d{2})(\d{4})(\d{4})/,
+              '($1) $2-$3',
+            )
           } else {
-            // Para outros casos, usar o valor original
-            numeroCompleto = funcionario.celular.toString()
+            // Para outros casos, usar o valor original se tiver até 10 dígitos
+            if (celularApenasNumeros.length <= 10) {
+              numeroCompleto = funcionario.celular.toString()
+            }
           }
         }
 
@@ -578,18 +604,15 @@ const UsuariosModal = ({
         }
       }
 
-      // Formatação automática do celular - aceita 10 ou 11 dígitos (com DDD)
+      // Formatação automática do celular - aceita apenas 10 dígitos (com DDD)
       if (name === 'celular') {
         const apenasNumeros = value.replace(/[^\d]/g, '')
 
-        // Limitar a 11 dígitos (DDD + 9 dígitos do celular)
-        const numeroLimitado = apenasNumeros.substring(0, 11)
+        // Limitar a 10 dígitos (DDD + 8 dígitos do celular)
+        const numeroLimitado = apenasNumeros.substring(0, 10)
 
         // Aplicar formatação conforme o tamanho
-        if (numeroLimitado.length === 11) {
-          // Formato: (XX) XXXXX-XXXX
-          newValue = numeroLimitado.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
-        } else if (numeroLimitado.length === 10) {
+        if (numeroLimitado.length === 10) {
           // Formato: (XX) XXXX-XXXX
           newValue = numeroLimitado.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
         } else if (numeroLimitado.length > 6) {
@@ -609,32 +632,41 @@ const UsuariosModal = ({
       }
     }
 
-    // Se mudou o tipo de usuário, limpar TODOS os campos
+    // Se mudou o tipo de usuário, limpar campos apenas se NÃO estiver editando usuário
     if (name === 'tipoUsuario') {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: newValue,
-        // Limpar todos os campos independente do tipo selecionado
-        cpf: '',
-        nome: '',
-        matricula: '',
-        celular: '',
-        senha: '',
-        confirmarSenha: '',
-        grupoCentralizador: '',
-        projetoPj: '',
-        supervisor: 'N',
-        numOperacional: 'N',
-        userIpal: 'N',
-        userSesmt: 'N',
-        ativo: 'S', // Manter ativo como padrão
-      }))
+      if (!editingUser) {
+        // Limpeza de campos apenas para usuário novo
+        setFormData((prev) => ({
+          ...prev,
+          [name]: newValue,
+          // Limpar todos os campos independente do tipo selecionado
+          cpf: '',
+          nome: '',
+          matricula: '',
+          celular: '',
+          senha: '',
+          confirmarSenha: '',
+          grupoCentralizador: '',
+          projetoPj: '',
+          supervisor: 'N',
+          numOperacional: 'N',
+          userIpal: 'N',
+          userSesmt: 'N',
+          ativo: 'S', // Manter ativo como padrão
+        }))
 
-      // Limpar também os campos de pesquisa
-      setSearchGrupo('')
-      setShowDropdown(false)
-      setSearchProjetoPj('')
-      setShowDropdownProjetoPj(false)
+        // Limpar também os campos de pesquisa
+        setSearchGrupo('')
+        setShowDropdown(false)
+        setSearchProjetoPj('')
+        setShowDropdownProjetoPj(false)
+      } else {
+        // Para edição, apenas trocar o tipo sem limpar outros campos
+        setFormData((prev) => ({
+          ...prev,
+          [name]: newValue,
+        }))
+      }
 
       // Limpar alerta ao trocar tipo de usuário
       setAlertCpf({ show: false, message: '', color: 'info' })
@@ -655,6 +687,31 @@ const UsuariosModal = ({
   const validarFormulario = () => {
     const errors = {}
 
+    // Se estiver editando, a validação é mais flexível
+    if (editingUser) {
+      // Validação do CPF (sempre obrigatório, mas já está preenchido e não pode ser alterado)
+      if (!formData.cpf) {
+        errors.cpf = 'CPF é obrigatório'
+      } else if (formData.cpf.replace(/[^\d]/g, '').length !== 11) {
+        errors.cpf = 'CPF deve ter 11 dígitos'
+      }
+
+      // Validação da senha (opcional na edição)
+      if (formData.senha && formData.senha.length < 4) {
+        errors.senha = 'Senha deve ter pelo menos 4 caracteres'
+      }
+
+      // Validação da confirmação de senha (apenas se a senha foi preenchida)
+      if (formData.senha && !formData.confirmarSenha) {
+        errors.confirmarSenha = 'Confirmação de senha é obrigatória quando nova senha é definida'
+      } else if (formData.senha && formData.senha !== formData.confirmarSenha) {
+        errors.confirmarSenha = 'As senhas não coincidem'
+      }
+
+      return errors
+    }
+
+    // Validação para novo usuário (original - todos os campos obrigatórios)
     // Validação do tipo de usuário
     if (!formData.tipoUsuario) {
       errors.tipoUsuario = 'Tipo de contrato é obrigatório'
@@ -709,8 +766,80 @@ const UsuariosModal = ({
     return errors
   }
 
+  const formatarDadosParaAPI = (formData) => {
+    // Extrair apenas os números do CPF
+    const cpfLimpo = formData.cpf.replace(/[^\d]/g, '')
+
+    // Extrair apenas os números do celular (remover formatação)
+    let celularLimpo = formData.celular.replace(/[^\d]/g, '')
+
+    // Se o celular tem 11 dígitos (DDD + 9 + 8 dígitos), remover o 9 extra
+    if (celularLimpo.length === 11 && celularLimpo.substring(2, 3) === '9') {
+      celularLimpo = celularLimpo.substring(0, 2) + celularLimpo.substring(3)
+    }
+
+    // Extrair apenas o código do grupo centralizador (antes do " - ")
+    const grupoCodigo = formData.grupoCentralizador.split(' - ')[0] || formData.grupoCentralizador
+
+    // Extrair apenas o código do projeto PJ (antes do " - ")
+    const projetoPjCodigo = formData.projetoPj ? formData.projetoPj.split(' - ')[0] : ''
+
+    // Determinar o tipo de usuário no formato da API
+    let tipoUsuarioAPI = ''
+    if (formData.tipoUsuario === 'CLT') {
+      tipoUsuarioAPI = 'C'
+    } else if (formData.tipoUsuario === 'PJ') {
+      tipoUsuarioAPI = 'P'
+    }
+
+    // Montar objeto no formato da API
+    const dadosAPI = {
+      tipoUsuario: tipoUsuarioAPI,
+      filialFuncionario: formData.filialFuncionario || '',
+      matricula: formData.matricula || '',
+      nome: formData.nome.trim(),
+      cpf: cpfLimpo,
+      grupoCentralizador: grupoCodigo,
+      senha: formData.senha,
+      supervisor: formData.supervisor, // Já está em S/N
+      numOperacional: formData.numOperacional, // Já está em S/N
+      userIpal: formData.userIpal, // Já está em S/N
+      userSesmt: formData.userSesmt, // Já está em S/N
+      celular: celularLimpo, // Sem formatação, máximo 10 dígitos
+      ativo: formData.ativo, // Já está em S/N
+      projetoPj: projetoPjCodigo,
+      armazemHancock: formData.armazemHancock || '',
+      equipeHancock: formData.equipeHancock || '',
+      admin: formData.admin || false,
+    }
+
+    console.log('Dados formatados para API:', dadosAPI)
+    console.log('Dados originais do formulário:', formData)
+
+    return dadosAPI
+  }
+
+  const cadastrarUsuario = async (formData) => {
+    try {
+      // Converter os dados do formulário para o formato da API
+      const dadosFormatados = formatarDadosParaAPI(formData)
+
+      console.log('Dados originais do formulário:', formData)
+      console.log('Dados formatados para API:', dadosFormatados)
+
+      // Enviar para a API
+      const response = await gerenciarUsuarios.enviarCadastro(dadosFormatados)
+      console.log('Resposta da API:', response)
+
+      return response
+    } catch (error) {
+      console.error('Erro ao cadastrar usuário:', error)
+      throw error
+    }
+  }
+
   // Adicionar função para lidar com o submit com validação
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     if (e) {
       e.preventDefault()
     }
@@ -720,15 +849,160 @@ const UsuariosModal = ({
 
     // Se houver erros, mostrar alerta e não enviar
     if (Object.keys(errors).length > 0) {
-      // Encontrar o primeiro erro para mostrar no alerta
       const primeiroErro = Object.values(errors)[0]
       showCpfAlert(primeiroErro, 'danger')
       return
     }
 
-    // Se não houver erros, chamar o handleSubmit original
-    handleSubmit(e)
+    // Se está editando um usuário, mostrar modal de confirmação
+    if (editingUser) {
+      const changes = getChangedFields()
+
+      // Se não há mudanças, apenas fechar o modal
+      if (changes.length === 0) {
+        showCpfAlert('Nenhuma alteração foi feita.', 'info')
+        setTimeout(() => {
+          setShowModal(false)
+        }, 2000)
+        return
+      }
+
+      // Mostrar modal de confirmação com as mudanças
+      setShowConfirmModal(true)
+      return
+    }
+
+    // Se não está editando (novo usuário), submeter diretamente
+    try {
+      const response = await cadastrarUsuario(formData)
+
+      // Se chegou até aqui, o cadastro foi bem-sucedido
+      showCpfAlert('Usuário cadastrado com sucesso!', 'success')
+
+      // Fechar modal após mostrar sucesso
+      setTimeout(() => {
+        setShowModal(false)
+        // Recarregar a lista de usuários se houver uma função para isso
+        if (typeof handleSubmit === 'function') {
+          handleSubmit() // Esta função deve recarregar a lista
+        }
+      }, 2000)
+    } catch (error) {
+      // Se houve erro, manter modal aberto e mostrar erro
+      console.error('Erro ao cadastrar usuário:', error)
+
+      let mensagemErro = 'Erro ao cadastrar usuário. Tente novamente.'
+
+      // Tentar extrair mensagem de erro específica da API
+      if (error.response?.data?.message) {
+        mensagemErro = error.response.data.message
+      } else if (error.message) {
+        mensagemErro = error.message
+      }
+
+      showCpfAlert(mensagemErro, 'danger')
+    }
   }
+
+  // Função para confirmar as alterações
+  const confirmarEdicao = async () => {
+    setShowConfirmModal(false)
+
+    try {
+      // Chamar a função de submit que foi passada como prop
+      await handleSubmit()
+
+      // Se chegou até aqui, a edição foi bem-sucedida
+      showCpfAlert('Usuário editado com sucesso!', 'success')
+
+      // Fechar modal após mostrar sucesso
+      setTimeout(() => {
+        setShowModal(false)
+      }, 2000)
+    } catch (error) {
+      // Se houve erro, manter modal aberto e mostrar erro
+      console.error('Erro ao editar usuário:', error)
+
+      let mensagemErro = 'Erro ao editar usuário. Tente novamente.'
+
+      // Tentar extrair mensagem de erro específica da API
+      if (error.response?.data?.message) {
+        mensagemErro = error.response.data.message
+      } else if (error.message) {
+        mensagemErro = error.message
+      }
+
+      showCpfAlert(mensagemErro, 'danger')
+    }
+  }
+
+  // Função para cancelar a confirmação
+  const cancelarConfirmacao = () => {
+    setShowConfirmModal(false)
+  }
+
+  // Função para comparar dados originais com os editados
+  const getChangedFields = () => {
+    if (!originalData) return []
+
+    const changes = []
+    const fieldsToCheck = {
+      tipoUsuario: 'Tipo de Contrato',
+      nome: 'Nome',
+      matricula: 'Matrícula',
+      celular: 'Contato',
+      grupoCentralizador: 'Grupo Centralizador',
+      projetoPj: 'Projeto PJ',
+      senha: 'Senha',
+      supervisor: 'Supervisor',
+      numOperacional: 'Possui Equipe',
+      userIpal: 'Usuário IPAL',
+      userSesmt: 'SESMT',
+      ativo: 'Status',
+    }
+
+    Object.keys(fieldsToCheck).forEach((field) => {
+      const original = originalData[field]
+      const current = formData[field]
+
+      if (original !== current) {
+        let originalValue = original
+        let currentValue = current
+
+        // Formatar valores para melhor exibição
+        if (
+          field === 'supervisor' ||
+          field === 'numOperacional' ||
+          field === 'userIpal' ||
+          field === 'userSesmt'
+        ) {
+          originalValue = original === 'S' ? 'Sim' : 'Não'
+          currentValue = current === 'S' ? 'Sim' : 'Não'
+        } else if (field === 'ativo') {
+          originalValue = original === 'S' ? 'Ativo' : 'Inativo'
+          currentValue = current === 'S' ? 'Ativo' : 'Inativo'
+        } else if (field === 'senha') {
+          originalValue = '****'
+          currentValue = current ? 'Nova senha definida' : '****'
+        }
+
+        changes.push({
+          field: fieldsToCheck[field],
+          original: originalValue || 'Não informado',
+          current: currentValue || 'Não informado',
+        })
+      }
+    })
+
+    return changes
+  }
+
+  // Armazenar dados originais quando começar a editar
+  useEffect(() => {
+    if (editingUser && showModal) {
+      setOriginalData({ ...formData })
+    }
+  }, [editingUser, showModal])
 
   return (
     <>
@@ -781,14 +1055,16 @@ const UsuariosModal = ({
                   value={formData.cpf}
                   onChange={handleInputChange}
                   invalid={!!formErrors.cpf}
-                  disabled={loading || noTypeSelected || consultandoCpf}
+                  disabled={loading || noTypeSelected || consultandoCpf || editingUser}
                   required
                   placeholder={
-                    noTypeSelected
-                      ? 'Selecione primeiro o tipo de usuário'
-                      : consultandoCpf
-                        ? 'Consultando...'
-                        : 'Digite o CPF'
+                    editingUser
+                      ? 'CPF não pode ser alterado'
+                      : noTypeSelected
+                        ? 'Selecione primeiro o tipo de usuário'
+                        : consultandoCpf
+                          ? 'Consultando...'
+                          : 'Digite o CPF'
                   }
                 />
                 <CFormFeedback invalid>{formErrors.cpf}</CFormFeedback>
@@ -805,14 +1081,22 @@ const UsuariosModal = ({
                   value={formData.nome}
                   onChange={handleInputChange}
                   invalid={!!formErrors.nome}
-                  disabled={loading || noTypeSelected || consultandoCpf || (isCLT && !editingUser)}
+                  disabled={
+                    loading ||
+                    noTypeSelected ||
+                    consultandoCpf ||
+                    (isCLT && !editingUser) ||
+                    editingUser
+                  }
                   required={isPJ}
                   placeholder={
-                    noTypeSelected
-                      ? 'Selecione primeiro o tipo de usuário'
-                      : isCLT && !editingUser
-                        ? 'Nome será preenchido automaticamente.'
-                        : 'Digite o nome'
+                    editingUser
+                      ? 'Nome não pode ser alterado'
+                      : noTypeSelected
+                        ? 'Selecione primeiro o tipo de usuário'
+                        : isCLT && !editingUser
+                          ? 'Nome será preenchido automaticamente.'
+                          : 'Digite o nome'
                   }
                 />
                 <CFormFeedback invalid>{formErrors.nome}</CFormFeedback>
@@ -934,15 +1218,21 @@ const UsuariosModal = ({
                     onChange={handleInputChange}
                     invalid={!!formErrors.matricula}
                     disabled={
-                      loading || noTypeSelected || consultandoCpf || (isCLT && !editingUser)
+                      loading ||
+                      noTypeSelected ||
+                      consultandoCpf ||
+                      (isCLT && !editingUser) ||
+                      editingUser
                     }
                     required={false}
                     placeholder={
-                      noTypeSelected
-                        ? 'Selecione primeiro o tipo de usuário'
-                        : isCLT && !editingUser
-                          ? 'Matrícula será preenchida automaticamente.'
-                          : 'Digite a matrícula'
+                      editingUser
+                        ? 'Matrícula não pode ser alterada'
+                        : noTypeSelected
+                          ? 'Selecione primeiro o tipo de usuário'
+                          : isCLT && !editingUser
+                            ? 'Matrícula será preenchida automaticamente.'
+                            : 'Digite a matrícula'
                     }
                   />
                 )}
@@ -1085,7 +1375,8 @@ const UsuariosModal = ({
               {/* Campo para senha */}
               <CCol md={6} className="mb-4">
                 <CFormLabel htmlFor="senha" className="mb-2">
-                  Crie uma senha:<span className="text-danger">*</span>
+                  {editingUser ? 'Nova senha (opcional):' : 'Crie uma senha:'}
+                  {!editingUser && <span className="text-danger">*</span>}
                 </CFormLabel>
                 <CFormInput
                   id="senha"
@@ -1095,18 +1386,28 @@ const UsuariosModal = ({
                   onChange={handleInputChange}
                   invalid={!!formErrors.senha}
                   disabled={loading || noTypeSelected}
-                  required
+                  required={!editingUser}
                   placeholder={
-                    noTypeSelected ? 'Selecione primeiro o tipo de usuário' : 'Digite a senha'
+                    editingUser
+                      ? 'Deixe em branco para manter a senha atual'
+                      : noTypeSelected
+                        ? 'Selecione primeiro o tipo de usuário'
+                        : 'Digite a senha'
                   }
                 />
                 <CFormFeedback invalid>{formErrors.senha}</CFormFeedback>
+                {editingUser && (
+                  <small className="text-muted">
+                    Deixe em branco se não quiser alterar a senha atual
+                  </small>
+                )}
               </CCol>
 
               {/* Campo para confirmar senha */}
               <CCol md={6} className="mb-4">
                 <CFormLabel htmlFor="confirmarSenha" className="mb-2">
-                  Confirmar senha:<span className="text-danger">*</span>
+                  {editingUser ? 'Confirmar nova senha:' : 'Confirmar senha:'}
+                  {!editingUser && <span className="text-danger">*</span>}
                 </CFormLabel>
                 <CFormInput
                   id="confirmarSenha"
@@ -1116,11 +1417,13 @@ const UsuariosModal = ({
                   onChange={handleInputChange}
                   invalid={!!formErrors.confirmarSenha}
                   disabled={loading || noTypeSelected}
-                  required
+                  required={!editingUser}
                   placeholder={
-                    noTypeSelected
-                      ? 'Selecione primeiro o tipo de usuário'
-                      : 'Digite a senha novamente'
+                    editingUser
+                      ? 'Confirme a nova senha (se definida)'
+                      : noTypeSelected
+                        ? 'Selecione primeiro o tipo de usuário'
+                        : 'Digite a senha novamente'
                   }
                 />
                 <CFormFeedback invalid>{formErrors.confirmarSenha}</CFormFeedback>
@@ -1214,7 +1517,100 @@ const UsuariosModal = ({
           </CButton>
           <CButton color="primary" onClick={handleFormSubmit} disabled={loading || consultandoCpf}>
             {loading ? <CSpinner size="sm" className="me-1" /> : null}
-            {editingUser ? 'Atualizar Usuário' : 'Cadastrar Usuário'}
+            {editingUser ? 'Salvar Alterações' : 'Cadastrar Usuário'}
+          </CButton>
+        </CModalFooter>
+      </CModal>
+
+      {/* Modal de Confirmação para Edição */}
+      <CModal
+        alignment="center"
+        visible={showConfirmModal}
+        onClose={cancelarConfirmacao}
+        size="lg"
+        backdrop="static"
+      >
+        <CModalHeader>
+          <CModalTitle className="d-flex align-items-center">
+            <CIcon icon={cilWarning} className="me-2 text-warning" />
+            Confirmar Alterações
+          </CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <div className="mb-3">
+            <p className="mb-3">
+              <strong>Você está prestes a editar as informações do usuário:</strong>
+            </p>
+            <div className="bg-light p-3 rounded mb-3">
+              <p className="mb-1">
+                <strong>Nome:</strong> {formData.nome}
+              </p>
+              <p className="mb-1">
+                <strong>CPF:</strong> {formData.cpf}
+              </p>
+              <p className="mb-0">
+                <strong>Tipo:</strong> {formData.tipoUsuario}
+              </p>
+            </div>
+          </div>
+
+          {getChangedFields().length > 0 && (
+            <>
+              <h6 className="mb-3 text-primary">
+                <CIcon icon={cilCheckCircle} className="me-2" />
+                Alterações que serão salvas:
+              </h6>
+              <div className="table-responsive">
+                <table className="table table-sm table-striped">
+                  <thead>
+                    <tr className="table-primary">
+                      <th>Campo</th>
+                      <th>Valor Atual</th>
+                      <th>Novo Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getChangedFields().map((change, index) => (
+                      <tr key={index}>
+                        <td>
+                          <strong>{change.field}</strong>
+                        </td>
+                        <td>
+                          <span className="text-muted">{change.original}</span>
+                        </td>
+                        <td>
+                          <span className="text-success fw-bold">{change.current}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <CAlert color="warning" className="mt-3 mb-0">
+            <div className="d-flex align-items-center">
+              <CIcon icon={cilWarning} className="me-2" />
+              <div>
+                <strong>Atenção:</strong> Esta ação não pode ser desfeita. Certifique-se de que
+                todas as informações estão corretas antes de confirmar.
+              </div>
+            </div>
+          </CAlert>
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" onClick={cancelarConfirmacao} disabled={loading}>
+            <span className="me-1">✕</span>
+            Cancelar
+          </CButton>
+          <CButton color="success" onClick={confirmarEdicao} disabled={loading}>
+            {loading ? (
+              <CSpinner size="sm" className="me-1" />
+            ) : (
+              <CIcon icon={cilCheckCircle} className="me-1" />
+            )}
+            Confirmar Alterações
           </CButton>
         </CModalFooter>
       </CModal>

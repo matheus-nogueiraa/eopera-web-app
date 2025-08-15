@@ -47,7 +47,7 @@ const getGruposCentralizados = async () => {
   }
 }
 
-export const gerenciarUsuarios = {
+export const gerenciaGruposCentralizados = {
   getGruposCentralizados,
 }
 
