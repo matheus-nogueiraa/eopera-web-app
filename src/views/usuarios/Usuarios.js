@@ -98,7 +98,6 @@ const Usuarios = () => {
       }))
 
       setUsuarios(usuariosFormatados)
-      console.log(`${usuariosFormatados.length} usuários carregados com sucesso`)
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
       showAlert(

@@ -102,16 +102,23 @@ const ConsultaAtestados = () => {
       }
     }
 
+    // Função para ajustar a data para o fuso horário local
+    const ajustarParaFusoHorarioLocal = (data) => {
+      if (!data) return null;
+      const dataUTC = new Date(data);
+      return new Date(dataUTC.getTime() + dataUTC.getTimezoneOffset() * 60000);
+    };
+
     return {
       id: atestadoAPI.numFluig || Math.random().toString(36).substr(2, 9),
       status: mapearStatus(atestadoAPI.statusAtestado),
       tipificacao: 'Atestado de Saúde', // Valor padrão baseado no CID
       especificacao: atestadoAPI.motivo || 'Doença',
       dias: calcularDias(atestadoAPI.dtInicio, atestadoAPI.dtFim),
-      dataInicio: atestadoAPI.dtInicio,
-      dataFim: atestadoAPI.dtFim,
-      dataInicial: atestadoAPI.dtInicio, // Compatibilidade
-      dataFinal: atestadoAPI.dtFim, // Compatibilidade
+      dataInicio: ajustarParaFusoHorarioLocal(atestadoAPI.dtInicio),
+      dataFim: ajustarParaFusoHorarioLocal(atestadoAPI.dtFim),
+      dataInicial: ajustarParaFusoHorarioLocal(atestadoAPI.dtInicio), // Compatibilidade
+      dataFinal: ajustarParaFusoHorarioLocal(atestadoAPI.dtFim), // Compatibilidade
       motivo: mapearMotivo(
         atestadoAPI.statusAtestado,
         atestadoAPI.statusRecebimento,
@@ -159,17 +166,7 @@ const ConsultaAtestados = () => {
         localStorage.getItem('nome') ||
         localStorage.getItem('userName')
 
-      console.log('Verificação de login:')
-      console.log('Matrícula:', matriculaUsuario)
-      console.log('Nome:', nomeUsuario)
-
       // Listar todos os itens do localStorage para debug
-      console.log('Todos os itens do localStorage:')
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        const value = localStorage.getItem(key)
-        console.log(`${key}: ${value}`)
-      }
 
       if (!matriculaUsuario) {
         // Verificar se há informações de login em outras chaves
