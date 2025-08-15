@@ -21,6 +21,7 @@ import {
 } from '@coreui/react'
 import { consultarFuncionarioClt } from '../../services/dadosPorCpf'
 import { gerenciarUsuarios } from '../../services/campoGruposCentralizados'
+import { consultarListaProjetos } from '../../services/consultarProjetosPj'
 import CIcon from '@coreui/icons-react'
 import { cilSearch } from '@coreui/icons'
 
@@ -42,13 +43,23 @@ const UsuariosModal = ({
   const [searchGrupo, setSearchGrupo] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
+  // Estados para projetos PJ
+  const [projetosPj, setProjetosPj] = useState([])
+  const [projetosPjFiltrados, setProjetosPjFiltrados] = useState([])
+  const [carregandoProjetosPj, setCarregandoProjetosPj] = useState(false)
+  const [searchProjetoPj, setSearchProjetoPj] = useState('')
+  const [showDropdownProjetoPj, setShowDropdownProjetoPj] = useState(false)
+
   // Carregar grupos centralizados ao abrir o modal
   useEffect(() => {
     if (showModal) {
       carregarGruposCentralizados()
-      // Resetar campo de busca ao abrir o modal
+      carregarProjetosPj()
+      // Resetar campos de busca ao abrir o modal
       setSearchGrupo('')
       setShowDropdown(false)
+      setSearchProjetoPj('')
+      setShowDropdownProjetoPj(false)
     }
   }, [showModal])
 
@@ -59,12 +70,21 @@ const UsuariosModal = ({
     }
   }, [editingUser, formData.grupoCentralizador])
 
+  // Sincronizar searchProjetoPj com formData ao carregar usuário para edição
+  useEffect(() => {
+    if (editingUser && formData.projetoPj) {
+      setSearchProjetoPj(formData.projetoPj)
+    }
+  }, [editingUser, formData.projetoPj])
+
   // Filtrar grupos quando o usuário digita
   useEffect(() => {
+    console.log('=== DEBUG FILTROS ===')
     console.log('useEffect filtros executado:', {
       gruposCentralizados: gruposCentralizados.length,
       searchGrupo: searchGrupo,
       searchGrupoTrim: searchGrupo.trim(),
+      primeiroGrupo: gruposCentralizados[0] || 'Nenhum grupo',
     })
 
     if (!gruposCentralizados || gruposCentralizados.length === 0) {
@@ -72,6 +92,9 @@ const UsuariosModal = ({
       setGruposFiltrados([])
       return
     }
+
+    // Log dos primeiros grupos para verificar estrutura
+    console.log('Estrutura dos primeiros 3 grupos:', gruposCentralizados.slice(0, 3))
 
     if (searchGrupo.trim() === '') {
       // Se não há busca, mostrar os primeiros 10 grupos
@@ -82,8 +105,16 @@ const UsuariosModal = ({
     } else {
       // Filtrar grupos baseado na busca
       console.log('Filtrando grupos...')
+      console.log('Termo de busca:', searchGrupo)
+
       const filtrados = gruposCentralizados
         .filter((grupo) => {
+          // Verificar se o grupo tem as propriedades necessárias
+          if (!grupo.descricao || !grupo.codGrupo) {
+            console.log('Grupo com estrutura inválida:', grupo)
+            return false
+          }
+
           const descricaoLower = grupo.descricao.toLowerCase().trim()
           const searchLower = searchGrupo.toLowerCase().trim()
           const codGrupoString = grupo.codGrupo.toString()
@@ -91,39 +122,135 @@ const UsuariosModal = ({
           const matchDescricao = descricaoLower.includes(searchLower)
           const matchCodigo = codGrupoString.includes(searchGrupo.trim())
 
+          // Log detalhado para debug
+          if (matchDescricao || matchCodigo) {
+            console.log('Match encontrado:', {
+              grupo: grupo,
+              descricaoLower,
+              searchLower,
+              codGrupoString,
+              matchDescricao,
+              matchCodigo,
+            })
+          }
+
           return matchDescricao || matchCodigo
         })
         .slice(0, 10) // Limitar a 10 resultados
 
-      console.log('Grupos filtrados encontrados:', filtrados.length, filtrados)
+      console.log('Total de grupos filtrados encontrados:', filtrados.length)
+      console.log('Grupos filtrados:', filtrados)
       setGruposFiltrados(filtrados)
     }
+    console.log('=== FIM DEBUG FILTROS ===')
   }, [searchGrupo, gruposCentralizados])
+
+  // Filtrar projetos PJ quando o usuário digita
+  useEffect(() => {
+    console.log('=== DEBUG FILTROS PROJETOS PJ ===')
+    console.log('useEffect filtros projetos PJ executado:', {
+      projetosPj: projetosPj.length,
+      searchProjetoPj: searchProjetoPj,
+      searchProjetoPjTrim: searchProjetoPj.trim(),
+      primeiroProjeto: projetosPj[0] || 'Nenhum projeto',
+    })
+
+    if (!projetosPj || projetosPj.length === 0) {
+      console.log('Nenhum projeto PJ carregado ainda')
+      setProjetosPjFiltrados([])
+      return
+    }
+
+    // Log dos primeiros projetos para verificar estrutura
+    console.log('Estrutura dos primeiros 3 projetos PJ:', projetosPj.slice(0, 3))
+
+    if (searchProjetoPj.trim() === '') {
+      // Se não há busca, mostrar os primeiros 10 projetos
+      console.log('Sem busca, mostrando primeiros 10 projetos PJ')
+      const primeiros10 = projetosPj.slice(0, 10)
+      console.log('Primeiros 10 projetos PJ:', primeiros10)
+      setProjetosPjFiltrados(primeiros10)
+    } else {
+      // Filtrar projetos baseado na busca
+      console.log('Filtrando projetos PJ...')
+      console.log('Termo de busca:', searchProjetoPj)
+
+      const filtrados = projetosPj
+        .filter((projeto) => {
+          // Verificar se o projeto tem as propriedades necessárias
+          if (!projeto.descricao || !projeto.codGrupo) {
+            console.log('Projeto com estrutura inválida:', projeto)
+            return false
+          }
+
+          const descricaoLower = projeto.descricao.toLowerCase().trim()
+          const searchLower = searchProjetoPj.toLowerCase().trim()
+          const codGrupoString = projeto.codGrupo.toString()
+
+          const matchDescricao = descricaoLower.includes(searchLower)
+          const matchCodigo = codGrupoString.includes(searchProjetoPj.trim())
+
+          // Log detalhado para debug
+          if (matchDescricao || matchCodigo) {
+            console.log('Match encontrado:', {
+              projeto: projeto,
+              descricaoLower,
+              searchLower,
+              codGrupoString,
+              matchDescricao,
+              matchCodigo,
+            })
+          }
+
+          return matchDescricao || matchCodigo
+        })
+        .slice(0, 10) // Limitar a 10 resultados
+
+      console.log('Total de projetos PJ filtrados encontrados:', filtrados.length)
+      console.log('Projetos PJ filtrados:', filtrados)
+      setProjetosPjFiltrados(filtrados)
+    }
+    console.log('=== FIM DEBUG FILTROS PROJETOS PJ ===')
+  }, [searchProjetoPj, projetosPj])
 
   const carregarGruposCentralizados = async () => {
     setCarregandoGrupos(true)
     try {
       const grupos = await gerenciarUsuarios.getGruposCentralizados()
-      console.log('Grupos carregados da API:', grupos)
+      console.log('=== DEBUG CARREGAMENTO GRUPOS ===')
+      console.log('Grupos carregados da API (tipo):', typeof grupos)
+      console.log('Grupos carregados da API (é array?):', Array.isArray(grupos))
+      console.log('Grupos carregados da API (length):', grupos?.length)
+      console.log('Grupos carregados da API (dados completos):', grupos)
 
       if (Array.isArray(grupos) && grupos.length > 0) {
         // Verificar se os dados têm a estrutura esperada
         const primeiroGrupo = grupos[0]
-        if (primeiroGrupo.codGrupo && primeiroGrupo.descricao) {
-          console.log('Estrutura dos dados válida:', primeiroGrupo)
+        console.log('Primeiro grupo:', primeiroGrupo)
+        console.log('Propriedades do primeiro grupo:', Object.keys(primeiroGrupo))
+        console.log('codGrupo:', primeiroGrupo.codGrupo, 'tipo:', typeof primeiroGrupo.codGrupo)
+        console.log('descricao:', primeiroGrupo.descricao, 'tipo:', typeof primeiroGrupo.descricao)
+
+        if (primeiroGrupo.codGrupo !== undefined && primeiroGrupo.descricao !== undefined) {
+          console.log('Estrutura dos dados válida')
           setGruposCentralizados(grupos)
           // Inicializar com os primeiros 10 grupos
-          setGruposFiltrados(grupos.slice(0, 10))
+          const primeiros10 = grupos.slice(0, 10)
+          console.log('Definindo primeiros 10 grupos:', primeiros10)
+          setGruposFiltrados(primeiros10)
         } else {
-          console.error('Estrutura de dados inválida:', primeiroGrupo)
+          console.error('Estrutura de dados inválida - propriedades faltando:', primeiroGrupo)
           setGruposCentralizados([])
           setGruposFiltrados([])
         }
       } else {
         console.log('Nenhum grupo encontrado ou formato inválido')
+        console.log('grupos é array?', Array.isArray(grupos))
+        console.log('grupos.length:', grupos?.length)
         setGruposCentralizados([])
         setGruposFiltrados([])
       }
+      console.log('=== FIM DEBUG CARREGAMENTO GRUPOS ===')
     } catch (error) {
       console.error('Erro ao carregar grupos centralizados:', error)
       showCpfAlert('Erro ao carregar grupos centralizados', 'danger')
@@ -134,11 +261,68 @@ const UsuariosModal = ({
     }
   }
 
+  const carregarProjetosPj = async () => {
+    setCarregandoProjetosPj(true)
+    try {
+      const projetos = await consultarListaProjetos.consultarListaProjetos()
+      console.log('=== DEBUG CARREGAMENTO PROJETOS PJ ===')
+      console.log('Projetos PJ carregados da API (tipo):', typeof projetos)
+      console.log('Projetos PJ carregados da API (é array?):', Array.isArray(projetos))
+      console.log('Projetos PJ carregados da API (length):', projetos?.length)
+      console.log('Projetos PJ carregados da API (dados completos):', projetos)
+
+      if (Array.isArray(projetos) && projetos.length > 0) {
+        // Verificar se os dados têm a estrutura esperada
+        const primeiroProjeto = projetos[0]
+        console.log('Primeiro projeto PJ:', primeiroProjeto)
+        console.log('Propriedades do primeiro projeto PJ:', Object.keys(primeiroProjeto))
+        console.log('codGrupo:', primeiroProjeto.codGrupo, 'tipo:', typeof primeiroProjeto.codGrupo)
+        console.log(
+          'descricao:',
+          primeiroProjeto.descricao,
+          'tipo:',
+          typeof primeiroProjeto.descricao,
+        )
+
+        if (primeiroProjeto.codGrupo !== undefined && primeiroProjeto.descricao !== undefined) {
+          console.log('Estrutura dos dados projetos PJ válida')
+          setProjetosPj(projetos)
+          // Inicializar com os primeiros 10 projetos
+          const primeiros10 = projetos.slice(0, 10)
+          console.log('Definindo primeiros 10 projetos PJ:', primeiros10)
+          setProjetosPjFiltrados(primeiros10)
+        } else {
+          console.error(
+            'Estrutura de dados projetos PJ inválida - propriedades faltando:',
+            primeiroProjeto,
+          )
+          setProjetosPj([])
+          setProjetosPjFiltrados([])
+        }
+      } else {
+        console.log('Nenhum projeto PJ encontrado ou formato inválido')
+        console.log('projetos é array?', Array.isArray(projetos))
+        console.log('projetos.length:', projetos?.length)
+        setProjetosPj([])
+        setProjetosPjFiltrados([])
+      }
+      console.log('=== FIM DEBUG CARREGAMENTO PROJETOS PJ ===')
+    } catch (error) {
+      console.error('Erro ao carregar projetos PJ:', error)
+      showCpfAlert('Erro ao carregar projetos PJ', 'danger')
+      setProjetosPj([])
+      setProjetosPjFiltrados([])
+    } finally {
+      setCarregandoProjetosPj(false)
+    }
+  }
+
   // Event listener para fechar dropdown com ESC ou clique fora
   useEffect(() => {
     const handleEscapeKey = (event) => {
       if (event.key === 'Escape') {
         setShowDropdown(false)
+        setShowDropdownProjetoPj(false)
       }
     }
 
@@ -150,9 +334,16 @@ const UsuariosModal = ({
       ) {
         setShowDropdown(false)
       }
+
+      if (
+        !event.target.closest('#projetoPj') &&
+        !event.target.closest('[data-dropdown="projeto-pj"]')
+      ) {
+        setShowDropdownProjetoPj(false)
+      }
     }
 
-    if (showDropdown) {
+    if (showDropdown || showDropdownProjetoPj) {
       document.addEventListener('keydown', handleEscapeKey)
       document.addEventListener('click', handleClickOutside)
     }
@@ -161,22 +352,29 @@ const UsuariosModal = ({
       document.removeEventListener('keydown', handleEscapeKey)
       document.removeEventListener('click', handleClickOutside)
     }
-  }, [showDropdown])
+  }, [showDropdown, showDropdownProjetoPj])
 
   const handleGrupoSearch = (e) => {
     const value = e.target.value
+    console.log('=== DEBUG BUSCA ===')
     console.log('handleGrupoSearch - Valor digitado:', value)
     console.log('handleGrupoSearch - Grupos disponíveis:', gruposCentralizados.length)
+    console.log(
+      'handleGrupoSearch - Primeiro grupo disponível:',
+      gruposCentralizados[0] || 'Nenhum',
+    )
 
     setSearchGrupo(value)
 
     // Sempre mostrar dropdown quando o usuário digita (se há grupos carregados)
     if (gruposCentralizados.length > 0) {
+      console.log('Mostrando dropdown - grupos disponíveis')
       setShowDropdown(true)
+    } else {
+      console.log('Não mostrando dropdown - nenhum grupo disponível')
     }
 
     // Limpar o valor do formData se o usuário estiver digitando algo diferente
-    // do que foi selecionado anteriormente
     const valorAtual = `${value.split(' - ')[0]} - ${value.split(' - ')[1] || ''}`.trim()
     if (formData.grupoCentralizador !== valorAtual && !value.includes(' - ')) {
       setFormData((prev) => ({
@@ -184,6 +382,7 @@ const UsuariosModal = ({
         grupoCentralizador: '',
       }))
     }
+    console.log('=== FIM DEBUG BUSCA ===')
   }
 
   const handleGrupoSelect = (grupo) => {
@@ -198,6 +397,52 @@ const UsuariosModal = ({
     setFormData((prev) => ({
       ...prev,
       grupoCentralizador: valorCompleto,
+    }))
+  }
+
+  const handleProjetoPjSearch = (e) => {
+    const value = e.target.value
+    console.log('=== DEBUG BUSCA PROJETO PJ ===')
+    console.log('handleProjetoPjSearch - Valor digitado:', value)
+    console.log('handleProjetoPjSearch - Projetos disponíveis:', projetosPj.length)
+    console.log('handleProjetoPjSearch - Primeiro projeto disponível:', projetosPj[0] || 'Nenhum')
+
+    setSearchProjetoPj(value)
+
+    // Sempre mostrar dropdown quando o usuário digita (se há projetos carregados)
+    if (projetosPj.length > 0) {
+      console.log('Mostrando dropdown - projetos disponíveis')
+      setShowDropdownProjetoPj(true)
+    } else {
+      console.log('Não mostrando dropdown - nenhum projeto disponível')
+    }
+
+    // Limpar o valor do formData se o usuário estiver digitando algo diferente
+    const valorAtual = `${value.split(' - ')[0]} - ${value.split(' - ')[1] || ''}`.trim()
+    if (formData.projetoPj !== valorAtual && !value.includes(' - ')) {
+      setFormData((prev) => ({
+        ...prev,
+        projetoPj: '',
+      }))
+    }
+    console.log('=== FIM DEBUG BUSCA PROJETO PJ ===')
+  }
+
+  const handleProjetoPjSelect = (projeto) => {
+    const valorCompleto = `${projeto.codGrupo} - ${projeto.descricao.trim()}`
+    console.log('Projeto PJ selecionado:', valorCompleto)
+    console.log('Dados do projeto PJ:', {
+      codGrupo: projeto.codGrupo,
+      descricao: projeto.descricao,
+    })
+
+    setSearchProjetoPj(valorCompleto)
+    setShowDropdownProjetoPj(false)
+
+    // Atualizar o formData com o valor selecionado
+    setFormData((prev) => ({
+      ...prev,
+      projetoPj: valorCompleto,
     }))
   }
 
@@ -222,37 +467,47 @@ const UsuariosModal = ({
         console.log('DDD da API:', funcionario.ddd)
         console.log('Celular da API:', funcionario.celular)
 
-        // Formar o número completo com DDD + celular (10 dígitos total)
+        // Formar o número completo com DDD + celular
         let numeroCompleto = ''
 
-        // Verificar se ambos os campos existem
+        // Verificar se ambos os campos existem e são válidos
         if (funcionario.ddd && funcionario.celular) {
-          const ddd = funcionario.ddd.toString().padStart(2, '0') // Garantir 2 dígitos
-          const celularLimpo = funcionario.celular.toString().replace(/[^\d]/g, '') // Remove qualquer formatação
+          const ddd = funcionario.ddd.toString().replace(/[^\d]/g, '').padStart(2, '0')
+          const celularLimpo = funcionario.celular.toString().replace(/[^\d]/g, '')
 
           console.log('DDD processado:', ddd)
           console.log('Celular limpo:', celularLimpo)
 
-          // Forma o número completo: DDD (2 dígitos) + celular (8 dígitos) = 10 dígitos total
-          const numeroCompleto10Digitos = ddd + celularLimpo
-          console.log('Número completo antes da formatação:', numeroCompleto10Digitos)
+          // Verificar se o celular tem 8 ou 9 dígitos
+          if (celularLimpo.length >= 8 && celularLimpo.length <= 9) {
+            // Formar número completo: DDD + celular
+            const numeroCompleto11ou10 = ddd + celularLimpo
+            console.log('Número completo antes da formatação:', numeroCompleto11ou10)
 
-          if (numeroCompleto10Digitos.length === 10) {
-            // Aplica formatação: (XX) XXXX-XXXX
-            numeroCompleto = numeroCompleto10Digitos.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+            // Formatação para 11 dígitos (DDD + 9 dígitos do celular)
+            if (numeroCompleto11ou10.length === 11) {
+              numeroCompleto = numeroCompleto11ou10.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+            }
+            // Formatação para 10 dígitos (DDD + 8 dígitos do celular)
+            else if (numeroCompleto11ou10.length === 10) {
+              numeroCompleto = numeroCompleto11ou10.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+            }
+
             console.log('Número formatado:', numeroCompleto)
-          } else {
-            // Se não conseguir formar 10 dígitos, tenta usar apenas o celular
-            console.log('Não conseguiu formar 10 dígitos, usando celular original')
-            numeroCompleto = funcionario.celular || ''
           }
-        } else {
-          console.log('DDD ou celular não encontrados na API')
-          console.log('DDD existe:', !!funcionario.ddd)
-          console.log('Celular existe:', !!funcionario.celular)
+        }
 
-          // Se não tem DDD, usa apenas o celular
-          if (funcionario.celular) {
+        // Se não conseguiu formar o número completo, tentar usar apenas o celular
+        if (!numeroCompleto && funcionario.celular) {
+          const celularApenasNumeros = funcionario.celular.toString().replace(/[^\d]/g, '')
+
+          // Se o celular já vem com DDD (10 ou 11 dígitos)
+          if (celularApenasNumeros.length === 10) {
+            numeroCompleto = celularApenasNumeros.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+          } else if (celularApenasNumeros.length === 11) {
+            numeroCompleto = celularApenasNumeros.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+          } else {
+            // Para outros casos, usar o valor original
             numeroCompleto = funcionario.celular.toString()
           }
         }
@@ -323,21 +578,32 @@ const UsuariosModal = ({
         }
       }
 
-      // Formatação automática do celular - SOMENTE 10 DÍGITOS
+      // Formatação automática do celular - aceita 10 ou 11 dígitos (com DDD)
       if (name === 'celular') {
-        newValue = value.replace(/[^\d]/g, '')
-        newValue = newValue.substring(0, 10)
+        const apenasNumeros = value.replace(/[^\d]/g, '')
 
-        if (newValue.length === 10) {
-          newValue = newValue.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
-        } else if (newValue.length > 6) {
-          newValue = newValue.replace(/(\d{2})(\d{4})(\d+)/, '($1) $2-$3')
-        } else if (newValue.length > 2) {
-          newValue = newValue.replace(/(\d{2})(\d+)/, '($1) $2')
+        // Limitar a 11 dígitos (DDD + 9 dígitos do celular)
+        const numeroLimitado = apenasNumeros.substring(0, 11)
+
+        // Aplicar formatação conforme o tamanho
+        if (numeroLimitado.length === 11) {
+          // Formato: (XX) XXXXX-XXXX
+          newValue = numeroLimitado.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+        } else if (numeroLimitado.length === 10) {
+          // Formato: (XX) XXXX-XXXX
+          newValue = numeroLimitado.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+        } else if (numeroLimitado.length > 6) {
+          // Formatação parcial durante a digitação
+          newValue = numeroLimitado.replace(/(\d{2})(\d{4})(\d+)/, '($1) $2-$3')
+        } else if (numeroLimitado.length > 2) {
+          // Formatação parcial durante a digitação
+          newValue = numeroLimitado.replace(/(\d{2})(\d+)/, '($1) $2')
+        } else {
+          newValue = numeroLimitado
         }
       }
 
-      // Converter nome para maiúsculas (removido grupoCentralizador daqui)
+      // Converter nome para maiúsculas
       if (name === 'nome') {
         newValue = value.toUpperCase()
       }
@@ -354,6 +620,7 @@ const UsuariosModal = ({
         matricula: '',
         celular: '',
         senha: '',
+        confirmarSenha: '',
         grupoCentralizador: '',
         projetoPj: '',
         supervisor: 'N',
@@ -363,9 +630,11 @@ const UsuariosModal = ({
         ativo: 'S', // Manter ativo como padrão
       }))
 
-      // Limpar também o campo de pesquisa do grupo
+      // Limpar também os campos de pesquisa
       setSearchGrupo('')
       setShowDropdown(false)
+      setSearchProjetoPj('')
+      setShowDropdownProjetoPj(false)
 
       // Limpar alerta ao trocar tipo de usuário
       setAlertCpf({ show: false, message: '', color: 'info' })
@@ -381,6 +650,85 @@ const UsuariosModal = ({
   const isPJ = formData.tipoUsuario === 'PJ'
   const isCLT = formData.tipoUsuario === 'CLT'
   const noTypeSelected = !formData.tipoUsuario || formData.tipoUsuario === ''
+
+  // Função para validar o formulário
+  const validarFormulario = () => {
+    const errors = {}
+
+    // Validação do tipo de usuário
+    if (!formData.tipoUsuario) {
+      errors.tipoUsuario = 'Tipo de contrato é obrigatório'
+    }
+
+    // Validação do CPF
+    if (!formData.cpf) {
+      errors.cpf = 'CPF é obrigatório'
+    } else if (formData.cpf.replace(/[^\d]/g, '').length !== 11) {
+      errors.cpf = 'CPF deve ter 11 dígitos'
+    }
+
+    // Validação do nome (apenas para PJ)
+    if (isPJ && !formData.nome) {
+      errors.nome = 'Nome é obrigatório'
+    }
+
+    // Validação da matrícula (apenas para CLT)
+    if (isCLT && !formData.matricula) {
+      errors.matricula = 'Matrícula é obrigatória'
+    }
+
+    // Validação do projeto PJ (apenas para PJ)
+    if (isPJ && !formData.projetoPj) {
+      errors.projetoPj = 'Projeto PJ é obrigatório'
+    }
+
+    // Validação do celular
+    if (!formData.celular) {
+      errors.celular = 'Celular é obrigatório'
+    }
+
+    // Validação do grupo centralizador
+    if (!formData.grupoCentralizador) {
+      errors.grupoCentralizador = 'Grupo Centralizador é obrigatório'
+    }
+
+    // Validação da senha
+    if (!formData.senha) {
+      errors.senha = 'Senha é obrigatória'
+    } else if (formData.senha.length < 4) {
+      errors.senha = 'Senha deve ter pelo menos 4 caracteres'
+    }
+
+    // Validação da confirmação de senha
+    if (!formData.confirmarSenha) {
+      errors.confirmarSenha = 'Confirmação de senha é obrigatória'
+    } else if (formData.senha !== formData.confirmarSenha) {
+      errors.confirmarSenha = 'As senhas não coincidem'
+    }
+
+    return errors
+  }
+
+  // Adicionar função para lidar com o submit com validação
+  const handleFormSubmit = (e) => {
+    if (e) {
+      e.preventDefault()
+    }
+
+    // Executar validação
+    const errors = validarFormulario()
+
+    // Se houver erros, mostrar alerta e não enviar
+    if (Object.keys(errors).length > 0) {
+      // Encontrar o primeiro erro para mostrar no alerta
+      const primeiroErro = Object.values(errors)[0]
+      showCpfAlert(primeiroErro, 'danger')
+      return
+    }
+
+    // Se não houver erros, chamar o handleSubmit original
+    handleSubmit(e)
+  }
 
   return (
     <>
@@ -477,24 +825,128 @@ const UsuariosModal = ({
                 <CFormLabel htmlFor={isPJ ? 'projetoPj' : 'matricula'} className="mb-2">
                   {isPJ ? 'Projeto PJ' : 'Matrícula'}:<span className="text-danger">*</span>
                 </CFormLabel>
-                <CFormInput
-                  id={isPJ ? 'projetoPj' : 'matricula'}
-                  name={isPJ ? 'projetoPj' : 'matricula'}
-                  value={isPJ ? formData.projetoPj || '' : formData.matricula}
-                  onChange={handleInputChange}
-                  invalid={isPJ ? !!formErrors.projetoPj : !!formErrors.matricula}
-                  disabled={loading || noTypeSelected || consultandoCpf || (isCLT && !editingUser)}
-                  required={isPJ}
-                  placeholder={
-                    noTypeSelected
-                      ? 'Selecione primeiro o tipo de usuário'
-                      : isCLT && !editingUser
-                        ? 'Matrícula será preenchida automaticamente.'
-                        : isPJ
-                          ? '000001'
+
+                {isPJ ? (
+                  // Campo de busca para Projeto PJ
+                  <div className="position-relative">
+                    <CInputGroup>
+                      <CInputGroupText>
+                        <CIcon icon={cilSearch} />
+                      </CInputGroupText>
+                      <CFormInput
+                        id="projetoPj"
+                        name="projetoPj"
+                        value={searchProjetoPj}
+                        onChange={handleProjetoPjSearch}
+                        onFocus={() => setShowDropdownProjetoPj(true)}
+                        invalid={!!formErrors.projetoPj}
+                        disabled={loading || noTypeSelected || carregandoProjetosPj}
+                        required
+                        placeholder={
+                          noTypeSelected
+                            ? 'Selecione primeiro o tipo de usuário'
+                            : carregandoProjetosPj
+                              ? 'Carregando projetos...'
+                              : 'Digite para buscar o projeto PJ'
+                        }
+                        autoComplete="off"
+                      />
+                    </CInputGroup>
+
+                    {/* Dropdown com os projetos PJ filtrados */}
+                    {showDropdownProjetoPj &&
+                      !carregandoProjetosPj &&
+                      projetosPjFiltrados.length > 0 && (
+                        <div
+                          data-dropdown="projeto-pj"
+                          className="position-absolute w-100 bg-white border border-light-subtle rounded shadow-sm"
+                          style={{
+                            top: '100%',
+                            zIndex: 1050,
+                            maxHeight: '200px',
+                            overflowY: 'auto',
+                          }}
+                        >
+                          {projetosPjFiltrados.map((projeto) => (
+                            <div
+                              key={projeto.codGrupo}
+                              className="px-3 py-2 cursor-pointer border-bottom border-light"
+                              style={{
+                                cursor: 'pointer',
+                                backgroundColor: 'white',
+                                transition: 'background-color 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => (e.target.style.backgroundColor = '#f8f9fa')}
+                              onMouseLeave={(e) => (e.target.style.backgroundColor = 'white')}
+                              onClick={() => handleProjetoPjSelect(projeto)}
+                            >
+                              <div className="d-flex justify-content-between align-items-center">
+                                <div>
+                                  <strong className="text-primary">{projeto.codGrupo}</strong>
+                                  <span className="ms-2 text-dark">{projeto.descricao.trim()}</span>
+                                </div>
+                                <small className="text-muted">Clique para selecionar</small>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Mostrar mensagem se não encontrou resultados na busca */}
+                          {searchProjetoPj.trim() !== '' && projetosPjFiltrados.length === 0 && (
+                            <div className="px-3 py-2 text-muted text-center">
+                              <small>Nenhum projeto encontrado para "{searchProjetoPj}"</small>
+                            </div>
+                          )}
+
+                          {/* Botão para fechar o dropdown */}
+                          <div className="px-3 py-2 border-top bg-light">
+                            <small
+                              className="text-muted cursor-pointer text-center d-block"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => setShowDropdownProjetoPj(false)}
+                            >
+                              Clique aqui ou pressione ESC para fechar
+                            </small>
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Mostrar mensagem quando não há projetos carregados */}
+                    {showDropdownProjetoPj && !carregandoProjetosPj && projetosPj.length === 0 && (
+                      <div
+                        className="position-absolute w-100 bg-white border border-light-subtle rounded shadow-sm"
+                        style={{
+                          top: '100%',
+                          zIndex: 1050,
+                        }}
+                      >
+                        <div className="px-3 py-2 text-muted text-center">
+                          <small>Nenhum projeto PJ encontrado</small>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // Campo simples para Matrícula (CLT)
+                  <CFormInput
+                    id="matricula"
+                    name="matricula"
+                    value={formData.matricula}
+                    onChange={handleInputChange}
+                    invalid={!!formErrors.matricula}
+                    disabled={
+                      loading || noTypeSelected || consultandoCpf || (isCLT && !editingUser)
+                    }
+                    required={false}
+                    placeholder={
+                      noTypeSelected
+                        ? 'Selecione primeiro o tipo de usuário'
+                        : isCLT && !editingUser
+                          ? 'Matrícula será preenchida automaticamente.'
                           : 'Digite a matrícula'
-                  }
-                />
+                    }
+                  />
+                )}
+
                 <CFormFeedback invalid>
                   {isPJ ? formErrors.projetoPj : formErrors.matricula}
                 </CFormFeedback>
@@ -524,29 +976,8 @@ const UsuariosModal = ({
                 <CFormFeedback invalid>{formErrors.celular}</CFormFeedback>
               </CCol>
 
-              {/* Campo para senha */}
-              <CCol md={4} className="mb-4">
-                <CFormLabel htmlFor="senha" className="mb-2">
-                  Crie uma senha:<span className="text-danger">*</span>
-                </CFormLabel>
-                <CFormInput
-                  id="senha"
-                  name="senha"
-                  type="password"
-                  value={formData.senha}
-                  onChange={handleInputChange}
-                  invalid={!!formErrors.senha}
-                  disabled={loading || noTypeSelected}
-                  required
-                  placeholder={
-                    noTypeSelected ? 'Selecione primeiro o tipo de usuário' : 'Digite a senha'
-                  }
-                />
-                <CFormFeedback invalid>{formErrors.senha}</CFormFeedback>
-              </CCol>
-
               {/* Campo para o grupo centralizador com autocomplete */}
-              <CCol md={12} className="mb-4">
+              <CCol md={4} className="mb-4">
                 <CFormLabel htmlFor="grupoCentralizador" className="mb-2">
                   Grupo Centralizador:<span className="text-danger">*</span>
                   {carregandoGrupos && <CSpinner size="sm" className="ms-2" />}
@@ -650,6 +1081,50 @@ const UsuariosModal = ({
 
                 <CFormFeedback invalid>{formErrors.grupoCentralizador}</CFormFeedback>
               </CCol>
+
+              {/* Campo para senha */}
+              <CCol md={6} className="mb-4">
+                <CFormLabel htmlFor="senha" className="mb-2">
+                  Crie uma senha:<span className="text-danger">*</span>
+                </CFormLabel>
+                <CFormInput
+                  id="senha"
+                  name="senha"
+                  type="password"
+                  value={formData.senha}
+                  onChange={handleInputChange}
+                  invalid={!!formErrors.senha}
+                  disabled={loading || noTypeSelected}
+                  required
+                  placeholder={
+                    noTypeSelected ? 'Selecione primeiro o tipo de usuário' : 'Digite a senha'
+                  }
+                />
+                <CFormFeedback invalid>{formErrors.senha}</CFormFeedback>
+              </CCol>
+
+              {/* Campo para confirmar senha */}
+              <CCol md={6} className="mb-4">
+                <CFormLabel htmlFor="confirmarSenha" className="mb-2">
+                  Confirmar senha:<span className="text-danger">*</span>
+                </CFormLabel>
+                <CFormInput
+                  id="confirmarSenha"
+                  name="confirmarSenha"
+                  type="password"
+                  value={formData.confirmarSenha || ''}
+                  onChange={handleInputChange}
+                  invalid={!!formErrors.confirmarSenha}
+                  disabled={loading || noTypeSelected}
+                  required
+                  placeholder={
+                    noTypeSelected
+                      ? 'Selecione primeiro o tipo de usuário'
+                      : 'Digite a senha novamente'
+                  }
+                />
+                <CFormFeedback invalid>{formErrors.confirmarSenha}</CFormFeedback>
+              </CCol>
             </CRow>
             {isCLT && (
               <small style={{ color: 'primary' }} className="text-muted">
@@ -737,7 +1212,7 @@ const UsuariosModal = ({
           <CButton color="secondary" onClick={() => setShowModal(false)}>
             Cancelar
           </CButton>
-          <CButton color="primary" onClick={handleSubmit} disabled={loading || consultandoCpf}>
+          <CButton color="primary" onClick={handleFormSubmit} disabled={loading || consultandoCpf}>
             {loading ? <CSpinner size="sm" className="me-1" /> : null}
             {editingUser ? 'Atualizar Usuário' : 'Cadastrar Usuário'}
           </CButton>
