@@ -102,16 +102,23 @@ const ConsultaAtestados = () => {
       }
     }
 
+    // Função para ajustar a data para o fuso horário local
+    const ajustarParaFusoHorarioLocal = (data) => {
+      if (!data) return null;
+      const dataUTC = new Date(data);
+      return new Date(dataUTC.getTime() + dataUTC.getTimezoneOffset() * 60000);
+    };
+
     return {
       id: atestadoAPI.numFluig || Math.random().toString(36).substr(2, 9),
       status: mapearStatus(atestadoAPI.statusAtestado),
       tipificacao: 'Atestado de Saúde', // Valor padrão baseado no CID
       especificacao: atestadoAPI.motivo || 'Doença',
       dias: calcularDias(atestadoAPI.dtInicio, atestadoAPI.dtFim),
-      dataInicio: atestadoAPI.dtInicio,
-      dataFim: atestadoAPI.dtFim,
-      dataInicial: atestadoAPI.dtInicio, // Compatibilidade
-      dataFinal: atestadoAPI.dtFim, // Compatibilidade
+      dataInicio: ajustarParaFusoHorarioLocal(atestadoAPI.dtInicio),
+      dataFim: ajustarParaFusoHorarioLocal(atestadoAPI.dtFim),
+      dataInicial: ajustarParaFusoHorarioLocal(atestadoAPI.dtInicio), // Compatibilidade
+      dataFinal: ajustarParaFusoHorarioLocal(atestadoAPI.dtFim), // Compatibilidade
       motivo: mapearMotivo(
         atestadoAPI.statusAtestado,
         atestadoAPI.statusRecebimento,
