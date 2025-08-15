@@ -576,6 +576,15 @@ const UsuariosModal = ({
     if (['ativo', 'supervisor', 'numOperacional', 'userIpal', 'userSesmt'].includes(name)) {
       newValue = checked ? 'S' : 'N'
     } else {
+      // Formatação automática da senha - apenas 6 dígitos numéricos
+      if (name === 'senha' || name === 'confirmarSenha') {
+        // Remove tudo que não é dígito
+        const apenasNumeros = value.replace(/[^\d]/g, '')
+
+        // Limita a 6 dígitos
+        newValue = apenasNumeros.substring(0, 6)
+      }
+
       // Formatação automática do CPF
       if (name === 'cpf') {
         // Remove caracteres não numéricos
@@ -696,9 +705,9 @@ const UsuariosModal = ({
         errors.cpf = 'CPF deve ter 11 dígitos'
       }
 
-      // Validação da senha (opcional na edição)
-      if (formData.senha && formData.senha.length < 4) {
-        errors.senha = 'Senha deve ter pelo menos 4 caracteres'
+      // Validação da senha (opcional na edição, mas se preenchida deve ter 6 dígitos)
+      if (formData.senha && formData.senha.length !== 6) {
+        errors.senha = 'Senha deve ter exatamente 6 dígitos numéricos'
       }
 
       // Validação da confirmação de senha (apenas se a senha foi preenchida)
@@ -749,11 +758,11 @@ const UsuariosModal = ({
       errors.grupoCentralizador = 'Grupo Centralizador é obrigatório'
     }
 
-    // Validação da senha
+    // Validação da senha - deve ter exatamente 6 dígitos numéricos
     if (!formData.senha) {
       errors.senha = 'Senha é obrigatória'
-    } else if (formData.senha.length < 4) {
-      errors.senha = 'Senha deve ter pelo menos 4 caracteres'
+    } else if (formData.senha.length !== 6) {
+      errors.senha = 'Senha deve ter exatamente 6 dígitos numéricos'
     }
 
     // Validação da confirmação de senha
@@ -1387,20 +1396,23 @@ const UsuariosModal = ({
                   invalid={!!formErrors.senha}
                   disabled={loading || noTypeSelected}
                   required={!editingUser}
+                  maxLength={6}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder={
                     editingUser
-                      ? 'Deixe em branco para manter a senha atual'
+                      ? 'Digite 6 dígitos numéricos'
                       : noTypeSelected
                         ? 'Selecione primeiro o tipo de usuário'
-                        : 'Digite a senha'
+                        : 'Somente 6 dígitos numéricos'
                   }
                 />
                 <CFormFeedback invalid>{formErrors.senha}</CFormFeedback>
-                {editingUser && (
-                  <small className="text-muted">
-                    Deixe em branco se não quiser alterar a senha atual
-                  </small>
-                )}
+                <small className="text-muted">
+                  {editingUser
+                    ? 'Deixe em branco se não quiser alterar. Use apenas 6 dígitos numéricos.'
+                    : 'Use apenas 6 dígitos numéricos (ex: 123456)'}
+                </small>
               </CCol>
 
               {/* Campo para confirmar senha */}
@@ -1418,12 +1430,15 @@ const UsuariosModal = ({
                   invalid={!!formErrors.confirmarSenha}
                   disabled={loading || noTypeSelected}
                   required={!editingUser}
+                  maxLength={6}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder={
                     editingUser
-                      ? 'Confirme a nova senha (se definida)'
+                      ? 'Confirme os 6 dígitos'
                       : noTypeSelected
                         ? 'Selecione primeiro o tipo de usuário'
-                        : 'Digite a senha novamente'
+                        : 'Somente 6 dígitos numéricos'
                   }
                 />
                 <CFormFeedback invalid>{formErrors.confirmarSenha}</CFormFeedback>
