@@ -31,10 +31,10 @@ const styles = `
 `;
 
 const criarConteudos = () => {
-  const [showModal, setShowModal] = useState(false);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({
+  const [ showModal, setShowModal ] = useState(false);
+  const [ search, setSearch ] = useState('');
+  const [ loading, setLoading ] = useState(false);
+  const [ alert, setAlert ] = useState({
     visible: false,
     message: '',
     color: 'success'
@@ -52,7 +52,7 @@ const criarConteudos = () => {
       podeEditar,
       podeDeletar
     });
-  }, [podeAdicionar, podeEditar, podeDeletar]);
+  }, [ podeAdicionar, podeEditar, podeDeletar ]);
 
   // Referência para a tabela de serviços
   const tabelaRef = useRef(null);
@@ -63,7 +63,7 @@ const criarConteudos = () => {
     styleSheet.type = "text/css";
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
-    
+
     return () => {
       document.head.removeChild(styleSheet);
     };
@@ -96,9 +96,9 @@ const criarConteudos = () => {
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 className="h3 mb-0 text-gray-800">Lançamento de Serviços</h1>
       </div>
-      
+
       {/* Alertas */}
-      {/* {alert.visible && alert.color === 'success' && (
+      {alert.visible && alert.color === 'success' && (
         <CAlert 
           color={alert.color}
           dismissible
@@ -119,14 +119,14 @@ const criarConteudos = () => {
             dangerouslySetInnerHTML={{ __html: alert.message }}
           />
         </CAlert>
-      )} */}
-      
+      )} 
+
       <CRow className="mb-4">
         <CCol lg={12} className="d-flex align-items-center gap-2 mb-4">
           {podeAdicionar ? (
-            <CButton 
-              color="primary" 
-              style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }} 
+            <CButton
+              color="primary"
+              style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
               onClick={() => setShowModal(true)}
               disabled={loading}
             >
@@ -150,17 +150,22 @@ const criarConteudos = () => {
             </div>
           )}
         </CCol>
-        <ServicosTabela ref={tabelaRef} />
+        <ServicosTabela
+          ref={tabelaRef}
+          podeEditar={podeEditar}
+          podeDeletar={podeDeletar}
+          showAlertParent={showAlert}
+        />
       </CRow>
-      
-      <ServicosModal 
-        visible={showModal} 
-        setVisible={setShowModal} 
+
+      <ServicosModal
+        visible={showModal}
+        setVisible={setShowModal}
         setLoadingParent={setLoading}
         showAlertParent={showAlert}
         onSuccess={handleCadastroSucesso}
       />
-      
+
     </div>
   );
 };
