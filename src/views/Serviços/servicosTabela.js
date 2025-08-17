@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
 import {
   CCard,
   CCardBody,
@@ -29,7 +29,8 @@ import {
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
 import { cilMagnifyingGlass, cilCloudDownload, cilInfo, cilTrash, cilPencil } from '@coreui/icons';
-import httpRequest from '../../utils/httpRequests';
+import { debounce } from '../../utils/debounce';
+import ocorrenciasService from '../../services/ocorrenciasService';
 import ServicosModal from './servicosModal';
 import './servicoTabela.css'
 
@@ -51,69 +52,47 @@ const ServicosTabela = forwardRef((props, ref) => {
 
   // Estados para modal de visualização
   const [ modalVisualizar, setModalVisualizar ] = useState(false);
+  const [ modalEditar, setModalEditar ] = useState(false);
   const [ dadosOcorrencia, setDadosOcorrencia ] = useState(null);
   const [ loadingDetalhes, setLoadingDetalhes ] = useState(false);
 
   // Função para carregar serviços da API
-  const carregarServicos = async () => {
+  const carregarServicos = useCallback(async () => {
     setLoading(true);
     setError('');
-
     try {
-      // Configuração do fetch
-      const response = await httpRequest('/consultarOcorrenciasEoperaX', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status && result.data) {
-        // Formatar os dados para o formato esperado pela tabela
-        const servicosFormatados = result.data.map(item => ({
-          id: item.idOcorrencia,
-          numeroOS: item.numOs.trim(),
-          unidadeConsumidora: item.unidadeConsumidora.trim(),
-          dataInicio: formatarDataHora(item.data, item.hora),
-          usuarioRegistro: item.ZCC_NOME || ''
-        }));
-
-        setServicos(servicosFormatados);
-        setFilteredServicos(servicosFormatados);
-      } else {
-        setServicos([]);
-        setFilteredServicos([]);
-        setError(result.messsage || 'Nenhum dado disponível');
-      }
+      // Usando o serviço centralizado para buscar ocorrências
+      const data = await ocorrenciasService.buscarOcorrencias();
+      
+      // Formatando os dados para exibição na tabela
+      const servicosFormatados = data.map(item => ({
+        id: item.idOcorrencia,
+        numeroOS: item.numOs.trim(),
+        unidadeConsumidora: item.unidadeConsumidora.trim(),
+        dataInicio: formatarDataHora(item.data, item.hora),
+        usuarioRegistro: item.ZCC_NOME || ''
+      }));
+      
+      setServicos(servicosFormatados);
+      setFilteredServicos(servicosFormatados);
     } catch (err) {
-      setError('Erro ao carregar os serviços. Tente novamente.');
       console.error('Erro ao carregar serviços:', err);
+      setError('Erro ao carregar os serviços. Tente novamente.');
       setServicos([]);
       setFilteredServicos([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Função auxiliar para formatar data e hora
   const formatarDataHora = (data, hora) => {
     if (!data) return '';
-
     try {
       const ano = data.substring(0, 4);
       const mes = data.substring(4, 6);
       const dia = data.substring(6, 8);
-
       const horaFormatada = hora ? hora.trim() : '';
-
       return `${dia}/${mes}/${ano} ${horaFormatada}`;
     } catch (e) {
       return data;
@@ -124,30 +103,31 @@ const ServicosTabela = forwardRef((props, ref) => {
   const buscarDetalhesOcorrencia = async (idOcorrencia) => {
     setLoadingDetalhes(true);
     try {
-      const response = await httpRequest(`/consultarOcorrencia?idOcorrencia=${idOcorrencia}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status && result.data) {
-        setDadosOcorrencia(result.data);
-        setModalVisualizar(true);
-      } else {
-        setError(result.message || 'Erro ao carregar detalhes da ocorrência');
-      }
+      // Usando o serviço centralizado para buscar detalhes da ocorrência
+      const data = await ocorrenciasService.buscarOcorrenciaPorId(idOcorrencia);
+      setDadosOcorrencia(data);
+      setModalVisualizar(true);
     } catch (err) {
+      console.error('Erro ao buscar detalhes da ocorrência:', err);
       setError('Erro ao carregar detalhes da ocorrência. Tente novamente.');
-      console.error('Erro ao buscar detalhes:', err);
+    } finally {
+      setLoadingDetalhes(false);
+    }
+  };
+
+  // Função para editar serviço - otimizada para evitar sobrecarga no backend
+  const editarServico = async (idOcorrencia) => {
+    setLoadingDetalhes(true);
+    try {
+      // Usando o serviço centralizado para buscar detalhes da ocorrência
+      const data = await ocorrenciasService.buscarOcorrenciaPorId(idOcorrencia);
+      
+      // Definindo os dados e abrindo o modal de edição
+      setDadosOcorrencia(data);
+      setModalEditar(true);
+    } catch (err) {
+      console.error('Erro ao buscar detalhes para edição:', err);
+      setError('Erro ao carregar detalhes da ocorrência para edição. Tente novamente.');
     } finally {
       setLoadingDetalhes(false);
     }
@@ -163,45 +143,27 @@ const ServicosTabela = forwardRef((props, ref) => {
 
   const excluirOcorrencia = async () => {
     if (!idParaExcluir) return;
-    const body = JSON.stringify({ idOcorrencia: idParaExcluir });
-
+    
     setLoadingDetalhes(true);
     try {
-      const response = await httpRequest('/deletarOcorrencia', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status) {
-        setServicos(prevServicos => prevServicos.filter(servico => servico.id !== idParaExcluir));
-        setFilteredServicos(prevFiltered => prevFiltered.filter(servico => servico.id !== idParaExcluir));
-        setModalConfirmacao(false);
-        setIdParaExcluir(null);
-        // Mostrar alerta de sucesso no componente pai
-        if (showAlertParent) {
-          showAlertParent('Ocorrência excluída com sucesso.', 'success');
-        }
-      } else {
-        const mensagem = result.message || 'Erro ao excluir a ocorrência';
-        setError(mensagem);
-        if (showAlertParent) showAlertParent(mensagem, 'danger');
+      // Usando o serviço centralizado para excluir a ocorrência
+      await ocorrenciasService.excluirOcorrencia(idParaExcluir);
+      
+      // Atualiza os estados locais após exclusão bem-sucedida
+      setServicos(prevServicos => prevServicos.filter(servico => servico.id !== idParaExcluir));
+      setFilteredServicos(prevFiltered => prevFiltered.filter(servico => servico.id !== idParaExcluir));
+      setModalConfirmacao(false);
+      setIdParaExcluir(null);
+      
+      // Mostrar alerta de sucesso no componente pai
+      if (showAlertParent) {
+        showAlertParent('Ocorrência excluída com sucesso.', 'success');
       }
     } catch (error) {
-  const mensagem = 'Erro ao excluir a ocorrência. Tente novamente.';
-  setError(mensagem);
-  console.error('Erro ao excluir ocorrência:', error);
-  if (showAlertParent) showAlertParent(mensagem, 'danger');
+      const mensagem = 'Erro ao excluir a ocorrência. Tente novamente.';
+      setError(mensagem);
+      console.error('Erro ao excluir ocorrência:', error);
+      if (showAlertParent) showAlertParent(mensagem, 'danger');
     } finally {
       setLoadingDetalhes(false);
     }
@@ -215,23 +177,29 @@ const ServicosTabela = forwardRef((props, ref) => {
   // Carregar dados na inicialização
   useEffect(() => {
     carregarServicos();
-  }, []);
+  }, [carregarServicos]);
 
-  // Efeito para filtrar os dados
+  // Efeito para filtrar os dados com debounce
   useEffect(() => {
-    if (!filtroConteudo) {
-      setFilteredServicos(servicos);
-    } else {
-      const filtered = servicos.filter(servico =>
-        servico.numeroOS?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
-        servico.unidadeConsumidora?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
-        servico.dataInicio?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
-        servico.usuarioRegistro?.toLowerCase().includes(filtroConteudo.toLowerCase())
-      );
-      setFilteredServicos(filtered);
-    }
-    setCurrentPage(1); // Reset para primeira página ao filtrar
-  }, [ filtroConteudo, servicos ]);
+    const debounced = debounce(() => {
+      if (!filtroConteudo) {
+        setFilteredServicos(servicos);
+      } else {
+        const filtered = servicos.filter(servico =>
+          servico.numeroOS?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
+          servico.unidadeConsumidora?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
+          servico.dataInicio?.toLowerCase().includes(filtroConteudo.toLowerCase()) ||
+          servico.usuarioRegistro?.toLowerCase().includes(filtroConteudo.toLowerCase())
+        );
+        setFilteredServicos(filtered);
+      }
+      setCurrentPage(1);
+    }, 400);
+    debounced();
+    return debounced.cancel;
+  }, [filtroConteudo, servicos]);
+
+  // Efeito para filtrar os dados - Removido pois está duplicado com o useEffect com debounce acima
 
   // Cálculos de paginação
   const totalPages = Math.ceil(filteredServicos.length / itemsPerPage);
@@ -244,15 +212,11 @@ const ServicosTabela = forwardRef((props, ref) => {
   const handleDownload = async () => {
     try {
       setLoading(true);
-      // Para usar a API real, descomente a linha abaixo
-      // const blob = await servicosService.exportarServicos('csv', { filtro: filtroConteudo });
-
       // Implementação do download quando houver dados
       if (filteredServicos.length === 0) {
         setError('Nenhum dado disponível para download.');
         return;
       }
-
       const csvContent = [
         [ 'Número OS', 'UN. Consumidora', 'Data/Hora Início', 'Usuário Registro' ],
         ...filteredServicos.map(servico => [
@@ -262,7 +226,6 @@ const ServicosTabela = forwardRef((props, ref) => {
           servico.usuarioRegistro
         ])
       ].map(row => row.join(',')).join('\n');
-
       const blob = new Blob([ csvContent ], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
@@ -366,7 +329,7 @@ const ServicosTabela = forwardRef((props, ref) => {
                             <CTableDataCell className="text-nowrap">{servico.dataInicio}</CTableDataCell>
                             <CTableDataCell>{servico.usuarioRegistro}</CTableDataCell>
                             <CTableDataCell className="text-center">
-                              <CTooltip content="Visualizar detalhes">
+                              {/* <CTooltip content="Visualizar detalhes">
                                 <CButton
                                   color="info"
                                   variant="outline"
@@ -378,8 +341,8 @@ const ServicosTabela = forwardRef((props, ref) => {
                                 >
                                   <CIcon icon={cilInfo} />
                                 </CButton>
-                              </CTooltip>
-                              {/* {podeEditar && (
+                              </CTooltip> */}
+                              {podeEditar && (
                                 <CTooltip content="Editar serviço">
                                   <CButton
                                     color="secondary"
@@ -393,7 +356,7 @@ const ServicosTabela = forwardRef((props, ref) => {
                                     <CIcon icon={cilPencil} />
                                   </CButton>
                                 </CTooltip>
-                              )} */}
+                              )}
                               {podeDeletar && (
                                 <CTooltip content="Excluir serviço">
                                   <CButton
@@ -505,6 +468,22 @@ const ServicosTabela = forwardRef((props, ref) => {
         setVisible={setModalVisualizar}
         modoVisualizacao={true}
         dadosOcorrencia={dadosOcorrencia}
+      />
+
+      {/* Modal de Edição - Reutilizando o ServicosModal existente */}
+      < ServicosModal
+        visible={modalEditar}
+        setVisible={setModalEditar}
+        modoEdicao={true}
+        dadosOcorrencia={dadosOcorrencia}
+        onSuccess={() => {
+          // Recarregar dados da tabela após edição bem-sucedida
+          carregarServicos();
+          if (showAlertParent) {
+            showAlertParent('Ordem de serviço atualizada com sucesso!', 'success');
+          }
+        }}
+        showAlertParent={showAlertParent}
       />
 
 

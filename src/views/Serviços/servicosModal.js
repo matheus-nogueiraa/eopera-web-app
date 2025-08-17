@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+// Este componente é responsável pelo modal de edição de serviços.
+// Todas as chamadas à API devem ser feitas via os serviços em src/services para evitar duplicidade e facilitar manutenção.
 import {
   CModal,
   CModalHeader,
@@ -29,10 +31,11 @@ import {
 import CIcon from '@coreui/icons-react';
 import { cilX, cilCheckAlt, cilCamera, cilWarning } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
-import { consultarServicosProtheus } from '../../services/servicosService';
+import servicosService, { consultarServicosProtheus } from '../../services/servicosService';
 import { consultarEquipes } from '../../services/equipesService';
 import { consultarUsuariosEoperaX, filtrarUsuarios } from '../../services/usuariosService';
-import httpRequest from '../../utils/httpRequests';
+import ocorrenciasService from '../../services/ocorrenciasService';
+import municipiosService from '../../services/municipiosService';
 
 // Adicionando estilos CSS para animação
 const styles = `
@@ -87,6 +90,7 @@ const ServicosModal = ({
   showAlertParent, 
   onSuccess,
   modoVisualizacao = false,
+  modoEdicao = false,
   dadosOcorrencia = null
 }) => {
   const [ usuarios, setUsuarios ] = useState([]);
@@ -116,6 +120,8 @@ const ServicosModal = ({
 
   // Estados para autocomplete de serviços
   const [ servicosOpcoes, setServicosOpcoes ] = useState([]);
+  const [ numeroOperacionalOpcoes, setNumeroOperacionalOpcoes ] = useState([]);
+  const [ centroCustoDropdownVisivel, setCentroCustoDropdownVisivel ] = useState(false);
   const [ todosServicos, setTodosServicos ] = useState([]); // Cache de todos os serviços
   const [ loadingServicos, setLoadingServicos ] = useState(false);
   const [ servicoDropdownVisivel, setServicoDropdownVisivel ] = useState({});
@@ -162,32 +168,27 @@ const ServicosModal = ({
   });
 
   // Função para carregar todos os municípios (uma vez só)
-  const carregarTodosMunicipios = async () => {
+  // Função para carregar todos os municípios - otimizada para usar serviço centralizado
+  const carregarTodosMunicipios = useCallback(async () => {
+    // Busca todos os municípios apenas se ainda não estiverem carregados
     if (todosMunicipios.length > 0) return;
+    
     setLoadingMunicipios(true);
     try {
-      const resp = await httpRequest('/consultarMunicipiosIBGE', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
-        },
-      });
-      const json = await resp.json();
-      if (json.status && Array.isArray(json.data)) {
-        setTodosMunicipios(json.data);
-      } else {
-        setTodosMunicipios([]);
-      }
+      // Usando o serviço centralizado para evitar sobrecarga no backend
+      const municipios = await municipiosService.buscarTodosMunicipios();
+      setTodosMunicipios(municipios);
     } catch (e) {
+      console.error('Erro ao carregar municípios:', e);
       setTodosMunicipios([]);
     } finally {
       setLoadingMunicipios(false);
     }
-  };
+  }, [todosMunicipios.length]);
 
   // Funções para buscar dados por ID para visualização
   const buscarCentroCustoPorId = async (centroCustoId) => {
+  // Busca o nome do centro de custo pelo ID usando o serviço centralizado
     try {
       const response = await consultarCentroCusto({
         retornaInativos: 'N',
@@ -206,6 +207,7 @@ const ServicosModal = ({
   };
 
   const buscarNumeroOperacionalPorId = async (numeroOperacionalId) => {
+  // Busca o nome do número operacional pelo ID usando o serviço centralizado
     try {
       const response = await consultarEquipes({
         retornaInativos: 'S',
@@ -223,99 +225,70 @@ const ServicosModal = ({
     }
   };
 
-  const buscarMunicipioPorCodigo = async (codigoMunicipio) => {
+  const buscarMunicipioPorCodigo = useCallback(async (codigoMunicipio) => {
+    // Busca o nome do município pelo código, usando cache local e serviço centralizado
     try {
-      // Primeiro tenta carregar todos os municípios se ainda não carregou
-      if (todosMunicipios.length === 0) {
-        await carregarTodosMunicipios();
+      // Verifica primeiro no cache local
+      if (todosMunicipios.length > 0) {
+        const municipio = todosMunicipios.find(m => m.codigo === codigoMunicipio);
+        if (municipio) {
+          return `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+        }
       }
       
-      // Procura o município pelo código
-      const municipio = todosMunicipios.find(m => m.codigo === codigoMunicipio);
+      // Se não encontrou no cache, busca via serviço
+      const municipio = await municipiosService.buscarMunicipioPorCodigo(codigoMunicipio);
       if (municipio) {
         return `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
       }
+      
       return codigoMunicipio; // Retorna o código se não encontrar
     } catch (error) {
       console.error('Erro ao buscar município:', error);
       return codigoMunicipio;
     }
-  };
+  }, [todosMunicipios]);
 
   const buscarServicosPorIds = async (servicosArray) => {
+  // Busca os nomes dos serviços por ID, usando cache local e serviço centralizado
     if (!servicosArray || !Array.isArray(servicosArray)) return [];
     try {
-      // Mapeia cada serviço para buscar sua descrição fazendo requisições individuais
       const servicosComNomes = await Promise.all(
-        servicosArray.map(async (servico, index) => {
-          
+        servicosArray.map(async (servico) => {
+          // Se já tem o objeto completo, retorna direto
           if (servico.servicoSelecionado && servico.servicoSelecionado.idServico) {
-            // Se já tem o objeto completo, usa ele
             return {
               ...servico,
               servicoNome: `${servico.servicoSelecionado.idServico} - ${servico.servicoSelecionado.descricaoServico}`
             };
-          } else if (servico.servico || servico.idServico) {
-            // Usa servico.servico (para dados de formulário) ou servico.idServico (para dados salvos)
-            const servicoId = servico.servico || servico.idServico;
-            try {
-              
-              // Faz requisição específica para o ID do serviço
-              const response = await httpRequest(`/consultaServicosProtheus?idServico=${servicoId}`, {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
-                },
-              });
-              
-              const json = await response.json();
-              
-              if (json.status && json.data && json.data.length > 0) {
-                const servicoEncontrado = json.data[0];
-                return {
-                  ...servico,
-                  servicoNome: `${servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
-                };
-              } else {
-                // Se não encontrar na API, tenta buscar nos serviços já carregados
-                if (todosServicos.length > 0) {
-                  const servicoEncontrado = todosServicos.find(s => 
-                    s.idServico === servicoId || 
-                    s.codServico === servicoId
-                  );
-                  
-                  if (servicoEncontrado) {
-                    return {
-                      ...servico,
-                      servicoNome: `${servicoEncontrado.idServico} - ${servicoEncontrado.descricaoServico}`
-                    };
-                  }
-                }
-                
-                // Se não encontrar em lugar nenhum, retorna o ID
-                return {
-                  ...servico,
-                  servicoNome: servicoId || 'Serviço não identificado'
-                };
-              }
-            } catch (error) {
-              console.error(`Erro ao buscar serviço ${servicoId}:`, error);
+          }
+          // Busca local nos serviços já carregados
+          const servicoId = servico.servico || servico.idServico;
+          if (todosServicos.length > 0) {
+            const servicoEncontrado = todosServicos.find(s => s.idServico === servicoId || s.codServico === servicoId);
+            if (servicoEncontrado) {
               return {
                 ...servico,
-                servicoNome: servicoId || 'Erro ao carregar serviço'
+                servicoNome: `${servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
               };
             }
           }
-          
-          // Se não tem serviço definido
-          return {
-            ...servico,
-            servicoNome: 'Serviço não identificado'
-          };
+          // Se não encontrou localmente, busca via serviço (evita estourar pool)
+          try {
+            const servicoEncontrado = await servicosService.buscarServicoPorId(servicoId);
+            return {
+              ...servico,
+              servicoNome: `${servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
+            };
+          } catch (error) {
+            // Se não encontrar, retorna apenas o ID
+            return {
+              ...servico,
+              servicoNome: servicoId || 'Serviço não identificado'
+            };
+          }
         })
       );
-      
       return servicosComNomes;
     } catch (error) {
       console.error('Erro ao buscar serviços por IDs:', error);
@@ -588,12 +561,46 @@ const ServicosModal = ({
     }
   };
 
+  // Função para resetar campos quando modal fechar
+  const resetarCampos = () => {
+    // Resetar estados principais
+    setCentroCustoSelecionado('');
+    setNumeroOperacionalSelecionado('');
+    setMunicipioSelecionado('');
+    setUsuarios([]);
+    setServicos([{ servico: '', observacao: '', valorGrupo: '', valorServico: '', quantidade: '' }]);
+    setOcorrenciaSemEndereco(false);
+    setDadosVisualizacao({});
+    
+    // Resetar opções de dropdowns
+    setCentroCustoOpcoes([]);
+    setServicosOpcoes([]);
+    setNumeroOperacionalOpcoes([]);
+    
+    // Resetar visibilidade de dropdowns
+    setCentroCustoDropdownVisivel(false);
+    setServicoDropdownVisivel([]);
+    setEquipeDropdownVisivel(false);
+    setMunicipioDropdownVisivel(false);
+    setUsuarioDropdownVisivel(false);
+    
+    // Resetar campos de erro
+    setCamposComErro({});
+  };
+
+  // UseEffect para resetar campos quando modal fechar
+  useEffect(() => {
+    if (!visible) {
+      resetarCampos();
+    }
+  }, [visible]);
+
   // UseEffect para limpar campos quando o modal abrir
   useEffect(() => {
     if (visible) {
       // Usar setTimeout para garantir que os elementos DOM estejam disponíveis
       setTimeout(() => {
-        if (!modoVisualizacao) {
+        if (!modoVisualizacao && !modoEdicao) {
           limparCampos();
         }
         // Carregar todos os centros de custo ao abrir o modal
@@ -602,9 +609,131 @@ const ServicosModal = ({
     }
   }, [ visible ]);
 
-  // UseEffect para preencher dados em modo visualização
+  // UseEffect específico para inicializar campos em modo edição
   useEffect(() => {
-    if (visible && modoVisualizacao && dadosOcorrencia) {
+    if (visible && modoEdicao && dadosOcorrencia) {
+      console.log('Inicializando campos para edição:', dadosOcorrencia);
+      
+      // Aguardar carregamento das opções de centro de custo e então inicializar
+      const inicializarCentroCusto = async () => {
+        // Aguardar um tempo para que as opções de centro de custo carreguem
+        setTimeout(() => {
+          if (dadosOcorrencia.centroCusto && centroCustoOpcoes.length > 0) {
+            // Encontrar o centro de custo correto fazendo trim
+            const centroCustoEncontrado = centroCustoOpcoes.find(cc => 
+              cc.centroCusto?.trim() === dadosOcorrencia.centroCusto?.trim()
+            );
+            
+            if (centroCustoEncontrado) {
+              const valorParaSelecionar = centroCustoEncontrado.centroCusto;
+              
+              setCentroCustoSelecionado(valorParaSelecionar);
+              
+              // Forçar atualização do DOM
+              setTimeout(() => {
+                const selectElement = document.getElementById('centroDeCustos');
+                if (selectElement) {
+                  selectElement.value = valorParaSelecionar;
+                }
+              }, 100);
+              
+              // Carregar serviços do centro de custo
+              setTimeout(() => {
+                carregarServicosPorCentroCusto(valorParaSelecionar);
+              }, 200);
+            } else {
+              console.log('Centro de custo não encontrado na lista de opções');
+            }
+          } else if (dadosOcorrencia.centroCusto) {
+            // Se ainda não carregou as opções, tentar novamente em mais um tempo
+            setTimeout(() => {
+              // Encontrar o centro de custo correto fazendo trim na segunda tentativa
+              const centroCustoEncontrado = centroCustoOpcoes.find(cc => 
+                cc.centroCusto?.trim() === dadosOcorrencia.centroCusto?.trim()
+              );
+              
+              if (centroCustoEncontrado) {
+                const valorParaSelecionar = centroCustoEncontrado.centroCusto;
+                
+                setCentroCustoSelecionado(valorParaSelecionar);
+                
+                // Forçar atualização do DOM na segunda tentativa também
+                setTimeout(() => {
+                  const selectElement = document.getElementById('centroDeCustos');
+                  if (selectElement) {
+                    selectElement.value = valorParaSelecionar;
+                    console.log('Select atualizado (2ª tentativa) para:', selectElement.value);
+                  }
+                }, 100);
+                
+                setTimeout(() => {
+                  carregarServicosPorCentroCusto(valorParaSelecionar);
+                }, 200);
+              } else {
+                console.log('Centro de custo não encontrado na lista de opções (2ª tentativa)');
+              }
+            }, 1000);
+          }
+        }, 300);
+      };
+      
+      inicializarCentroCusto();
+      
+      // Inicializar número operacional
+      if (dadosOcorrencia.numeroOperacional) {
+        setNumeroOperacionalSelecionado(dadosOcorrencia.numeroOperacional);
+      }
+      
+      // Inicializar município
+      if (dadosOcorrencia.codMunicipio) {
+        // Usar setTimeout para aguardar carregamento dos municípios
+        setTimeout(() => {
+          if (todosMunicipios.length > 0) {
+            const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
+            if (municipio) {
+              const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+              setMunicipioSelecionado(textoMunicipio);
+            }
+          }
+        }, 800);
+      }
+      
+      // Inicializar serviços formatados
+      if (dadosOcorrencia.servicos && Array.isArray(dadosOcorrencia.servicos)) {
+        const servicosFormatados = dadosOcorrencia.servicos.map(servico => ({
+          servico: servico.idServico || '',
+          observacao: servico.observacao || '',
+          valorGrupo: servico.valGrupo?.toString() || '',
+          valorServico: servico.valPontos?.toString() || '',
+          quantidade: servico.quantidade?.toString() || '',
+          servicoSelecionado: {
+            idServico: servico.idServico,
+            descricaoServico: servico.descricaoServico || '',
+            valorGrupo: servico.valGrupo || 0,
+            valorPontos: servico.valPontos || 0
+          },
+          fotos: servico.fotos || []
+        }));
+        setServicos(servicosFormatados);
+      }
+      
+      // Inicializar usuários
+      if (dadosOcorrencia.usuarios && Array.isArray(dadosOcorrencia.usuarios)) {
+        setUsuarios(dadosOcorrencia.usuarios);
+      }
+      
+      // Inicializar checkbox de ocorrência sem endereço
+      if (dadosOcorrencia.semEndereco === 'S') {
+        setOcorrenciaSemEndereco(true);
+      } else {
+        setOcorrenciaSemEndereco(false);
+      }
+    }
+  }, [visible, modoEdicao, dadosOcorrencia, todosMunicipios, centroCustoOpcoes]);
+
+  // UseEffect para preencher dados em modo visualização ou edição
+  useEffect(() => {
+    if (visible && (modoVisualizacao || modoEdicao) && dadosOcorrencia) {
       // Função para carregar dados de visualização
       const carregarDadosVisualizacao = async () => {
         const novosDados = { ...dadosVisualizacao };
@@ -688,6 +817,77 @@ const ServicosModal = ({
         
         if (dadosOcorrencia.centroCusto) {
           setCentroCustoSelecionado(dadosOcorrencia.centroCusto);
+          // Em modo edição, garantir que o select seja preenchido após carregar as opções
+          if (modoEdicao) {
+            setTimeout(() => {
+              const centroCustoSelect = document.getElementById('centroDeCustos');
+              if (centroCustoSelect) {
+                centroCustoSelect.value = dadosOcorrencia.centroCusto;
+              }
+            }, 800); // Aguardar um pouco mais para as opções carregarem
+          }
+        }
+        
+        // Em modo edição, precisamos carregar os serviços do centro de custo
+        if (modoEdicao && dadosOcorrencia.centroCusto) {
+          carregarServicosPorCentroCusto(dadosOcorrencia.centroCusto);
+        }
+        
+        // Preencher campos de município em modo edição
+        if (modoEdicao && dadosOcorrencia.codMunicipio) {
+          // Carregar todos os municípios e definir o selecionado
+          if (todosMunicipios.length === 0) {
+            carregarTodosMunicipios().then(() => {
+              const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
+              if (municipio) {
+                const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+                setMunicipioSelecionado(textoMunicipio);
+                const municipioInput = document.getElementById('municipio');
+                if (municipioInput) {
+                  municipioInput.value = textoMunicipio;
+                }
+              }
+            });
+          } else {
+            const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
+            if (municipio) {
+              const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+              setMunicipioSelecionado(textoMunicipio);
+              const municipioInput = document.getElementById('municipio');
+              if (municipioInput) {
+                municipioInput.value = textoMunicipio;
+              }
+            }
+          }
+        }
+        
+        // Preencher campos de número operacional em modo edição
+        if (modoEdicao && dadosOcorrencia.numeroOperacional) {
+          if (todasEquipes.length === 0) {
+            carregarTodasEquipes().then(() => {
+              const equipe = todasEquipes.find(e => e.numOperacional === dadosOcorrencia.numeroOperacional);
+              if (equipe) {
+                const textoEquipe = `${equipe.numOperacional?.trim()} - ${equipe.descricao?.trim()}`;
+                setNumeroOperacionalSelecionado(textoEquipe);
+                // Também preencher o input diretamente
+                const numeroOperacionalInput = document.getElementById('numeroOperacional');
+                if (numeroOperacionalInput) {
+                  numeroOperacionalInput.value = equipe.numOperacional?.trim() || '';
+                }
+              }
+            });
+          } else {
+            const equipe = todasEquipes.find(e => e.numOperacional === dadosOcorrencia.numeroOperacional);
+            if (equipe) {
+              const textoEquipe = `${equipe.numOperacional?.trim()} - ${equipe.descricao?.trim()}`;
+              setNumeroOperacionalSelecionado(textoEquipe);
+              // Também preencher o input diretamente
+              const numeroOperacionalInput = document.getElementById('numeroOperacional');
+              if (numeroOperacionalInput) {
+                numeroOperacionalInput.value = equipe.numOperacional?.trim() || '';
+              }
+            }
+          }
         }
         
         // Preencher horários
@@ -743,7 +943,26 @@ const ServicosModal = ({
         
         // Preencher serviços
         if (dadosOcorrencia.servicos && Array.isArray(dadosOcorrencia.servicos)) {
-          setServicos(dadosOcorrencia.servicos);
+          if (modoEdicao) {
+            // Em modo edição, precisamos formatar os serviços corretamente
+            const servicosFormatados = dadosOcorrencia.servicos.map(servico => ({
+              servico: servico.idServico || '',
+              observacao: servico.observacao || '',
+              valorGrupo: servico.valGrupo?.toString() || '',
+              valorServico: servico.valPontos?.toString() || '',
+              quantidade: servico.quantidade?.toString() || '',
+              servicoSelecionado: {
+                idServico: servico.idServico,
+                descricaoServico: servico.descricaoServico || '',
+                valorGrupo: servico.valGrupo || 0,
+                valorPontos: servico.valPontos || 0
+              },
+              fotos: servico.fotos || []
+            }));
+            setServicos(servicosFormatados);
+          } else {
+            setServicos(dadosOcorrencia.servicos);
+          }
         }
         
         // Definir se ocorrência sem endereço
@@ -751,12 +970,12 @@ const ServicosModal = ({
           setOcorrenciaSemEndereco(true);
         }
         
-        // Carregar dados de visualização (nomes dos campos)
+        // Carregar dados de visualização (nomes dos campos) - tanto para visualização quanto edição
         carregarDadosVisualizacao();
         
       }, 200);
     }
-  }, [visible, modoVisualizacao, dadosOcorrencia]);
+  }, [visible, modoVisualizacao, modoEdicao, dadosOcorrencia]);
 
   // Esconde erros individuais após 5 segundos
   useEffect(() => {
@@ -860,6 +1079,7 @@ const ServicosModal = ({
 
   // Função para carregar todos os serviços (uma vez só)
   const carregarTodosServicos = async () => {
+  // Carrega todos os serviços do Protheus apenas se ainda não estiverem carregados
     if (todosServicos.length > 0) return; // Já carregados
 
     setLoadingServicos(true);
@@ -888,9 +1108,10 @@ const ServicosModal = ({
 
   // Função para carregar serviços de um centro de custo específico
   const carregarServicosPorCentroCusto = async (centroCusto) => {
+  // Carrega serviços filtrados por centro de custo usando serviço centralizado
     setLoadingServicos(true);
 
-    try {
+  
 
       // Usar a função consultarServicosProtheus com o parâmetro centroCusto
       const dados = await consultarServicosProtheus({ centroCusto });
@@ -904,17 +1125,17 @@ const ServicosModal = ({
         setTodosServicos([]);
         mostrarAlert('Nenhum serviço encontrado para o centro de custo selecionado', 'warning');
       }
-    } catch (error) {
-      console.error('Erro ao carregar serviços por centro de custo:', error);
-      setTodosServicos([]);
-      mostrarAlert('Erro ao carregar serviços do centro de custo selecionado', 'danger');
-    } finally {
-      setLoadingServicos(false);
-    }
+    
   };
 
   // Função para filtrar serviços localmente
   const filtrarServicos = (termo) => {
+  // Filtra serviços localmente pelo termo informado
+// Dica para iniciantes:
+// - Sempre use os serviços de src/services para chamadas à API.
+// - Use useEffect para carregar dados apenas quando necessário.
+// - Use estados de loading para evitar múltiplas chamadas simultâneas.
+// - Separe funções de busca/lógica dos componentes de UI.
     if (!termo || termo.length < 2) {
       return [];
     }
@@ -1113,15 +1334,10 @@ const ServicosModal = ({
 
     setLoadingEquipes(true);
 
-    try {
+   
       const equipesData = await consultarEquipes({ retornaInativos: 'S' });
       setTodasEquipes(equipesData || []);
-    } catch (error) {
-      console.error('Erro ao carregar equipes:', error);
-      mostrarAlert('Erro ao carregar equipes', 'danger');
-    } finally {
-      setLoadingEquipes(false);
-    }
+    
   };
 
   // Função para filtrar equipes localmente
@@ -1288,7 +1504,9 @@ const ServicosModal = ({
       >
       <CModalHeader>
         <CModalTitle>
-          {modoVisualizacao ? 'Visualizar Ordem de Serviço' : 'Ordem de Serviço'}
+          {modoVisualizacao ? 'Visualizar Ordem de Serviço' : 
+           modoEdicao ? 'Editar Ordem de Serviço' : 
+           'Ordem de Serviço'}
         </CModalTitle>
       </CModalHeader>
       <CModalBody className="pb-0">
@@ -1567,7 +1785,7 @@ const ServicosModal = ({
 
         {/* Quarta linha */}
         <CRow className="mb-4">
-          <CCol md={4}>
+          <CCol md={3}>
             <CFormLabel htmlFor="latitude" className="mb-1">Latitude:</CFormLabel>
             <CFormInput
               id="latitude"
@@ -1581,7 +1799,7 @@ const ServicosModal = ({
               </div>
             )}
           </CCol>
-          <CCol md={4}>
+          <CCol md={3}>
             <CFormLabel htmlFor="longitude" className="mb-1">Longitude:</CFormLabel>
             <CFormInput
               id="longitude"
@@ -1592,6 +1810,290 @@ const ServicosModal = ({
               <div className="texto-erro fade-in-error">
                 <CIcon icon={cilX} size="sm" />
                 {camposComErro.longitude}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+               <CFormLabel htmlFor="centroDeCustos" className="mb-1">Centro de Custos: </CFormLabel>
+            {modoVisualizacao ? (
+              <CFormInput
+                id="centroDeCustos"
+                value={dadosVisualizacao.centroCustoNome || 'Carregando...'}
+                readOnly
+                className="bg-light"
+              />
+            ) : modoEdicao ? (
+              // Em modo edição, permitir edição do centro de custo
+              <div className="position-relative">
+                {loadingCentroCusto ? (
+                  <div className="d-flex align-items-center">
+                    <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
+                    <span>Carregando centros de custo...</span>
+                  </div>
+                ) : (
+                  <CFormSelect
+                    id="centroDeCustos"
+                    value={centroCustoSelecionado}
+                    onChange={handleCentroCustoChange}
+                    className={camposComErro.centroDeCustos ? 'campo-erro' : ''}
+                    disabled={false}
+                  >
+                    <option value="">Selecione um centro de custo</option>
+                    {centroCustoOpcoes.map((centroCusto, index) => (
+                      <option key={index} value={centroCusto.centroCusto}>
+                        {centroCusto.centroCusto?.trim()} - {centroCusto.descricaoCCusto?.trim()}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                )}
+                {camposComErro.centroDeCustos && (
+                  <div className="texto-erro fade-in-error">
+                    <CIcon icon={cilX} size="sm" />
+                    {camposComErro.centroDeCustos}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="position-relative">
+                {loadingCentroCusto ? (
+                  <div className="d-flex align-items-center">
+                    <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
+                    <span>Carregando centros de custo...</span>
+                  </div>
+                ) : (
+                  <CFormSelect
+                    id="centroDeCustos"
+                    value={centroCustoSelecionado}
+                    onChange={handleCentroCustoChange}
+                    className={camposComErro.centroDeCustos ? 'campo-erro' : ''}
+                    disabled={modoVisualizacao}
+                  >
+                    <option value="">Selecione um centro de custo</option>
+                    {centroCustoOpcoes.map((centroCusto, index) => (
+                      <option key={index} value={centroCusto.centroCusto}>
+                        {centroCusto.centroCusto?.trim()} - {centroCusto.descricaoCCusto?.trim()}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                )}
+                {loadingServicos && centroCustoSelecionado && (
+                  <div className="mt-2 text-info">
+                    <div className="d-flex align-items-center">
+                      <div className="spinner-border spinner-border-sm me-2" role="status">
+                        <span className="visually-hidden">Carregando...</span>
+                      </div>
+                      <small>Carregando serviços do centro de custo...</small>
+                    </div>
+                  </div>
+                )}
+                {camposComErro.centroDeCustos && (
+                  <div className="texto-erro fade-in-error">
+                    <CIcon icon={cilX} size="sm" />
+                    {camposComErro.centroDeCustos}
+                  </div>
+                )}
+              </div>
+            )}
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="numeroOperacional" className="mb-1">Número Operacional:</CFormLabel>
+            {modoVisualizacao ? (
+              <CFormInput
+                id="numeroOperacional"
+                value={dadosVisualizacao.numeroOperacionalNome || 'Carregando...'}
+                readOnly
+                className="bg-light"
+              />
+            ) : modoEdicao ? (
+              // Em modo edição, permitir edição completa do número operacional
+              <div className="position-relative" ref={equipeRef}>
+                <CFormInput
+                  id="numeroOperacional"
+                  value={numeroOperacionalSelecionado}
+                  onChange={handleNumeroOperacionalChange}
+                  onKeyDown={handleEquipeKeyDown}
+                  placeholder="Digite número ou descrição..."
+                  autoComplete="off"
+                  className={camposComErro.numeroOperacional ? 'campo-erro' : ''}
+                  readOnly={false}
+                />
+                {camposComErro.numeroOperacional && (
+                  <div className="texto-erro fade-in-error">
+                    <CIcon icon={cilX} size="sm" />
+                    {camposComErro.numeroOperacional}
+                  </div>
+                )}
+                {loadingEquipes && equipeDropdownVisivel && (
+                  <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                    <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
+                  </div>
+                )}
+                {equipeDropdownVisivel && equipesOpcoes.length > 0 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                      top: '100%'
+                    }}
+                  >
+                    <CListGroup flush>
+                      {equipesOpcoes.slice(0, 10).map((equipeOpcao, opcaoIndex) => (
+                        <CListGroupItem
+                          key={opcaoIndex}
+                          className={`cursor-pointer py-1 px-2 ${equipeSelectedIndex === opcaoIndex ? 'bg-light' : ''}`}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s',
+                            backgroundColor: equipeSelectedIndex === opcaoIndex ? '#f8f9fa' : 'white',
+                            fontSize: '0.8rem'
+                          }}
+                          onClick={() => selecionarEquipe(equipeOpcao)}
+                          onMouseEnter={(e) => {
+                            if (equipeSelectedIndex !== opcaoIndex) {
+                              e.target.style.backgroundColor = '#f8f9fa';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (equipeSelectedIndex !== opcaoIndex) {
+                              e.target.style.backgroundColor = 'white';
+                            }
+                          }}
+                        >
+                          <div>
+                            <strong>{equipeOpcao.numOperacional?.trim()}</strong>
+                            {equipeOpcao.descricao && (
+                              <div className="text-muted small">
+                                {equipeOpcao.descricao.trim()}
+                              </div>
+                            )}
+                            <small className={`${equipeOpcao.ativo === 'S' ? 'text-success' : 'text-danger'}`}>
+                              {equipeOpcao.ativo === 'S' ? 'Ativo' : 'Inativo'}
+                            </small>
+                          </div>
+                        </CListGroupItem>
+                      ))}
+                      {equipesOpcoes.length >= 20 && (
+                        <CListGroupItem className="text-center text-muted py-1">
+                          <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                        </CListGroupItem>
+                      )}
+                    </CListGroup>
+                  </div>
+                )}
+                {equipeDropdownVisivel && equipesOpcoes.length === 0 && !loadingEquipes && numeroOperacionalSelecionado.length >= 2 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      top: '100%'
+                    }}
+                  >
+                    <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                      Nenhuma equipe encontrada
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="position-relative" ref={equipeRef}>
+                <CFormInput
+                  id="numeroOperacional"
+                  value={numeroOperacionalSelecionado}
+                  onChange={handleNumeroOperacionalChange}
+                  onKeyDown={handleEquipeKeyDown}
+                  placeholder="Digite número ou descrição..."
+                  autoComplete="off"
+                  className={camposComErro.numeroOperacional ? 'campo-erro' : ''}
+                  readOnly={modoVisualizacao}
+                />
+                {camposComErro.numeroOperacional && (
+                  <div className="texto-erro fade-in-error">
+                    <CIcon icon={cilX} size="sm" />
+                    {camposComErro.numeroOperacional}
+                  </div>
+                )}
+                {loadingEquipes && equipeDropdownVisivel && (
+                  <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                    <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                      <span className="visually-hidden">Carregando...</span>
+                    </div>
+                  </div>
+                )}
+                {equipeDropdownVisivel && equipesOpcoes.length > 0 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                      top: '100%'
+                    }}
+                  >
+                    <CListGroup flush>
+                      {equipesOpcoes.slice(0, 10).map((equipeOpcao, opcaoIndex) => (
+                        <CListGroupItem
+                          key={opcaoIndex}
+                          className={`cursor-pointer py-1 px-2 ${equipeSelectedIndex === opcaoIndex ? 'bg-light' : ''}`}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s',
+                            backgroundColor: equipeSelectedIndex === opcaoIndex ? '#f8f9fa' : 'white',
+                            fontSize: '0.8rem'
+                          }}
+                          onClick={() => selecionarEquipe(equipeOpcao)}
+                          onMouseEnter={(e) => {
+                            if (equipeSelectedIndex !== opcaoIndex) {
+                              e.target.style.backgroundColor = '#f8f9fa';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (equipeSelectedIndex !== opcaoIndex) {
+                              e.target.style.backgroundColor = 'white';
+                            }
+                          }}
+                        >
+                          <div>
+                            <strong>{equipeOpcao.numOperacional?.trim()}</strong>
+                            {equipeOpcao.descricao && (
+                              <div className="text-muted small">
+                                {equipeOpcao.descricao.trim()}
+                              </div>
+                            )}
+                            <small className={`${equipeOpcao.ativo === 'S' ? 'text-success' : 'text-danger'}`}>
+                              {equipeOpcao.ativo === 'S' ? 'Ativo' : 'Inativo'}
+                            </small>
+                          </div>
+                        </CListGroupItem>
+                      ))}
+                      {equipesOpcoes.length >= 20 && (
+                        <CListGroupItem className="text-center text-muted py-1">
+                          <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                        </CListGroupItem>
+                      )}
+                    </CListGroup>
+                  </div>
+                )}
+                {equipeDropdownVisivel && equipesOpcoes.length === 0 && !loadingEquipes && numeroOperacionalSelecionado.length >= 2 && (
+                  <div
+                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                    style={{
+                      zIndex: 1050,
+                      top: '100%'
+                    }}
+                  >
+                    <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                      Nenhuma equipe encontrada
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CCol>
@@ -1765,162 +2267,9 @@ const ServicosModal = ({
              <hr className="my-4" />
         {/* Sexta linha */}
         <CRow className="mb-4">
-          <CCol md={3}>
-            <CFormLabel htmlFor="numeroOperacional" className="mb-1">Número Operacional:</CFormLabel>
-            {modoVisualizacao ? (
-              <CFormInput
-                id="numeroOperacional"
-                value={dadosVisualizacao.numeroOperacionalNome || 'Carregando...'}
-                readOnly
-                className="bg-light"
-              />
-            ) : (
-              <div className="position-relative" ref={equipeRef}>
-                <CFormInput
-                  id="numeroOperacional"
-                  value={numeroOperacionalSelecionado}
-                  onChange={handleNumeroOperacionalChange}
-                  onKeyDown={handleEquipeKeyDown}
-                  placeholder="Digite número ou descrição..."
-                  autoComplete="off"
-                  className={camposComErro.numeroOperacional ? 'campo-erro' : ''}
-                  readOnly={modoVisualizacao}
-                />
-                {camposComErro.numeroOperacional && (
-                  <div className="texto-erro fade-in-error">
-                    <CIcon icon={cilX} size="sm" />
-                    {camposComErro.numeroOperacional}
-                  </div>
-                )}
-                {loadingEquipes && equipeDropdownVisivel && (
-                  <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
-                    <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
-                      <span className="visually-hidden">Carregando...</span>
-                    </div>
-                  </div>
-                )}
-                {equipeDropdownVisivel && equipesOpcoes.length > 0 && (
-                  <div
-                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                    style={{
-                      zIndex: 1050,
-                      maxHeight: '150px',
-                      overflowY: 'auto',
-                      top: '100%'
-                    }}
-                  >
-                    <CListGroup flush>
-                      {equipesOpcoes.slice(0, 10).map((equipeOpcao, opcaoIndex) => (
-                        <CListGroupItem
-                          key={opcaoIndex}
-                          className={`cursor-pointer py-1 px-2 ${equipeSelectedIndex === opcaoIndex ? 'bg-light' : ''}`}
-                          style={{
-                            cursor: 'pointer',
-                            transition: 'background-color 0.2s',
-                            backgroundColor: equipeSelectedIndex === opcaoIndex ? '#f8f9fa' : 'white',
-                            fontSize: '0.8rem'
-                          }}
-                          onClick={() => selecionarEquipe(equipeOpcao)}
-                          onMouseEnter={(e) => {
-                            if (equipeSelectedIndex !== opcaoIndex) {
-                              e.target.style.backgroundColor = '#f8f9fa';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (equipeSelectedIndex !== opcaoIndex) {
-                              e.target.style.backgroundColor = 'white';
-                            }
-                          }}
-                        >
-                          <div>
-                            <strong>{equipeOpcao.numOperacional?.trim()}</strong>
-                            {equipeOpcao.descricao && (
-                              <div className="text-muted small">
-                                {equipeOpcao.descricao.trim()}
-                              </div>
-                            )}
-                            <small className={`${equipeOpcao.ativo === 'S' ? 'text-success' : 'text-danger'}`}>
-                              {equipeOpcao.ativo === 'S' ? 'Ativo' : 'Inativo'}
-                            </small>
-                          </div>
-                        </CListGroupItem>
-                      ))}
-                      {equipesOpcoes.length >= 20 && (
-                        <CListGroupItem className="text-center text-muted py-1">
-                          <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
-                        </CListGroupItem>
-                      )}
-                    </CListGroup>
-                  </div>
-                )}
-                {equipeDropdownVisivel && equipesOpcoes.length === 0 && !loadingEquipes && numeroOperacionalSelecionado.length >= 2 && (
-                  <div
-                    className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                    style={{
-                      zIndex: 1050,
-                      top: '100%'
-                    }}
-                  >
-                    <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
-                      Nenhuma equipe encontrada
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </CCol>
+          
           <CCol md={4}>
-            <CFormLabel htmlFor="centroDeCustos" className="mb-1">Centro de Custos: </CFormLabel>
-            {modoVisualizacao ? (
-              <CFormInput
-                id="centroDeCustos"
-                value={dadosVisualizacao.centroCustoNome || 'Carregando...'}
-                readOnly
-                className="bg-light"
-              />
-            ) : (
-              <div className="position-relative">
-                {loadingCentroCusto ? (
-                  <div className="d-flex align-items-center">
-                    <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-                      <span className="visually-hidden">Carregando...</span>
-                    </div>
-                    <span>Carregando centros de custo...</span>
-                  </div>
-                ) : (
-                  <CFormSelect
-                    id="centroDeCustos"
-                    value={centroCustoSelecionado}
-                    onChange={handleCentroCustoChange}
-                    className={camposComErro.centroDeCustos ? 'campo-erro' : ''}
-                    disabled={modoVisualizacao}
-                  >
-                    <option value="">Selecione um centro de custo</option>
-                    {centroCustoOpcoes.map((centroCusto, index) => (
-                      <option key={index} value={centroCusto.centroCusto}>
-                        {centroCusto.centroCusto?.trim()} - {centroCusto.descricaoCCusto?.trim()}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                )}
-                {loadingServicos && centroCustoSelecionado && (
-                  <div className="mt-2 text-info">
-                    <div className="d-flex align-items-center">
-                      <div className="spinner-border spinner-border-sm me-2" role="status">
-                        <span className="visually-hidden">Carregando...</span>
-                      </div>
-                      <small>Carregando serviços do centro de custo...</small>
-                    </div>
-                  </div>
-                )}
-                {camposComErro.centroDeCustos && (
-                  <div className="texto-erro fade-in-error">
-                    <CIcon icon={cilX} size="sm" />
-                    {camposComErro.centroDeCustos}
-                  </div>
-                )}
-              </div>
-            )}
+         
           </CCol>
         </CRow>
 
@@ -1929,7 +2278,7 @@ const ServicosModal = ({
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="mb-0">Usuários</h6>
             <CButton
-              color="dark"
+              color="primary"
               size="sm"
               onClick={adicionarUsuario}
               disabled={modoVisualizacao}
@@ -2094,7 +2443,7 @@ const ServicosModal = ({
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="mb-0">Serviços</h6>
             <CButton
-              color="dark"
+              color="primary"
               size="sm"
               onClick={adicionarServico}
               disabled={modoVisualizacao}
@@ -2156,6 +2505,106 @@ const ServicosModal = ({
                           readOnly
                           className="bg-light"
                         />
+                      ) : modoEdicao && dadosVisualizacao.servicosNomes && dadosVisualizacao.servicosNomes[index] ? (
+                        // Em modo edição, mostrar valor formatado se disponível
+                        <div
+                          className="position-relative"
+                          ref={el => servicosRefs.current[ `ref_${index}` ] = el}
+                        >
+                          <CFormInput
+                            value={servico.servico}
+                            onChange={(e) => handleServicoChange(e, index)}
+                            onKeyDown={(e) => handleServicoKeyDown(e, index)}
+                            size="sm"
+                            placeholder={centroCustoSelecionado ? "Digite ID ou descrição do serviço..." : "Selecione um centro de custo primeiro"}
+                            autoComplete="off"
+                            disabled={!centroCustoSelecionado}
+                            readOnly={false}
+                            style={{
+                              backgroundColor: !centroCustoSelecionado ? '#f8f9fa' : 'white',
+                              cursor: !centroCustoSelecionado ? 'not-allowed' : 'text'
+                            }}
+                          />
+                          {loadingServicos && servicoDropdownVisivel[ index ] && (
+                            <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
+                              <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
+                                <span className="visually-hidden">Carregando...</span>
+                              </div>
+                            </div>
+                          )}
+                          {servicoDropdownVisivel[ index ] && servicosOpcoes.length > 0 && (
+                            <div
+                              className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                              style={{
+                                zIndex: 1050,
+                                maxHeight: '150px',
+                                overflowY: 'auto',
+                                top: '100%'
+                              }}
+                            >
+                              <CListGroup flush>
+                                {servicosOpcoes.slice(0, 10).map((servicoOpcao, opcaoIndex) => (
+                                  <CListGroupItem
+                                    key={opcaoIndex}
+                                    className={`cursor-pointer py-1 px-2 ${servicoSelectedIndex[ index ] === opcaoIndex ? 'bg-light' : ''}`}
+                                    style={{
+                                      cursor: 'pointer',
+                                      transition: 'background-color 0.2s',
+                                      backgroundColor: servicoSelectedIndex[ index ] === opcaoIndex ? '#f8f9fa' : 'white',
+                                      fontSize: '0.8rem'
+                                    }}
+                                    onClick={() => selecionarServico(servicoOpcao, index)}
+                                    onMouseEnter={(e) => {
+                                      if (servicoSelectedIndex[ index ] !== opcaoIndex) {
+                                        e.target.style.backgroundColor = '#f8f9fa';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (servicoSelectedIndex[ index ] !== opcaoIndex) {
+                                        e.target.style.backgroundColor = 'white';
+                                      }
+                                    }}
+                                  >
+                                    <div>
+                                      <strong>{servicoOpcao.idServico?.trim()}</strong>
+                                      {servicoOpcao.siglaUp && (
+                                        <div className="text-primary small fw-bold">Sigla UP: {servicoOpcao.siglaUp.trim()}</div>
+                                      )}
+                                      {servicoOpcao.descricaoServico && (
+                                        <div className="text-muted small">
+                                          {servicoOpcao.descricaoServico.trim()}
+                                        </div>
+                                      )}
+                                      {servicoOpcao.valorGrupo > 0 && (
+                                        <small className="text-success">
+                                          Valor: R$ {servicoOpcao.valorGrupo.toFixed(2)}
+                                        </small>
+                                      )}
+                                    </div>
+                                  </CListGroupItem>
+                                ))}
+                                {servicosOpcoes.length >= 20 && (
+                                  <CListGroupItem className="text-center text-muted py-1">
+                                    <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
+                                  </CListGroupItem>
+                                )}
+                              </CListGroup>
+                            </div>
+                          )}
+                          {servicoDropdownVisivel[ index ] && servicosOpcoes.length === 0 && !loadingServicos && servico.servico.length >= 2 && (
+                            <div
+                              className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                              style={{
+                                zIndex: 1050,
+                                top: '100%'
+                              }}
+                            >
+                              <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
+                                Nenhum serviço encontrado
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <div
                           className="position-relative"
@@ -2385,7 +2834,7 @@ const ServicosModal = ({
                 <CButton
                   color="secondary"
                   onClick={() => {
-            if (!modoVisualizacao) {
+            if (!modoVisualizacao && !modoEdicao) {
               limparCampos();
             }
             setVisible(false);
@@ -2393,12 +2842,160 @@ const ServicosModal = ({
           className="me-2"
           disabled={isSubmitting}
         >
-          {modoVisualizacao ? 'Fechar' : 'Cancelar'}
+          {modoVisualizacao || modoEdicao ? 'Fechar' : 'Cancelar'}
         </CButton>
-        {!modoVisualizacao && (
+        {(!modoVisualizacao) && (
           <CButton
             color="primary"
             onClick={async () => {
+            // Funções auxiliares para edição
+            const construirUsuariosParaEdicao = () => {
+              const usuariosEdicao = [];
+              const usuariosOriginais = dadosOcorrencia.usuarios || [];
+              
+              // Marcar usuários removidos
+              usuariosOriginais.forEach(usuarioOriginal => {
+                const usuarioExiste = usuarios.find(u => 
+                  u.cpf === usuarioOriginal.cpf && u.matricula === usuarioOriginal.matricula
+                );
+                
+                if (!usuarioExiste) {
+                  usuariosEdicao.push({
+                    acao: "DELETE",
+                    itemUsuario: usuarioOriginal.itemUsuario || "001"
+                  });
+                }
+              });
+              
+              // Marcar usuários novos
+              usuarios.forEach(usuarioAtual => {
+                const usuarioOriginal = usuariosOriginais.find(u => 
+                  u.cpf === usuarioAtual.cpf && u.matricula === usuarioAtual.matricula
+                );
+                
+                if (!usuarioOriginal) {
+                  // Novo usuário
+                  usuariosEdicao.push({
+                    acao: "POST",
+                    cpf: usuarioAtual.cpf || '00000000000',
+                    matricula: usuarioAtual.matricula || '000000',
+                    lider: usuarioAtual.lider ? 'S' : 'N'
+                  });
+                } else {
+                  // Usuario existente - verificar se foi alterado
+                  const liderOriginal = usuarioOriginal.lider === 'S' || usuarioOriginal.lider === true;
+                  const liderAtual = usuarioAtual.lider === true;
+                  
+                  if (liderOriginal !== liderAtual) {
+                    usuariosEdicao.push({
+                      acao: "PUT",
+                      itemUsuario: usuarioOriginal.itemUsuario || "001",
+                      cpf: usuarioAtual.cpf || '00000000000',
+                      matricula: usuarioAtual.matricula || '000000',
+                      lider: usuarioAtual.lider ? 'S' : 'N'
+                    });
+                  }
+                }
+              });
+              
+              return usuariosEdicao;
+            };
+
+            const construirServicosParaEdicao = () => {
+              const servicosEdicao = [];
+              const servicosOriginais = dadosOcorrencia.servicos || [];
+              
+              // Marcar serviços removidos
+              servicosOriginais.forEach(servicoOriginal => {
+                const servicoExiste = servicos.find(s => 
+                  (s.servicoSelecionado?.idServico || s.servico) === servicoOriginal.idServico
+                );
+                
+                if (!servicoExiste) {
+                  servicosEdicao.push({
+                    acao: "DELETE",
+                    itemServico: servicoOriginal.itemServico || "001"
+                  });
+                }
+              });
+              
+              // Marcar serviços novos e alterados
+              servicos.forEach(servicoAtual => {
+                const idServicoAtual = servicoAtual.servicoSelecionado?.idServico || servicoAtual.servico;
+                const servicoOriginal = servicosOriginais.find(s => s.idServico === idServicoAtual);
+                
+                if (!servicoOriginal) {
+                  // Novo serviço
+                  servicosEdicao.push({
+                    acao: "POST",
+                    idServico: idServicoAtual,
+                    observacao: servicoAtual.observacao || '',
+                    quantidade: Number(servicoAtual.quantidade) || 0,
+                    valPontos: parseFloat(servicoAtual.valorServico) || 0,
+                    valGrupo: parseFloat(servicoAtual.valorGrupo) || 0,
+                    fotos: (servicoAtual.fotos || []).map(foto => ({ 
+                      acao: "POST", 
+                      base64: foto.base64 
+                    }))
+                  });
+                } else {
+                  // Serviço existente - verificar alterações
+                  const temAlteracao = 
+                    servicoOriginal.observacao !== servicoAtual.observacao ||
+                    Number(servicoOriginal.quantidade) !== Number(servicoAtual.quantidade) ||
+                    Number(servicoOriginal.valPontos) !== Number(servicoAtual.valorServico) ||
+                    Number(servicoOriginal.valGrupo) !== Number(servicoAtual.valorGrupo);
+                  
+                  if (temAlteracao) {
+                    const fotosEdicao = [];
+                    const fotosOriginais = servicoOriginal.fotos || [];
+                    const fotosAtuais = servicoAtual.fotos || [];
+                    
+                    // Processar fotos existentes para atualização
+                    fotosOriginais.forEach((fotoOriginal, index) => {
+                      if (index < fotosAtuais.length) {
+                        // Foto mantida ou alterada
+                        fotosEdicao.push({
+                          acao: "PUT",
+                          itemFoto: fotoOriginal.itemFoto || (index + 1).toString().padStart(3, '0'),
+                          base64: fotosAtuais[index].base64
+                        });
+                      } else {
+                        // Foto removida
+                        fotosEdicao.push({
+                          acao: "DELETE",
+                          itemFoto: fotoOriginal.itemFoto || (index + 1).toString().padStart(3, '0')
+                        });
+                      }
+                    });
+                    
+                    // Adicionar fotos novas
+                    fotosAtuais.forEach((fotoAtual, index) => {
+                      if (index >= fotosOriginais.length) {
+                        fotosEdicao.push({
+                          acao: "POST",
+                          base64: fotoAtual.base64
+                        });
+                      }
+                    });
+                    
+                    servicosEdicao.push({
+                      acao: "PUT",
+                      itemServico: servicoOriginal.itemServico || "001",
+                      idServico: idServicoAtual,
+                      observacao: servicoAtual.observacao || '',
+                      quantidade: Number(servicoAtual.quantidade) || 0,
+                      valPontos: parseFloat(servicoAtual.valorServico) || 0,
+                      valGrupo: parseFloat(servicoAtual.valorGrupo) || 0,
+                      fotos: fotosEdicao
+                    });
+                  }
+                }
+              });
+              
+              return servicosEdicao;
+            };
+
             // Ativar loading
             setIsSubmitting(true);
             if (setLoadingParent) setLoadingParent(true);
@@ -2563,30 +3160,144 @@ const ServicosModal = ({
                 incrementos: []
               };
 
-              const response = await httpRequest('/incluirOcorrencia', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`
-                },
-                body: JSON.stringify(body)
-              });
-              const result = await response.json();
+              // Função para construir incrementos para edição
+              const construirIncrementosParaEdicao = () => {
+                const incrementosEdicao = [];
+                const incrementosOriginais = dadosOcorrencia.incrementos || [];
+                const incrementosAtuais = []; // Aqui você pode adicionar a lógica para pegar os incrementos do formulário
+                
+                // Marcar incrementos removidos
+                incrementosOriginais.forEach(incrementoOriginal => {
+                  const incrementoExiste = incrementosAtuais.find(i => 
+                    i.idIncremento === incrementoOriginal.idIncremento
+                  );
+                  
+                  if (!incrementoExiste) {
+                    incrementosEdicao.push({
+                      acao: "DELETE",
+                      itemIncremento: incrementoOriginal.itemIncremento || "001"
+                    });
+                  }
+                });
+                
+                // Marcar incrementos novos e alterados
+                incrementosAtuais.forEach(incrementoAtual => {
+                  const incrementoOriginal = incrementosOriginais.find(i => 
+                    i.idIncremento === incrementoAtual.idIncremento
+                  );
+                  
+                  if (!incrementoOriginal) {
+                    // Novo incremento
+                    incrementosEdicao.push({
+                      acao: "POST",
+                      idIncremento: incrementoAtual.idIncremento,
+                      valPercentual: Number(incrementoAtual.valPercentual) || 0
+                    });
+                  } else {
+                    // Incremento existente - verificar alterações
+                    const temAlteracao = 
+                      Number(incrementoOriginal.valPercentual) !== Number(incrementoAtual.valPercentual);
+                    
+                    if (temAlteracao) {
+                      incrementosEdicao.push({
+                        acao: "PUT",
+                        itemIncremento: incrementoOriginal.itemIncremento || "001",
+                        idIncremento: incrementoAtual.idIncremento,
+                        valPercentual: Number(incrementoAtual.valPercentual) || 0
+                      });
+                    }
+                  }
+                });
+                
+                return incrementosEdicao;
+              };
 
-              if (response.ok) {
-                mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
+              // Determinar se é edição ou criação
+              if (modoEdicao && dadosOcorrencia) {
+                // Montagem do payload para edição
+                const bodyEdicao = {
+                  idOcorrencia: dadosOcorrencia.idOcorrencia,
+                  status,
+                  endereco,
+                  data,
+                  
+                  // Comparar usuários existentes com novos para determinar ações
+                  usuarios: construirUsuariosParaEdicao(),
+                  
+                  // Comparar serviços existentes com novos para determinar ações
+                  servicos: construirServicosParaEdicao(),
+                  
+                  // Construir incrementos para edição
+                  incrementos: construirIncrementosParaEdicao()
+                };
 
-                if (onSuccess && typeof onSuccess === 'function') {
-                  onSuccess();
+                console.log('Payload de edição:', bodyEdicao);
+                
+                try {
+                  // Verificando e formatando os dados para garantir precisão dos valores decimais
+                  if (bodyEdicao.servicos) {
+                    bodyEdicao.servicos.forEach(servico => {
+                      if (servico.valPontos) {
+                        servico.valPontos = Number(parseFloat(servico.valPontos).toFixed(6));
+                      }
+                      if (servico.valGrupo) {
+                        servico.valGrupo = Number(parseFloat(servico.valGrupo).toFixed(6));
+                      }
+                    });
+                  }
+                  
+                  if (bodyEdicao.incrementos) {
+                    bodyEdicao.incrementos.forEach(incremento => {
+                      if (incremento.valPercentual) {
+                        incremento.valPercentual = Number(parseFloat(incremento.valPercentual).toFixed(1));
+                      }
+                    });
+                  }
+                  
+                  // Log final para depuração
+                  console.log('Payload final formatado:', JSON.stringify(bodyEdicao, null, 2));
+                  
+                  // Usando serviço centralizado para alteração da ocorrência
+                  await ocorrenciasService.alterarOcorrencia(bodyEdicao);
+                  
+                  // Resultado positivo
+                  mostrarAlert('Ordem de serviço atualizada com sucesso!', 'success');
+
+                  if (onSuccess && typeof onSuccess === 'function') {
+                    onSuccess();
+                  }
+                  
+                  setTimeout(() => {
+                    limparCampos();
+                    setVisible(false);
+                  }, 1000);
+                } catch (error) {
+                  // Tratamento de erro centralizado
+                  console.error('Erro ao atualizar ocorrência:', error);
+                  mostrarAlert(`Erro ao atualizar: ${error.message || 'Falha na operação'}`, 'danger');
                 }
-
-                setTimeout(() => {
-                  limparCampos();
-                  setVisible(false);
-                }, 1000);
               } else {
-                const errorMsg = result.message || 'Erro ao registrar ordem de serviço. Tente novamente.';
-                mostrarAlert(errorMsg, 'danger');
+                // Lógica para criação usando serviço centralizado
+                try {
+                  // Usando serviço centralizado para inclusão da ocorrência
+                  await ocorrenciasService.incluirOcorrencia(body);
+                  
+                  // Resultado positivo
+                  mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
+
+                  if (onSuccess && typeof onSuccess === 'function') {
+                    onSuccess();
+                  }
+
+                  setTimeout(() => {
+                    limparCampos();
+                    setVisible(false);
+                  }, 1000);
+                } catch (error) {
+                  // Tratamento de erro centralizado
+                  console.error('Erro ao incluir ocorrência:', error);
+                  mostrarAlert(`Erro ao registrar: ${error.message || 'Falha na operação'}`, 'danger');
+                }
               }
             } catch (err) {
               console.error('Erro:', err);
@@ -2605,7 +3316,7 @@ const ServicosModal = ({
               Processando...
             </>
           ) : (
-            'Registrar'
+            modoEdicao ? 'Atualizar' : 'Registrar'
           )}
         </CButton>
         )}
