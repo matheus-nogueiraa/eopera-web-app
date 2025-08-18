@@ -1196,7 +1196,7 @@ const UsuariosModal = ({
                     editingUser
                       ? 'CPF não pode ser alterado'
                       : noTypeSelected
-                        ? 'Selecione primeiro o tipo de usuário'
+                        ? 'Selecione primeiro o tipo de contrato'
                         : consultandoCpf || carregandoDadosEdicao
                           ? 'Consultando...'
                           : 'Digite o CPF'
@@ -1231,7 +1231,7 @@ const UsuariosModal = ({
                       : carregandoDadosEdicao
                         ? 'Carregando dados...'
                         : noTypeSelected
-                          ? 'Selecione primeiro o tipo de usuário'
+                          ? 'Selecione primeiro o tipo de contrato'
                           : isCLT && !editingUser
                             ? 'Nome será preenchido automaticamente.'
                             : 'Digite o nome'
@@ -1266,7 +1266,7 @@ const UsuariosModal = ({
                         required
                         placeholder={
                           noTypeSelected
-                            ? 'Selecione primeiro o tipo de usuário'
+                            ? 'Selecione primeiro o tipo de contrato'
                             : carregandoProjetosPj
                               ? 'Carregando projetos...'
                               : 'Digite para buscar o projeto PJ'
@@ -1367,7 +1367,7 @@ const UsuariosModal = ({
                       editingUser
                         ? 'Matrícula não pode ser alterada'
                         : noTypeSelected
-                          ? 'Selecione primeiro o tipo de usuário'
+                          ? 'Selecione primeiro o tipo de contrato'
                           : isCLT && !editingUser
                             ? 'Matrícula será preenchida automaticamente.'
                             : 'Digite a matrícula'
@@ -1400,7 +1400,7 @@ const UsuariosModal = ({
                   }
                   placeholder={
                     noTypeSelected
-                      ? 'Selecione primeiro o tipo de usuário'
+                      ? 'Selecione primeiro o tipo de contrato'
                       : isCLT && !editingUser
                         ? 'DDD + Celular será preenchido automaticamente.'
                         : '(62) 9999-9999'
@@ -1413,7 +1413,7 @@ const UsuariosModal = ({
               {/* Campo para o grupo centralizador com autocomplete */}
               <CCol md={4} className="mb-4">
                 <CFormLabel htmlFor="grupoCentralizador" className="mb-2">
-                  Grupo:<span className="text-danger">*</span>
+                  Grupo Centralizador:<span className="text-danger">*</span>
                   {carregandoGrupos && <CSpinner size="sm" className="ms-2" />}
                 </CFormLabel>
 
@@ -1433,7 +1433,7 @@ const UsuariosModal = ({
                       required
                       placeholder={
                         noTypeSelected
-                          ? 'Selecione primeiro o tipo de usuário'
+                          ? 'Selecione primeiro o tipo de contrato'
                           : carregandoGrupos
                             ? 'Carregando grupos...'
                             : 'Digite para buscar o grupo centralizador'
@@ -1538,7 +1538,7 @@ const UsuariosModal = ({
                     editingUser
                       ? 'Digite 6 dígitos numéricos'
                       : noTypeSelected
-                        ? 'Selecione primeiro o tipo de usuário'
+                        ? 'Selecione primeiro o tipo de contrato'
                         : 'Somente 6 dígitos numéricos'
                   }
                 />
@@ -1572,7 +1572,7 @@ const UsuariosModal = ({
                     editingUser
                       ? 'Confirme os 6 dígitos'
                       : noTypeSelected
-                        ? 'Selecione primeiro o tipo de usuário'
+                        ? 'Selecione primeiro o tipo de contrato'
                         : 'Somente 6 dígitos numéricos'
                   }
                 />
