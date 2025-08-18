@@ -1240,6 +1240,20 @@ const ServicosModal = ({
     setServicos(novosServicos);
   };
 
+  // Função para calcular o total geral dos serviços
+  const calcularTotalServicos = () => {
+    return servicos.reduce((total, servico) => {
+      const valorGrupo = parseFloat(servico.valorGrupo) || 0;
+      const valorServico = parseFloat(servico.valorServico) || 0;
+      const quantidade = parseFloat(servico.quantidade) || 0;
+
+      // Multiplicar valorGrupo, valorServico e quantidade
+      const subtotal = valorGrupo * valorServico * quantidade;
+
+      return total + subtotal;
+    }, 0);
+  };
+
   // Função para abrir modal de fotos
   const abrirModalFotos = (servicoIndex) => {    
     const servico = servicos[servicoIndex];
@@ -3136,6 +3150,38 @@ const ServicosModal = ({
                       </CCol>
                       </CRow>
                     ))
+                    )}
+                    
+                    {/* Linha de Total */}
+                    {servicos.length > 0 && (
+                      <CRow className="mt-3 pt-3 border-top bg-light rounded">
+                        <CCol md={3}>
+                          <span className="fw-bold">TOTAL GERAL</span>
+                        </CCol>
+                        <CCol md={2}>
+                          {/* Vazio */}
+                        </CCol>
+                        <CCol md={1}>
+                          {/* Vazio */}
+                        </CCol>
+                        <CCol md={1}>
+                          {/* Vazio */}
+                        </CCol>
+                        <CCol md={1}>
+                          {/* Vazio */}
+                        </CCol>
+                        <CCol md={3}>
+                          <span className="fw-bold text-success fs-5">
+                            R$ {calcularTotalServicos().toLocaleString('pt-BR', { 
+                              minimumFractionDigits: 2, 
+                              maximumFractionDigits: 2 
+                            })}
+                          </span>
+                        </CCol>
+                        <CCol md={1}>
+                          {/* Vazio */}
+                        </CCol>
+                      </CRow>
                     )}
                   </CCardBody>
                   </CCard>

@@ -32,7 +32,7 @@ import { cilMagnifyingGlass, cilCloudDownload, cilInfo, cilTrash, cilPencil } fr
 import { debounce } from '../../utils/debounce';
 import ocorrenciasService from '../../services/ocorrenciasService';
 import ServicosModal from './servicosModal';
-import './servicoTabela.css'
+import './servicoTabela.css';
 
 const ServicosTabela = forwardRef((props, ref) => {
   // Estados para os dados da tabela

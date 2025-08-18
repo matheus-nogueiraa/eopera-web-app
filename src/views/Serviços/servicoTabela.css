@@ -1,88 +1,4 @@
-.tooltip-showing {
-  overflow: hidden !important;
-}
 
-/* SOLUÇÃO 2: Estilizar diretamente os tooltips do CoreUI */
-.tooltip {
-  pointer-events: none;
-  z-index: 1070;
-}
-
-.tooltip-inner {
-  max-width: 200px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* SOLUÇÃO 3: Prevenir overflow no container principal */
-.container-fluid {
-  overflow-x: hidden;
-}
-
-/* SOLUÇÃO 4: Estabilizar o layout durante hover */
-.table-responsive {
-  overflow: hidden;
-  position: relative;
-}
-
-.table-responsive:hover {
-  overflow: visible;
-}
-
-/* SOLUÇÃO 5: Fixar largura dos botões de ação */
-.action-buttons-container {
-  min-width: 120px; /* Ajuste conforme necessário */
-  display: flex;
-  justify-content: center;
-  gap: 0.25rem;
-}
-
-/* SOLUÇÃO 6: Alternativa - Usar CSS personalizado para tooltips */
-.custom-tooltip {
-  position: relative;
-  display: inline-block;
-}
-
-.custom-tooltip .tooltip-text {
-  visibility: hidden;
-  width: 120px;
-  background-color: #555;
-  color: white;
-  text-align: center;
-  border-radius: 6px;
-  padding: 5px;
-  position: absolute;
-  z-index: 1;
-  bottom: 150%;
-  left: 50%;
-  margin-left: -60px;
-  opacity: 0;
-  transition: opacity 0.3s;
-  font-size: 12px;
-  pointer-events: none;
-}
-
-.custom-tooltip .tooltip-text::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -5px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: #555 transparent transparent transparent;
-}
-
-.custom-tooltip:hover .tooltip-text {
-  visibility: visible;
-  opacity: 1;
-}
-
-/* SOLUÇÃO 7: Estabilizar o viewport */
-html {
-  overflow-y: scroll; /* Sempre mostra a barra de rolagem */
-}
 
 /* OU */
 
@@ -90,22 +6,6 @@ html {
   scrollbar-gutter: stable; /* Reserva espaço para barra de rolagem (CSS mais moderno) */
 }
 
-/* SOLUÇÃO 8: Controlar especificamente a área da tabela */
 .card-body {
   overflow: hidden;
-}
-
-.table-container {
-  position: relative;
-  overflow: hidden;
-}
-
-/* SOLUÇÃO 9: Para casos específicos do CoreUI */
-.c-tooltip {
-  pointer-events: none !important;
-}
-
-.c-tooltip-inner {
-  white-space: nowrap;
-  max-width: none;
 }
