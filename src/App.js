@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect } from 'react'
+import { PermissoesProvider } from './contexts/PermissoesContext'
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 
@@ -36,24 +37,26 @@ const App = () => {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <HashRouter>
-      <Suspense
-        fallback={
-          <div className="pt-3 text-center">
-            <CSpinner color="primary" variant="grow" />
-          </div>
-        }
-      >
-        <Routes>
-          <Route exact path="/" element={<Navigate to="/login" replace />} />
-          <Route exact path="/login" name="Login Page" element={<Login />} />
-          <Route exact path="/register" name="Register Page" element={<Register />} />
-          <Route exact path="/404" name="Page 404" element={<Page404 />} />
-          <Route exact path="/500" name="Page 500" element={<Page500 />} />
-          <Route path="*" name="Home" element={<DefaultLayout />} />
-        </Routes>
-      </Suspense>
-    </HashRouter>
+      <PermissoesProvider>
+        <HashRouter>
+          <Suspense
+            fallback={
+              <div className="pt-3 text-center">
+                <CSpinner color="primary" variant="grow" />
+              </div>
+            }
+          >
+            <Routes>
+              <Route exact path="/" element={<Navigate to="/login" replace />} />
+              <Route exact path="/login" name="Login Page" element={<Login />} />
+              <Route exact path="/register" name="Register Page" element={<Register />} />
+              <Route exact path="/404" name="Page 404" element={<Page404 />} />
+              <Route exact path="/500" name="Page 500" element={<Page500 />} />
+              <Route path="*" name="Home" element={<DefaultLayout />} />
+            </Routes>
+          </Suspense>
+        </HashRouter>
+      </PermissoesProvider>
   )
 }
 

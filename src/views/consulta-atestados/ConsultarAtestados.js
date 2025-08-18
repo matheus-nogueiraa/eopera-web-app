@@ -141,7 +141,6 @@ const ConsultaAtestados = () => {
 
     try {
       const response = await atestadosService.consultarAtestados(matriculaUsuario)
-      console.log('Dados da API:', response)
 
       if (response && response.success !== false) {
         // Normalizar os dados da API
@@ -176,7 +175,6 @@ const ConsultaAtestados = () => {
         for (const chave of chavesAlternativas) {
           const valor = localStorage.getItem(chave)
           if (valor) {
-            console.log(`Matrícula encontrada na chave ${chave}:`, valor)
             localStorage.setItem('matricula', valor)
             encontrouMatricula = true
             break
@@ -194,7 +192,6 @@ const ConsultaAtestados = () => {
           setAtestadosFiltrados(resultados)
           setBuscaRealizada(true)
           setPaginaAtual(1)
-          console.log(`Consulta inicial concluída. ${resultados.length} atestados encontrados.`)
         })
         .catch((error) => {
           console.error('Erro detalhado:', error)
@@ -291,7 +288,6 @@ const ConsultaAtestados = () => {
   }
 
   const buscarAtestados = async (filtros) => {
-    console.log('Buscando atestados com filtros:', filtros)
 
     setCarregando(true)
     setBuscaRealizada(false)
@@ -329,10 +325,6 @@ const ConsultaAtestados = () => {
       setPaginaAtual(1)
 
       // Não limpar os filtros após busca bem-sucedida
-
-      console.log(
-        `Busca concluída. ${resultados.length} atestados encontrados com os filtros aplicados.`,
-      )
     } catch (error) {
       console.error('Erro durante a busca:', error)
       setErro(error.message || 'Erro ao realizar a busca. Tente novamente.')

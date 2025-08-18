@@ -84,10 +84,7 @@ const Usuarios = () => {
   const carregarUsuarios = async () => {
     setLoading(true)
     try {
-      console.log('Iniciando carregamento de usuários...')
       const dadosUsuarios = await consultarUsuariosEoperaX()
-
-      console.log('Dados recebidos da API:', dadosUsuarios)
 
       // Transformar os dados da API para o formato esperado pelo componente
       const usuariosFormatados = dadosUsuarios.map((usuario) => ({

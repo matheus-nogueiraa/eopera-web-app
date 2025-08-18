@@ -143,7 +143,6 @@ const Atestados = () => {
         setCidOptions(cidsFormatados)
       } else {
         setCidOptions([])
-        console.log('Nenhum CID encontrado na resposta')
       }
     } catch (error) {
       console.error('Erro ao buscar CIDs:', error)

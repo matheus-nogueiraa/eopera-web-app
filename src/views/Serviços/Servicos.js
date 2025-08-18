@@ -46,12 +46,6 @@ const criarConteudos = () => {
   // Debug - pode ser removido depois
   useEffect(() => {
     const isAdmin = localStorage.getItem('admin') === 'T'
-    console.log('Permissões para /servicos:', {
-      isAdmin,
-      podeAdicionar,
-      podeEditar,
-      podeDeletar
-    });
   }, [ podeAdicionar, podeEditar, podeDeletar ]);
 
   // Referência para a tabela de serviços
