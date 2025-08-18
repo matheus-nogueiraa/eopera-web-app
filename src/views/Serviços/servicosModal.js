@@ -29,13 +29,15 @@ import {
   CSpinner
 } from '@coreui/react';
 import CIcon from '@coreui/icons-react';
-import { cilX, cilCheckAlt, cilCamera, cilWarning } from '@coreui/icons';
+import { cilX, cilCheckAlt, cilWarning, cilCamera } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import servicosService, { consultarServicosProtheus } from '../../services/servicosService';
 import { consultarEquipes } from '../../services/equipesService';
 import { consultarUsuariosEoperaX, filtrarUsuarios } from '../../services/usuariosService';
 import ocorrenciasService from '../../services/ocorrenciasService';
 import municipiosService from '../../services/municipiosService';
+import fotosService from '../../services/fotosService';
+import ModalFotos from './modalFotos';
 
 // Adicionando estilos CSS para animação
 const styles = `
@@ -167,20 +169,31 @@ const ServicosModal = ({
     servicosNomes: []
   });
 
+  // Estados para modal de fotos
+  const [ modalFotosVisible, setModalFotosVisible ] = useState(false);
+  const [ fotoServicoAtual, setFotoServicoAtual ] = useState({
+    index: -1,
+    idOcorrencia: '',
+    itemServico: '',
+    servicoDescricao: ''
+  });
+
   // Função para carregar todos os municípios (uma vez só)
   // Função para carregar todos os municípios - otimizada para usar serviço centralizado
   const carregarTodosMunicipios = useCallback(async () => {
     // Busca todos os municípios apenas se ainda não estiverem carregados
-    if (todosMunicipios.length > 0) return;
+    if (todosMunicipios.length > 0) return todosMunicipios;
     
     setLoadingMunicipios(true);
     try {
       // Usando o serviço centralizado para evitar sobrecarga no backend
       const municipios = await municipiosService.buscarTodosMunicipios();
       setTodosMunicipios(municipios);
+      return municipios;
     } catch (e) {
       console.error('Erro ao carregar municípios:', e);
       setTodosMunicipios([]);
+      return [];
     } finally {
       setLoadingMunicipios(false);
     }
@@ -739,6 +752,8 @@ const ServicosModal = ({
         }
         // Carregar todos os centros de custo ao abrir o modal
         carregarTodosCentrosCusto();
+        // Carregar todos os municípios ao abrir o modal
+        carregarTodosMunicipios();
       }, 100);
     }
   }, [ visible ]);
@@ -828,20 +843,6 @@ const ServicosModal = ({
         setNumeroOperacionalSelecionado(dadosOcorrencia.numeroOperacional);
       }
       
-      // Inicializar município
-      if (dadosOcorrencia.codMunicipio) {
-        // Usar setTimeout para aguardar carregamento dos municípios
-        setTimeout(() => {
-          if (todosMunicipios.length > 0) {
-            const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
-            if (municipio) {
-              const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
-              setMunicipioSelecionado(textoMunicipio);
-            }
-          }
-        }, 800);
-      }
-      
       // Inicializar serviços formatados
       if (dadosOcorrencia.servicos && Array.isArray(dadosOcorrencia.servicos)) {
         const servicosFormatados = dadosOcorrencia.servicos.map(servico => {
@@ -896,7 +897,25 @@ const ServicosModal = ({
         centroCustoInicializado.current = false;
       }
     };
-  }, [visible, modoEdicao, dadosOcorrencia, todosMunicipios, centroCustoOpcoes, todosServicos.length]);
+  }, [visible, modoEdicao, dadosOcorrencia, centroCustoOpcoes, todosServicos.length]);
+
+  // UseEffect específico para preencher município em modo edição quando os dados são carregados
+  useEffect(() => {
+    if (visible && modoEdicao && dadosOcorrencia && dadosOcorrencia.codMunicipio && todosMunicipios.length > 0) {
+      const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
+      if (municipio) {
+        const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+        setMunicipioSelecionado(textoMunicipio);
+        // Usar setTimeout para garantir que o DOM esteja pronto
+        setTimeout(() => {
+          const municipioInput = document.getElementById('municipio');
+          if (municipioInput) {
+            municipioInput.value = textoMunicipio;
+          }
+        }, 100);
+      }
+    }
+  }, [visible, modoEdicao, dadosOcorrencia, todosMunicipios]);
 
   // UseEffect para preencher dados em modo visualização ou edição
   useEffect(() => {
@@ -1010,8 +1029,8 @@ const ServicosModal = ({
         if (modoEdicao && dadosOcorrencia.codMunicipio) {
           // Carregar todos os municípios e definir o selecionado
           if (todosMunicipios.length === 0) {
-            carregarTodosMunicipios().then(() => {
-              const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
+            carregarTodosMunicipios().then((municipiosCarregados) => {
+              const municipio = municipiosCarregados.find(m => m.codigo === dadosOcorrencia.codMunicipio);
               if (municipio) {
                 const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
                 setMunicipioSelecionado(textoMunicipio);
@@ -1221,51 +1240,62 @@ const ServicosModal = ({
     setServicos(novosServicos);
   };
 
-  // Função para upload de imagens
-  const handleImageUpload = (event, servicoIndex) => {
-    const files = Array.from(event.target.files);
-    if (files.length === 0) return;
+  // Função para abrir modal de fotos
+  const abrirModalFotos = (servicoIndex) => {    
+    const servico = servicos[servicoIndex];
+    const servicoDescricao = servico.servicoSelecionado?.descricaoServico || 
+                           servico.servico || 
+                           `Serviço ${servicoIndex + 1}`;
 
-    // Converter arquivos para base64
-    const promisesConvercao = files.map(file => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          // Remover o prefixo data:image/...;base64,
-          const base64 = reader.result.split(',')[ 1 ];
-          resolve({ base64 });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    // Determinar idOcorrencia e itemServico corretos
+    let idOcorrencia = '';
+    let itemServico = '';
+
+    if ((modoEdicao || modoVisualizacao) && dadosOcorrencia) {
+      // Em modo edição ou visualização, usar dados da ocorrência existente
+      idOcorrencia = dadosOcorrencia.idOcorrencia || '';
+      
+      // Tentar encontrar o itemServico baseado no serviço
+      const servicoOriginal = dadosOcorrencia.servicos?.find(s => 
+        s.idServico === (servico.servicoSelecionado?.idServico || servico.servico)
+      );
+      
+      if (servicoOriginal) {
+        itemServico = servicoOriginal.itemOcorrencia || `${(servicoIndex + 1).toString().padStart(3, '0')}`;
+      } else {
+        // Novo serviço em edição - usar índice
+        itemServico = `${(servicoIndex + 1).toString().padStart(3, '0')}`;
+      }
+    } else {
+      // Em modo criação, não há dados para buscar da API
+      idOcorrencia = '';
+      itemServico = `${(servicoIndex + 1).toString().padStart(3, '0')}`;
+    }
+
+    setFotoServicoAtual({
+      index: servicoIndex,
+      idOcorrencia,
+      itemServico,
+      servicoDescricao
     });
-
-    Promise.all(promisesConvercao)
-      .then(novasFotos => {
-        const novosServicos = [ ...servicos ];
-        if (!novosServicos[ servicoIndex ].fotos) {
-          novosServicos[ servicoIndex ].fotos = [];
-        }
-        novosServicos[ servicoIndex ].fotos = [ ...novosServicos[ servicoIndex ].fotos, ...novasFotos ];
-        setServicos(novosServicos);
-        mostrarAlert(`${novasFotos.length} foto${novasFotos.length > 1 ? 's' : ''} adicionada${novasFotos.length > 1 ? 's' : ''} com sucesso!`, 'success');
-      })
-      .catch(error => {
-        console.error('Erro ao converter imagens:', error);
-        mostrarAlert('Erro ao processar as imagens. Tente novamente.', 'danger');
-      });
-
-    // Limpar o input para permitir selecionar os mesmos arquivos novamente
-    event.target.value = '';
+    
+    setModalFotosVisible(true);
   };
 
-  // Função para remover foto
-  const removerFoto = (servicoIndex, fotoIndex) => {
-    const novosServicos = [ ...servicos ];
-    novosServicos[ servicoIndex ].fotos.splice(fotoIndex, 1);
-    setServicos(novosServicos);
-    mostrarAlert('Foto removida com sucesso!', 'success');
+  // Função para atualizar fotos do serviço quando modal de fotos for fechado
+  const handleFotosChange = (novasFotos) => {
+    if (fotoServicoAtual.index >= 0) {
+      atualizarServico(fotoServicoAtual.index, 'fotos', novasFotos);
+    }
   };
+
+  // Função para upload de imagens - REMOVIDA
+  // Agora usa o ModalFotos para gerenciar fotos
+  // A função abrirModalFotos() substitui esta funcionalidade
+
+  // Função para remover foto - REMOVIDA  
+  // Agora usa o ModalFotos para gerenciar fotos
+  // A remoção de fotos é feita dentro do ModalFotos
 
   // Função para carregar todos os serviços (uma vez só)
   const carregarTodosServicos = async () => {
@@ -3038,69 +3068,61 @@ const ServicosModal = ({
                         />
                       </CCol>
                       <CCol md={2}>
-                        <div className="mb-2">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handleImageUpload(e, index)}
-                          style={{ display: 'none' }}
-                          id={`fileInput-${index}`}
-                        />
-                        <CButton
-                          color="outline-primary"
-                          size="sm"
-                          onClick={() => document.getElementById(`fileInput-${index}`).click()}
-                          className="mb-2"
-                          style={{ display: modoVisualizacao ? 'none' : 'inline-flex' }}
-                        >
-                          <CIcon icon={cilCamera} className="me-1" />
-                          Adicionar
-                        </CButton>
-                        </div>
-                        {servico.fotos && servico.fotos.length > 0 && servico.fotos.some(f => f.base64) ? (
-                        <div className="d-flex flex-wrap gap-1">
-                          {servico.fotos.map((foto, fotoIndex) => (
-                          foto.base64 ? (
-                            <div key={fotoIndex} className="position-relative" style={{ width: '40px', height: '40px' }}>
-                            <img
-                              src={`data:image/jpeg;base64,${foto.base64}`}
-                              style={{
-                              width: '40px',
-                              height: '40px',
-                              objectFit: 'cover',
-                              borderRadius: '4px',
-                              border: '1px solid #dee2e6'
-                              }}
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-danger btn-sm position-absolute"
-                              style={{
-                              top: '-5px',
-                              right: '-5px',
-                              width: '18px',
-                              height: '18px',
-                              padding: '0',
-                              borderRadius: '50%',
-                              fontSize: '10px',
-                              lineHeight: '1'
-                              }}
-                              onClick={() => removerFoto(index, fotoIndex)}
-                              title="Remover foto"
-                            >
-                              ×
-                            </button>
+                        <div className="d-flex flex-column gap-2">
+                          <CButton
+                            color="outline-primary"
+                            size="sm"
+                            onClick={() => abrirModalFotos(index)}
+                            className="d-flex align-items-center justify-content-center"
+                            title="Gerenciar fotos do serviço"
+                          >
+                            <CIcon icon={cilCamera} className="me-1" />
+                            Fotos ({servico.fotos?.length || 0})
+                          </CButton>
+                          
+                          {servico.fotos && servico.fotos.length > 0 && (
+                            <div className="d-flex flex-wrap gap-1">
+                              {servico.fotos.slice(0, 3).map((foto, fotoIndex) => (
+                                foto.base64 ? (
+                                  <img
+                                    key={fotoIndex}
+                                    src={`data:image/jpeg;base64,${foto.base64}`}
+                                    style={{
+                                      width: '30px',
+                                      height: '30px',
+                                      objectFit: 'cover',
+                                      borderRadius: '4px',
+                                      border: '1px solid #dee2e6',
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => abrirModalFotos(index)}
+                                    title="Clique para gerenciar fotos"
+                                  />
+                                ) : null
+                              ))}
+                              {servico.fotos.length > 3 && (
+                                <div
+                                  style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #dee2e6',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: '#f8f9fa',
+                                    fontSize: '10px',
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => abrirModalFotos(index)}
+                                  title="Clique para ver todas as fotos"
+                                >
+                                  +{servico.fotos.length - 3}
+                                </div>
+                              )}
                             </div>
-                          ) : null
-                          ))}
+                          )}
                         </div>
-                        ) : null}
-                        {servico.fotos && servico.fotos.length > 0 && (
-                        <small className="text-muted d-block mt-1">
-                          {servico.fotos.length} foto{servico.fotos.length > 1 ? 's' : ''} adicionada{servico.fotos.length > 1 ? 's' : ''}
-                        </small>
-                        )}
                       </CCol>
                       <CCol md={1} className="text-center">
                         <CButton
@@ -3742,6 +3764,18 @@ const ServicosModal = ({
         </CButton>
       </CModalFooter>
     </CModal>
+
+    {/* Modal de Fotos */}
+    <ModalFotos
+      visible={modalFotosVisible}
+      setVisible={setModalFotosVisible}
+      idOcorrencia={fotoServicoAtual.idOcorrencia}
+      itemServico={fotoServicoAtual.itemServico}
+      servicoDescricao={fotoServicoAtual.servicoDescricao}
+      fotos={fotoServicoAtual.index >= 0 ? servicos[fotoServicoAtual.index]?.fotos || [] : []}
+      onFotosChange={handleFotosChange}
+      modoVisualizacao={modoVisualizacao}
+    />
     </>
   );
 };
