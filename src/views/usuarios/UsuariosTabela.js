@@ -75,7 +75,7 @@ const UsuariosTabela = ({
                 {/*Editar usuário*/}
                 <CButton
                   className="flex-fill"
-                  color="secondary"
+                  color="info"
                   size="sm"
                   onClick={() => handleEdit(user)}
                   disabled={loading}
@@ -85,7 +85,6 @@ const UsuariosTabela = ({
                 {/*Permissões do Usuario */}
                 <CButton
                   className="flex-fill"
-                  variant="outline"
                   color="warning"
                   size="sm"
                   disabled={loading}
