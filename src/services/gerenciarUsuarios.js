@@ -30,17 +30,17 @@ export const gerenciarUsuarios = {
   },
 
   // Atualizar usuário existente
-  atualizarUsuario: async (dadosUsuario) => {
+  atualizarUsuario: async (dadosAlterados) => {
     try {
-      console.log('Enviando dados para atualização:', dadosUsuario)
+      console.log('Enviando dados para atualização:', dadosAlterados)
 
-      const resposta = await httpRequest('/putUserEopera', {
-        method: 'PUT',
+      const resposta = await httpRequest('/postUserEopera', {
+        method: 'POST', // Usando a mesma API
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
-        body: JSON.stringify(dadosUsuario),
+        body: JSON.stringify(dadosAlterados),
       })
 
       if (!resposta.ok) {

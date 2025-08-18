@@ -87,7 +87,6 @@ const Usuarios = () => {
   const carregarUsuariosPagina = async (page, termo = '') => {
     setLoading(true)
     try {
-      console.log(`Carregando página ${page} com termo: "${termo}"`)
 
       // Buscar todos os usuários da API
       const todosUsuarios = await consultarUsuariosEoperaX()
@@ -95,16 +94,81 @@ const Usuarios = () => {
       // Filtrar por termo de pesquisa se fornecido
       let usuariosFiltrados = todosUsuarios
       if (termo.trim()) {
-        const termoLower = termo.toLowerCase()
-        usuariosFiltrados = todosUsuarios.filter(
-          (usuario) =>
-            (usuario.nome && usuario.nome.toLowerCase().includes(termoLower)) ||
-            (usuario.cpf &&
-              usuario.cpf.replace(/[^\d]/g, '').includes(termo.replace(/[^\d]/g, ''))) ||
-            (usuario.matricula && usuario.matricula.toString().includes(termo)) ||
-            (usuario.grupoCentralizador &&
-              usuario.grupoCentralizador.toLowerCase().includes(termoLower)),
-        )
+        const termoLower = termo.toLowerCase().trim()
+        const termoNumerico = termo.replace(/[^\d]/g, '') // Remove tudo que não é número
+
+        usuariosFiltrados = todosUsuarios.filter((usuario) => {
+          // 1. Busca por nome (prioridade alta)
+          const nomeMatch = usuario.nome && usuario.nome.toLowerCase().includes(termoLower)
+
+          // 2. Busca por CPF (removendo formatação)
+          const cpfLimpo = usuario.cpf ? usuario.cpf.replace(/[^\d]/g, '') : ''
+          const cpfMatch = termoNumerico && cpfLimpo.includes(termoNumerico)
+
+          // 3. Busca por matrícula
+          const matriculaMatch =
+            usuario.matricula && usuario.matricula.toString().toLowerCase().includes(termoLower)
+
+          // 4. Busca por grupo centralizador
+          const grupoMatch =
+            usuario.grupoCentralizador &&
+            usuario.grupoCentralizador.toLowerCase().includes(termoLower)
+
+          // 5. Busca por tipo de usuário - melhorada para PJ/CLT
+          const tipoMatch =
+            usuario.tipoUsuario &&
+            // Busca por "PJ" quando tipoUsuario é "P"
+            ((termoLower.includes('pj') && usuario.tipoUsuario === 'P') ||
+              // Busca por "CLT" quando tipoUsuario é "C"
+              (termoLower.includes('clt') && usuario.tipoUsuario === 'C') ||
+              // Busca pela letra original também
+              usuario.tipoUsuario.toLowerCase().includes(termoLower))
+
+          // 6. Busca por celular
+          const celularLimpo = usuario.celular ? usuario.celular.replace(/[^\d]/g, '') : ''
+          const celularMatch = termoNumerico && celularLimpo.includes(termoNumerico)
+
+          // 7. Busca por projeto PJ (se aplicável)
+          const projetoMatch =
+            usuario.projetoPj && usuario.projetoPj.toLowerCase().includes(termoLower)
+
+          return (
+            nomeMatch ||
+            cpfMatch ||
+            matriculaMatch ||
+            grupoMatch ||
+            tipoMatch ||
+            celularMatch ||
+            projetoMatch
+          )
+        })
+      }
+
+      // Ordenar os resultados para melhor relevância
+      if (termo.trim()) {
+        usuariosFiltrados.sort((a, b) => {
+          const termoLower = termo.toLowerCase().trim()
+
+          // Priorizar correspondências exatas no nome
+          const nomeAExato = a.nome && a.nome.toLowerCase().startsWith(termoLower)
+          const nomeBExato = b.nome && b.nome.toLowerCase().startsWith(termoLower)
+
+          if (nomeAExato && !nomeBExato) return -1
+          if (!nomeAExato && nomeBExato) return 1
+
+          // Depois priorizar correspondências no nome (qualquer posição)
+          const nomeAMatch = a.nome && a.nome.toLowerCase().includes(termoLower)
+          const nomeBMatch = b.nome && b.nome.toLowerCase().includes(termoLower)
+
+          if (nomeAMatch && !nomeBMatch) return -1
+          if (!nomeAMatch && nomeBMatch) return 1
+
+          // Por último, ordenar alfabeticamente
+          return (a.nome || '').localeCompare(b.nome || '')
+        })
+      } else {
+        // Sem filtro, ordenar alfabeticamente por nome
+        usuariosFiltrados.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
       }
 
       // Aplicar paginação
@@ -123,9 +187,7 @@ const Usuarios = () => {
       setTotalPages(totalPaginas)
       setHasMore(temMais)
 
-      console.log(
-        `Página ${page} carregada: ${usuariosPaginados.length} usuários de ${total} total`,
-      )
+
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
       showAlert('Erro ao carregar usuários. Verifique a conexão ou contate o suporte.', 'danger')
@@ -147,7 +209,7 @@ const Usuarios = () => {
 
   const handlePageChange = (page) => {
     if (page !== currentPage && page >= 1 && page <= totalPages && !loading) {
-      console.log(`Mudando para página ${page}`)
+
       setCurrentPage(page)
       // Remover a chamada direta aqui, pois o useEffect vai cuidar disso
     }
@@ -178,8 +240,11 @@ const Usuarios = () => {
   }
 
   const handleEdit = (user) => {
-    console.log('Editando usuário:', user)
+    
     setEditingUser(user)
+
+    // Inicializar o formulário apenas com dados básicos
+    // Os dados completos serão carregados da API no modal
     setFormData({
       matricula: user.matricula || '',
       nome: user.nome || '',
@@ -187,13 +252,16 @@ const Usuarios = () => {
       tipoUsuario: user.tipoUsuario || '',
       celular: user.celular || '',
       grupoCentralizador: user.grupoCentralizador || '',
-      ativo: user.ativo || '',
-      supervisor: user.supervisor || '',
-      numOperacional: user.numOperacional || '',
-      userIpal: user.userIpal || '',
-      userSesmt: user.userSesmt || '',
+      ativo: user.ativo || 'S',
+      supervisor: user.supervisor || 'N',
+      numOperacional: user.numOperacional || 'N',
+      userIpal: user.userIpal || 'N',
+      userSesmt: user.userSesmt || 'N',
       senha: '',
+      confirmarSenha: '',
+      projetoPj: user.projetoPj || '',
     })
+
     setShowModal(true)
   }
 
@@ -285,7 +353,7 @@ const Usuarios = () => {
                 <CCol lg={6}>
                   <CInputGroup>
                     <CFormInput
-                      placeholder="Pesquisar por nome, CPF, matrícula ou grupo..."
+                      placeholder="Pesquisar por nome, CPF, matrícula, grupo, PJ, CLT..."
                       value={termoPesquisa}
                       onChange={handlePesquisaChange}
                     />

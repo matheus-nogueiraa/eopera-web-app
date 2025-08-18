@@ -47,6 +47,53 @@ const UsuariosTabela = ({
     )
   }
 
+  // Função para formatar e exibir a matrícula/projeto
+  const formatarMatriculaProjeto = (user) => {
+    const temMatricula = user.matricula && user.matricula.trim()
+    const temProjetoPj = user.projetoPj && user.projetoPj.trim()
+
+    // Se tem ambos, mostrar os dois
+    if (temMatricula && temProjetoPj) {
+      const codigoProjeto = user.projetoPj.split(' - ')[0] || user.projetoPj
+      return (
+        <div className="d-flex flex-column align-items-center">
+          <strong className="text-primary" title={`Matrícula CLT: ${user.matricula}`}>
+            {user.matricula}
+          </strong>
+          <small className="text-success" title={`Projeto PJ: ${user.projetoPj}`}>
+            {codigoProjeto}
+          </small>
+        </div>
+      )
+    }
+
+    // Se é PJ e tem projeto PJ, mostrar o código do projeto
+    if (user.tipoUsuario === 'PJ' && temProjetoPj) {
+      const codigoProjeto = user.projetoPj.split(' - ')[0] || user.projetoPj
+      return (
+        <strong className="text-success" title={`Projeto PJ: ${user.projetoPj}`}>
+          {codigoProjeto}
+        </strong>
+      )
+    }
+
+    // Se é CLT ou tem matrícula, mostrar a matrícula
+    if (temMatricula) {
+      return (
+        <strong className="text-primary" title={`Matrícula CLT: ${user.matricula}`}>
+          {user.matricula}
+        </strong>
+      )
+    }
+
+    // Caso não tenha nem matrícula nem projeto
+    return (
+      <span className="text-muted" title="Não informado">
+        -
+      </span>
+    )
+  }
+
   return (
     <CTable hover bordered align="middle" responsive>
       <CTableHead>
@@ -54,7 +101,7 @@ const UsuariosTabela = ({
           <CTableHeaderCell className="text-center">Matrícula</CTableHeaderCell>
           <CTableHeaderCell>Nome</CTableHeaderCell>
           <CTableHeaderCell className="text-center">CPF</CTableHeaderCell>
-          <CTableHeaderCell className="text-center">Tipo de Usuário</CTableHeaderCell>
+          <CTableHeaderCell className="text-center">Contrato</CTableHeaderCell>
           <CTableHeaderCell className="text-center">Ações</CTableHeaderCell>
         </CTableRow>
       </CTableHead>
@@ -62,7 +109,7 @@ const UsuariosTabela = ({
         {paginatedUsuarios.map((user, index) => (
           <CTableRow key={user.id || index}>
             <CTableDataCell className="text-center">
-              <strong className="text-primary">{user.matricula}</strong>
+              {formatarMatriculaProjeto(user)}
             </CTableDataCell>
             <CTableDataCell>{user.nome}</CTableDataCell>
             <CTableDataCell className="text-center">{formatarCPF(user.cpf)}</CTableDataCell>
@@ -75,7 +122,7 @@ const UsuariosTabela = ({
                 {/*Editar usuário*/}
                 <CButton
                   className="flex-fill"
-                  color="secondary"
+                  color="info"
                   size="sm"
                   onClick={() => handleEdit(user)}
                   disabled={loading}
@@ -85,7 +132,6 @@ const UsuariosTabela = ({
                 {/*Permissões do Usuario */}
                 <CButton
                   className="flex-fill"
-                  variant="outline"
                   color="warning"
                   size="sm"
                   disabled={loading}
