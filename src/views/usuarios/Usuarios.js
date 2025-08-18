@@ -15,16 +15,14 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilX } from '@coreui/icons'
+import { cilPlus, cilX, cilReload, cilSearch } from '@coreui/icons'
 import UsuariosModal from './UsuariosModal'
 import UsuariosTabela from './UsuariosTabela'
-
-// Importar o service de usuários
-import { consultarUsuariosEoperaX } from '../../services/usuariosService'
+import { consultarUsuariosEoperaX } from '../../services/popularTabela'
+// Importar os novos services
 
 const Usuarios = () => {
   const [usuarios, setUsuarios] = useState([])
-  const [usuariosFiltrados, setUsuariosFiltrados] = useState([])
   const [termoPesquisa, setTermoPesquisa] = useState('')
   const [alert, setAlert] = useState({ show: false, message: '', color: 'success' })
   const [loading, setLoading] = useState(false)
@@ -48,85 +46,95 @@ const Usuarios = () => {
 
   // Estados da paginação
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10 // Quantidade de usuários por página
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalUsuarios, setTotalUsuarios] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const itemsPerPage = 10
+
+  // Estado para debounce da pesquisa
+  const [pesquisaTimeout, setPesquisaTimeout] = useState(null)
 
   // Carregar usuários da API ao montar componente
   useEffect(() => {
-    carregarUsuarios()
+    carregarUsuariosPagina(1)
   }, [])
 
-  // Efeito para filtrar usuários quando o termo de pesquisa muda
+  // Efeito para recarregar dados quando a página muda
   useEffect(() => {
-    filtrarUsuarios()
-  }, [usuarios, termoPesquisa])
+    if (currentPage > 0) {
+      carregarUsuariosPagina(currentPage, termoPesquisa)
+    }
+  }, [currentPage])
 
-  // Paginação dos usuários filtrados
-  const totalPages = Math.ceil(usuariosFiltrados.length / itemsPerPage)
-  const paginatedUsuarios = usuariosFiltrados.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  )
-
-  // Resetar página quando pesquisa mudar
+  // Efeito para pesquisa com debounce
   useEffect(() => {
-    setCurrentPage(1)
+    if (pesquisaTimeout) {
+      clearTimeout(pesquisaTimeout)
+    }
+
+    const timeout = setTimeout(() => {
+      setCurrentPage(1) // Resetar para página 1 ao pesquisar
+      carregarUsuariosPagina(1, termoPesquisa)
+    }, 500) // Aguardar 500ms após parar de digitar
+
+    setPesquisaTimeout(timeout)
+
+    return () => {
+      if (timeout) clearTimeout(timeout)
+    }
   }, [termoPesquisa])
 
-  const carregarUsuarios = async () => {
+  const carregarUsuariosPagina = async (page, termo = '') => {
     setLoading(true)
     try {
-      console.log('Iniciando carregamento de usuários...')
-      const dadosUsuarios = await consultarUsuariosEoperaX()
+      console.log(`Carregando página ${page} com termo: "${termo}"`)
 
-      console.log('Dados recebidos da API:', dadosUsuarios)
+      // Buscar todos os usuários da API
+      const todosUsuarios = await consultarUsuariosEoperaX()
 
-      // Transformar os dados da API para o formato esperado pelo componente
-      const usuariosFormatados = dadosUsuarios.map((usuario) => ({
-        matricula: usuario.matricula || '',
-        nome: usuario.nome || '',
-        cpf: usuario.cpf || '',
-        tipoUsuario: usuario.tipoUsuario || '',
-      }))
+      // Filtrar por termo de pesquisa se fornecido
+      let usuariosFiltrados = todosUsuarios
+      if (termo.trim()) {
+        const termoLower = termo.toLowerCase()
+        usuariosFiltrados = todosUsuarios.filter(
+          (usuario) =>
+            (usuario.nome && usuario.nome.toLowerCase().includes(termoLower)) ||
+            (usuario.cpf &&
+              usuario.cpf.replace(/[^\d]/g, '').includes(termo.replace(/[^\d]/g, ''))) ||
+            (usuario.matricula && usuario.matricula.toString().includes(termo)) ||
+            (usuario.grupoCentralizador &&
+              usuario.grupoCentralizador.toLowerCase().includes(termoLower)),
+        )
+      }
 
-      setUsuarios(usuariosFormatados)
-      console.log(`${usuariosFormatados.length} usuários carregados com sucesso`)
+      // Aplicar paginação
+      const startIndex = (page - 1) * itemsPerPage
+      const endIndex = startIndex + itemsPerPage
+      const usuariosPaginados = usuariosFiltrados.slice(startIndex, endIndex)
+
+      // Calcular informações de paginação
+      const total = usuariosFiltrados.length
+      const totalPaginas = Math.ceil(total / itemsPerPage)
+      const temMais = endIndex < total
+
+      // Atualizar estados
+      setUsuarios(usuariosPaginados)
+      setTotalUsuarios(total)
+      setTotalPages(totalPaginas)
+      setHasMore(temMais)
+
+      console.log(
+        `Página ${page} carregada: ${usuariosPaginados.length} usuários de ${total} total`,
+      )
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
-      showAlert(
-        'Erro ao carregar usuários da API. Verifique a conexão ou contate o suporte.',
-        'danger',
-      )
-
-      // Em caso de erro, manter dados simulados para não quebrar a aplicação
-      const dadosSimulados = []
-      setUsuarios(dadosSimulados)
+      showAlert('Erro ao carregar usuários. Verifique a conexão ou contate o suporte.', 'danger')
+      setUsuarios([])
+      setTotalUsuarios(0)
+      setTotalPages(1)
     } finally {
       setLoading(false)
     }
-  }
-
-  const filtrarUsuarios = () => {
-    if (!termoPesquisa.trim()) {
-      setUsuariosFiltrados(usuarios)
-      return
-    }
-
-    const termo = termoPesquisa.toLowerCase().trim()
-    const usuariosFiltrados = usuarios.filter((usuario) => {
-      const nome = usuario.nome?.toLowerCase() || ''
-      const cpf = usuario.cpf?.replace(/[^\d]/g, '') || '' // Remove formatação do CPF
-      const cpfFormatado = formatarCPF(usuario.cpf || '').toLowerCase()
-      const matricula = usuario.matricula?.toLowerCase() || ''
-
-      return (
-        nome.includes(termo) ||
-        cpf.includes(termo) ||
-        cpfFormatado.includes(termo) ||
-        matricula.includes(termo)
-      )
-    })
-
-    setUsuariosFiltrados(usuariosFiltrados)
   }
 
   const handlePesquisaChange = (e) => {
@@ -135,6 +143,14 @@ const Usuarios = () => {
 
   const limparPesquisa = () => {
     setTermoPesquisa('')
+  }
+
+  const handlePageChange = (page) => {
+    if (page !== currentPage && page >= 1 && page <= totalPages && !loading) {
+      console.log(`Mudando para página ${page}`)
+      setCurrentPage(page)
+      // Remover a chamada direta aqui, pois o useEffect vai cuidar disso
+    }
   }
 
   const resetForm = () => {
@@ -158,205 +174,16 @@ const Usuarios = () => {
 
   const showAlert = (message, color = 'success') => {
     setAlert({ show: true, message, color })
-    setTimeout(() => setAlert({ show: false, message: '', color: 'success' }), 4000)
-  }
-
-  const validarCPF = (cpf) => {
-    const s = cpf.replace(/\D/g, '')
-    if (s.length !== 11 || /^(\d)\1{10}$/.test(s)) return false
-
-    // Dígito 1
-    let soma = 0
-    for (let i = 0; i < 9; i++) soma += Number(s[i]) * (10 - i)
-    let resto = soma % 11
-    const d1 = resto < 2 ? 0 : 11 - resto
-    if (d1 !== Number(s[9])) return false
-
-    // Dígito 2
-    soma = 0
-    for (let i = 0; i < 10; i++) soma += Number(s[i]) * (11 - i)
-    resto = soma % 11
-    const d2 = resto < 2 ? 0 : 11 - resto
-    return d2 === Number(s[10])
-  }
-
-  const formatarCPF = (cpf) => {
-    if (!cpf) return ''
-    cpf = cpf.replace(/[^\d]/g, '')
-    if (cpf.length === 11) {
-      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-    }
-    return cpf
-  }
-
-  const formatarCelular = (celular) => {
-    if (!celular) return ''
-    // Remove todos os caracteres não numéricos
-    celular = celular.replace(/[^\d]/g, '')
-    // Limita a exatamente 10 dígitos
-    celular = celular.slice(0, 10)
-
-    if (celular.length === 10) {
-      // Formato: (DD) NNNN-NNNN para 10 dígitos
-      return celular.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
-    } else if (celular.length > 6) {
-      return celular.replace(/(\d{2})(\d{4})(\d+)/, '($1) $2-$3')
-    } else if (celular.length > 2) {
-      return celular.replace(/(\d{2})(\d+)/, '($1) $2')
-    }
-    return celular
-  }
-
-  const validateForm = () => {
-    const errors = {}
-
-    // Validação da matrícula
-    if (!formData.matricula.trim()) {
-      errors.matricula = 'Matrícula é obrigatória'
-    } else if (formData.matricula.length < 6) {
-      errors.matricula = 'Matrícula deve ter pelo menos 6 caracteres'
-    }
-
-    // Validação do nome
-    if (!formData.nome.trim()) {
-      errors.nome = 'Nome é obrigatório'
-    } else if (formData.nome.trim().length < 3) {
-      errors.nome = 'Nome deve ter pelo menos 3 caracteres'
-    }
-
-    // Validação do CPF
-    const cpfLimpo = formData.cpf.replace(/[^\d]/g, '')
-    if (!cpfLimpo) {
-      errors.cpf = 'CPF é obrigatório'
-    } else if (cpfLimpo.length !== 11) {
-      errors.cpf = 'CPF deve conter 11 dígitos'
-    } else if (!validarCPF(cpfLimpo)) {
-      errors.cpf = 'CPF inválido'
-    }
-
-    // Validação do tipo de usuário
-    if (!formData.tipoUsuario) {
-      errors.tipoUsuario = 'Tipo de usuário é obrigatório'
-    }
-
-    // Validação do celular - SOMENTE 10 DÍGITOS
-    const celularLimpo = formData.celular.replace(/[^\d]/g, '')
-    if (!celularLimpo) {
-      errors.celular = 'Número de celular é obrigatório'
-    } else if (celularLimpo.length !== 10) {
-      errors.celular = 'Celular deve ter exatamente 10 dígitos (DDD + 8 dígitos)'
-    }
-
-    // Validação do grupo centralizador
-    if (!formData.grupoCentralizador.trim()) {
-      errors.grupoCentralizador = 'Grupo Centralizador é obrigatório'
-    } else {
-      // Verificar se o formato está correto (contém código - descrição)
-      // Exemplo esperado: "00049 - MULTSKILL CAMPO GRANDE"
-      const formatoCorreto = /^\d{5}\s*-\s*.+/.test(formData.grupoCentralizador.trim())
-      if (!formatoCorreto) {
-        errors.grupoCentralizador = 'Selecione um grupo válido da lista'
-      }
-    }
-
-    // Validação do status
-    if (!formData.ativo) {
-      errors.ativo = 'Status é obrigatório'
-    }
-
-    // Validação do supervisor
-    if (!formData.supervisor) {
-      errors.supervisor = 'Campo supervisor é obrigatório'
-    }
-
-    // Validação do numOperacional
-    if (!formData.numOperacional) {
-      errors.numOperacional = 'Campo possui equipe é obrigatório'
-    }
-
-    // Validação do userIpal
-    if (!formData.userIpal) {
-      errors.userIpal = 'Campo User IPAL é obrigatório'
-    }
-
-    // Validação do userSesmt
-    if (!formData.userSesmt) {
-      errors.userSesmt = 'Campo Usuário SESMT é obrigatório'
-    }
-
-    // Validação da senha
-    if (!formData.senha.trim()) {
-      errors.senha = 'Senha é obrigatória'
-    } else if (formData.senha.trim().length < 6) {
-      errors.senha = 'Senha deve ter pelo menos 6 caracteres'
-    }
-
-    // Verificar se matrícula já existe
-    const matriculaExists = usuarios.some(
-      (user) => user.matricula === formData.matricula && user.matricula !== editingUser?.matricula,
-    )
-    if (matriculaExists) {
-      errors.matricula = 'Esta matrícula já está em uso'
-    }
-
-    // Verificar se CPF já existe
-    const cpfExists = usuarios.some((user) => {
-      const cpfUsuario = user.cpf?.replace(/[^\d]/g, '') || ''
-      return cpfUsuario === cpfLimpo && user.matricula !== editingUser?.matricula
-    })
-    if (cpfExists) {
-      errors.cpf = 'Este CPF já está cadastrado'
-    }
-
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    if (!validateForm()) {
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const dadosParaAPI = {
-        matricula: formData.matricula,
-        nome: formData.nome.trim(),
-        cpf: formData.cpf.replace(/[^\d]/g, ''),
-        tipoUsuario: formData.tipoUsuario,
-        celular: formData.celular.replace(/[^\d]/g, ''), // Exatamente 10 dígitos
-      }
-
-      if (editingUser) {
-        // Editar usuário - chamada PUT para API
-        setUsuarios((prev) =>
-          prev.map((user) => (user.matricula === editingUser.matricula ? dadosParaAPI : user)),
-        )
-        showAlert('Usuário atualizado com sucesso!')
-      } else {
-        // Adicionar novo usuário - chamada POST para API
-        setUsuarios((prev) => [...prev, dadosParaAPI])
-        showAlert('Usuário cadastrado com sucesso!')
-      }
-
-      setShowModal(false)
-      resetForm()
-    } catch (error) {
-      console.error('Erro ao salvar usuário:', error)
-      showAlert('Erro ao salvar usuário: ' + error.message, 'danger')
-    }
-
-    setLoading(false)
+    setTimeout(() => setAlert({ show: false, message: '', color: 'success' }), 5000)
   }
 
   const handleEdit = (user) => {
+    console.log('Editando usuário:', user)
+    setEditingUser(user)
     setFormData({
       matricula: user.matricula || '',
       nome: user.nome || '',
-      cpf: formatarCPF(user.cpf || ''),
+      cpf: user.cpf || '',
       tipoUsuario: user.tipoUsuario || '',
       celular: user.celular || '',
       grupoCentralizador: user.grupoCentralizador || '',
@@ -365,9 +192,8 @@ const Usuarios = () => {
       numOperacional: user.numOperacional || '',
       userIpal: user.userIpal || '',
       userSesmt: user.userSesmt || '',
-      senha: '', // Sempre vazio ao editar por segurança
+      senha: '',
     })
-    setEditingUser(user)
     setShowModal(true)
   }
 
@@ -383,7 +209,6 @@ const Usuarios = () => {
       'NÃO INFORMADO': 'secondary',
     }
 
-    // Formatação dos valores
     let tipoFormatado = ''
     if (tipo === 'C') {
       tipoFormatado = 'CLT'
@@ -392,11 +217,19 @@ const Usuarios = () => {
     } else if (!tipo || tipo.trim() === '') {
       tipoFormatado = 'NÃO INFORMADO'
     } else {
-      // Para outros valores que já podem estar formatados (CLT, PJ)
       tipoFormatado = tipo
     }
 
     return <CBadge color={cores[tipoFormatado] || 'secondary'}>{tipoFormatado}</CBadge>
+  }
+
+  const formatarCPF = (cpf) => {
+    if (!cpf) return ''
+    cpf = cpf.replace(/[^\d]/g, '')
+    if (cpf.length === 11) {
+      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    }
+    return cpf
   }
 
   // Função para calcular as páginas a serem exibidas
@@ -449,10 +282,10 @@ const Usuarios = () => {
             </CCardHeader>
             <CCardBody>
               <CRow className="mb-3">
-                <CCol lg={4}>
+                <CCol lg={6}>
                   <CInputGroup>
                     <CFormInput
-                      placeholder="Pesquisar por nome, CPF ou matrícula..."
+                      placeholder="Pesquisar por nome, CPF, matrícula ou grupo..."
                       value={termoPesquisa}
                       onChange={handlePesquisaChange}
                     />
@@ -467,7 +300,8 @@ const Usuarios = () => {
                     </CButton>
                   </CInputGroup>
                 </CCol>
-                <CCol lg={8}>
+
+                <CCol lg={6}>
                   <CButton
                     className="w-100"
                     color="primary"
@@ -475,46 +309,21 @@ const Usuarios = () => {
                     disabled={loading}
                   >
                     <CIcon icon={cilPlus} className="me-1" />
-                    Adicionar Novo Usuário
+                    Novo Usuário
                   </CButton>
                 </CCol>
               </CRow>
 
-              {termoPesquisa && (
-                <div className="mb-3">
-                  <small className="text-muted">
-                    Mostrando {usuariosFiltrados.length} de {usuarios.length} usuários
-                    {termoPesquisa && ` para "${termoPesquisa}"`}
-                  </small>
-                </div>
-              )}
-
-              {usuariosFiltrados.length > itemsPerPage && (
-                <div className="mb-3 d-flex justify-content-between align-items-center">
-                  <small className="text-muted">
-                    Página {currentPage} de {totalPages} - Exibindo{' '}
-                    {(currentPage - 1) * itemsPerPage + 1} a{' '}
-                    {Math.min(currentPage * itemsPerPage, usuariosFiltrados.length)} de{' '}
-                    {usuariosFiltrados.length} usuários
-                  </small>
-                </div>
-              )}
-
               <hr />
+
               {alert.show && (
                 <CAlert color={alert.color} className="d-flex align-items-center">
                   {alert.message}
                 </CAlert>
               )}
-              {loading && (
-                <div className="text-center py-3">
-                  <CSpinner color="primary" />
-                  <p className="mt-2 text-muted">Carregando usuários...</p>
-                </div>
-              )}
 
               <UsuariosTabela
-                paginatedUsuarios={paginatedUsuarios}
+                paginatedUsuarios={usuarios}
                 formatarCPF={formatarCPF}
                 getTipoUsuarioBadge={getTipoUsuarioBadge}
                 handleEdit={handleEdit}
@@ -522,13 +331,14 @@ const Usuarios = () => {
                 termoPesquisa={termoPesquisa}
               />
 
+              {/* Paginação */}
               {totalPages > 1 && (
-                <div className="d-flex justify-content-end">
+                <div className="d-flex justify-content-end mt-4">
                   <CPagination className="mb-0">
                     <CPaginationItem
                       aria-label="Previous"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                      disabled={currentPage === 1 || loading}
+                      onClick={() => handlePageChange(currentPage - 1)}
                       style={{ cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
                     >
                       <span aria-hidden="true">&laquo;</span>
@@ -544,8 +354,9 @@ const Usuarios = () => {
                           key={page}
                           aria-label={`Page ${page}`}
                           active={currentPage === page}
-                          onClick={() => setCurrentPage(page)}
-                          style={{ cursor: 'pointer' }}
+                          disabled={loading}
+                          onClick={() => handlePageChange(page)}
+                          style={{ cursor: loading ? 'not-allowed' : 'pointer' }}
                         >
                           {page}
                         </CPaginationItem>
@@ -554,8 +365,8 @@ const Usuarios = () => {
 
                     <CPaginationItem
                       aria-label="Next"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                      disabled={currentPage === totalPages || loading}
+                      onClick={() => handlePageChange(currentPage + 1)}
                       style={{ cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
                     >
                       <span aria-hidden="true">&raquo;</span>
@@ -576,10 +387,6 @@ const Usuarios = () => {
         formData={formData}
         setFormData={setFormData}
         formErrors={formErrors}
-        handleSubmit={handleSubmit}
-        getTipoUsuarioBadge={getTipoUsuarioBadge}
-        formatarCPF={formatarCPF}
-        formatarCelular={formatarCelular}
       />
     </div>
   )

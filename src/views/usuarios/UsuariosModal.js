@@ -803,13 +803,12 @@ const UsuariosModal = ({
 
     // Montar objeto no formato da API
     const dadosAPI = {
+      cpf: cpfLimpo, // Adicionar o CPF para identificar o usuário na edição
       tipoUsuario: tipoUsuarioAPI,
       filialFuncionario: formData.filialFuncionario || '',
       matricula: formData.matricula || '',
       nome: formData.nome.trim(),
-      cpf: cpfLimpo,
       grupoCentralizador: grupoCodigo,
-      senha: formData.senha,
       supervisor: formData.supervisor, // Já está em S/N
       numOperacional: formData.numOperacional, // Já está em S/N
       userIpal: formData.userIpal, // Já está em S/N
@@ -820,6 +819,11 @@ const UsuariosModal = ({
       armazemHancock: formData.armazemHancock || '',
       equipeHancock: formData.equipeHancock || '',
       admin: formData.admin || false,
+    }
+
+    // Adicionar senha apenas se foi preenchida
+    if (formData.senha && formData.senha.trim()) {
+      dadosAPI.senha = formData.senha
     }
 
     console.log('Dados formatados para API:', dadosAPI)
@@ -847,7 +851,7 @@ const UsuariosModal = ({
     }
   }
 
-  // Adicionar função para lidar com o submit com validação
+  // Modificar a função handleFormSubmit
   const handleFormSubmit = async (e) => {
     if (e) {
       e.preventDefault()
@@ -885,17 +889,21 @@ const UsuariosModal = ({
     try {
       const response = await cadastrarUsuario(formData)
 
-      // Se chegou até aqui, o cadastro foi bem-sucedido
-      showCpfAlert('Usuário cadastrado com sucesso!', 'success')
+      // Verificar se a resposta indica sucesso
+      if (response === true || response?.success === true || response?.status === true) {
+        // Se chegou até aqui, o cadastro foi bem-sucedido
+        showCpfAlert('Usuário cadastrado com sucesso!', 'success')
 
-      // Fechar modal após mostrar sucesso
-      setTimeout(() => {
-        setShowModal(false)
-        // Recarregar a lista de usuários se houver uma função para isso
-        if (typeof handleSubmit === 'function') {
-          handleSubmit() // Esta função deve recarregar a lista
-        }
-      }, 2000)
+       
+
+        // Fechar modal após mostrar sucesso
+        setTimeout(() => {
+          setShowModal(false)
+        }, 2000)
+      } else {
+        // Se a resposta não indica sucesso
+        throw new Error('Resposta da API não indica sucesso')
+      }
     } catch (error) {
       // Se houve erro, manter modal aberto e mostrar erro
       console.error('Erro ao cadastrar usuário:', error)
@@ -913,21 +921,34 @@ const UsuariosModal = ({
     }
   }
 
-  // Função para confirmar as alterações
+  // Modificar a função confirmarEdicao
   const confirmarEdicao = async () => {
     setShowConfirmModal(false)
 
     try {
-      // Chamar a função de submit que foi passada como prop
-      await handleSubmit()
+      // Converter os dados do formulário para o formato da API
+      const dadosFormatados = formatarDadosParaAPI(formData)
 
-      // Se chegou até aqui, a edição foi bem-sucedida
-      showCpfAlert('Usuário editado com sucesso!', 'success')
+      console.log('Dados formatados para edição:', dadosFormatados)
 
-      // Fechar modal após mostrar sucesso
-      setTimeout(() => {
-        setShowModal(false)
-      }, 2000)
+      // Enviar para a API de atualização
+      const response = await gerenciarUsuarios.atualizarUsuario(dadosFormatados)
+      console.log('Resposta da API de edição:', response)
+
+      // Verificar se a edição foi bem-sucedida
+      if (response === true || response?.success === true || response?.status === true) {
+        // Se chegou até aqui, a edição foi bem-sucedida
+        showCpfAlert('Usuário editado com sucesso!', 'success')
+
+        
+
+        // Fechar modal após mostrar sucesso
+        setTimeout(() => {
+          setShowModal(false)
+        }, 2000)
+      } else {
+        throw new Error('Resposta da edição não indica sucesso')
+      }
     } catch (error) {
       // Se houve erro, manter modal aberto e mostrar erro
       console.error('Erro ao editar usuário:', error)

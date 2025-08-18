@@ -10,7 +10,7 @@ export const gerenciarUsuarios = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          Authorization: `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
         body: JSON.stringify(dadosUsuario),
       })
@@ -38,7 +38,7 @@ export const gerenciarUsuarios = {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
+          Authorization: `Bearer ${import.meta.env.VITE_API_TOKEN}`,
         },
         body: JSON.stringify(dadosUsuario),
       })
