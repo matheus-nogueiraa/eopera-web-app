@@ -329,20 +329,7 @@ const ServicosTabela = forwardRef((props, ref) => {
                             <CTableDataCell className="text-nowrap">{servico.dataInicio}</CTableDataCell>
                             <CTableDataCell>{servico.usuarioRegistro}</CTableDataCell>
                             <CTableDataCell className="text-center">
-                              {/* <CTooltip content="Visualizar detalhes">
-                                <CButton
-                                  color="info"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => buscarDetalhesOcorrencia(servico.id)}
-                                  disabled={loadingDetalhes}
-                                  aria-label="Visualizar detalhes"
-                                  className="me-2"
-                                >
-                                  <CIcon icon={cilInfo} />
-                                </CButton>
-                              </CTooltip> */}
-                              {podeEditar && (
+                              {podeEditar ? (
                                 <CTooltip content="Editar serviço">
                                   <CButton
                                     color="secondary"
@@ -354,6 +341,20 @@ const ServicosTabela = forwardRef((props, ref) => {
                                     className="me-2"
                                   >
                                     <CIcon icon={cilPencil} />
+                                  </CButton>
+                                </CTooltip>
+                              ) : (
+                                <CTooltip content="Visualizar detalhes">
+                                  <CButton
+                                    color="info"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => buscarDetalhesOcorrencia(servico.id)}
+                                    disabled={loadingDetalhes}
+                                    aria-label="Visualizar detalhes"
+                                    className="me-2"
+                                  >
+                                    <CIcon icon={cilInfo} />
                                   </CButton>
                                 </CTooltip>
                               )}
