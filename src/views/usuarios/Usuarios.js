@@ -455,6 +455,7 @@ const Usuarios = () => {
         formData={formData}
         setFormData={setFormData}
         formErrors={formErrors}
+        setFormErrors={setFormErrors}
         onUsuarioSalvo={recarregarUsuarios} // Adicionar callback para recarregar
       />
     </div>

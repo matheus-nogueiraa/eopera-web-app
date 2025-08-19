@@ -36,6 +36,7 @@ const UsuariosModal = ({
   formData,
   setFormData,
   formErrors,
+  setFormErrors,
   handleSubmit,
 }) => {
   const [consultandoCpf, setConsultandoCpf] = useState(false)
@@ -59,6 +60,7 @@ const UsuariosModal = ({
   const [changedFields, setChangedFields] = useState([])
 
   const [cpfJaExiste, setCpfJaExiste] = useState(false)
+  const [validandoCpf, setValidandoCpf] = useState(false) // Novo estado para controlar validação
 
   // Estado para controlar o carregamento dos dados de edição
   const [carregandoDadosEdicao, setCarregandoDadosEdicao] = useState(false)
@@ -77,8 +79,20 @@ const UsuariosModal = ({
       setShowDropdown(false)
       setSearchProjetoPj('')
       setShowDropdownProjetoPj(false)
+    } else {
+      // Resetar estados quando o modal é fechado
+      setCpfJaExiste(false)
+      setValidandoCpf(false)
+      setAlertCpf({ show: false, message: '', color: 'info' })
+      setSalvandoUsuario(false)
+      setEditandoUsuario(false)
+      setCarregandoDadosEdicao(false)
+      // Limpar erros de validação quando o modal é fechado
+      if (setFormErrors) {
+        setFormErrors({})
+      }
     }
-  }, [showModal])
+  }, [showModal, setFormErrors])
 
   // Sincronizar searchGrupo com formData ao carregar usuário para edição
   useEffect(() => {
@@ -86,6 +100,36 @@ const UsuariosModal = ({
       setSearchGrupo(formData.grupoCentralizador)
     }
   }, [editingUser, formData.grupoCentralizador])
+
+  // Resetar validação de CPF quando mudamos de modo (edição/criação)
+  useEffect(() => {
+    setCpfJaExiste(false)
+    setValidandoCpf(false)
+    setAlertCpf({ show: false, message: '', color: 'info' })
+  }, [editingUser])
+
+  // Validação em tempo real do CPF enquanto o usuário digita
+  useEffect(() => {
+    if (!editingUser && formData.cpf) {
+      const cpfLimpo = formData.cpf.replace(/[^\d]/g, '')
+
+      // Reset estado quando CPF é modificado
+      if (cpfJaExiste && cpfLimpo.length < 11) {
+        setCpfJaExiste(false)
+        setValidandoCpf(false)
+      }
+
+      // Auto-validação quando CPF atinge 11 dígitos
+      if (cpfLimpo.length === 11 && !cpfJaExiste) {
+        // Debounce para evitar muitas chamadas
+        const timeoutId = setTimeout(() => {
+          validarCpfDuplicado(formData.cpf)
+        }, 1000) // 1 segundo de delay
+
+        return () => clearTimeout(timeoutId)
+      }
+    }
+  }, [formData.cpf, editingUser, cpfJaExiste])
 
   // Sincronizar searchProjetoPj com formData ao carregar usuário para edição
   useEffect(() => {
@@ -341,7 +385,17 @@ const UsuariosModal = ({
 
   const showCpfAlert = (message, color = 'info') => {
     setAlertCpf({ show: true, message, color })
-    setTimeout(() => setAlertCpf({ show: false, message: '', color: 'info' }), 4000)
+
+    // Tempo de exibição baseado no tipo de alerta
+    const timeoutDuration = color === 'success' && message.includes('CPF disponível') ? 2000 : 4000
+
+    setTimeout(() => {
+      setAlertCpf({ show: false, message: '', color: 'info' })
+      // Resetar cpfJaExiste para alertas de sucesso (operações concluídas ou CPF válido)
+      if (color === 'success') {
+        setCpfJaExiste(false)
+      }
+    }, timeoutDuration)
   }
 
   const consultarDadosPorCpf = async (cpf) => {
@@ -728,6 +782,21 @@ const UsuariosModal = ({
       e.preventDefault()
     }
 
+    // BLOQUEIO: Se CPF já existe e não está editando, bloquear envio
+    if (!editingUser && cpfJaExiste) {
+      showCpfAlert(
+        '❌ Este CPF já está cadastrado no sistema. Não é possível prosseguir com o cadastro.',
+        'danger',
+      )
+      return
+    }
+
+    // BLOQUEIO: Se ainda está validando CPF, aguardar
+    if (validandoCpf) {
+      showCpfAlert('⏳ Aguarde a validação do CPF antes de prosseguir.', 'warning')
+      return
+    }
+
     // Executar validação
     const errors = validarFormulario()
 
@@ -746,7 +815,7 @@ const UsuariosModal = ({
       if (changes.length === 0) {
         showCpfAlert('Nenhuma alteração foi feita.', 'info')
         setTimeout(() => {
-          setShowModal(false)
+          fecharModal()
         }, 2000)
         return
       }
@@ -791,7 +860,7 @@ const UsuariosModal = ({
 
         // Fechar modal após mostrar sucesso
         setTimeout(() => {
-          setShowModal(false)
+          fecharModal()
         }, 2000)
       } else {
         // Se a resposta não indica sucesso
@@ -814,6 +883,15 @@ const UsuariosModal = ({
     } finally {
       setSalvandoUsuario(false) // DESATIVAR LOADING PARA CADASTRO
     }
+  }
+
+  // Função para fechar o modal limpando os erros de validação
+  const fecharModal = () => {
+    // Limpar erros de validação antes de fechar
+    if (setFormErrors) {
+      setFormErrors({})
+    }
+    setShowModal(false)
   }
 
   // Função para cancelar a confirmação
@@ -1034,7 +1112,7 @@ const UsuariosModal = ({
       if (!dadosAlterados) {
         showCpfAlert('Nenhuma alteração foi detectada.', 'info')
         setTimeout(() => {
-          setShowModal(false)
+          fecharModal()
         }, 2000)
         return
       }
@@ -1050,7 +1128,7 @@ const UsuariosModal = ({
 
         // Fechar modal após mostrar sucesso
         setTimeout(() => {
-          setShowModal(false)
+          fecharModal()
         }, 2000)
       } else {
         throw new Error('Resposta da edição não indica sucesso')
@@ -1207,6 +1285,11 @@ const UsuariosModal = ({
     // só checa se tiver 11 dígitos
     if (cpf.length !== 11) {
       setCpfJaExiste(false)
+      setValidandoCpf(false)
+      // Limpar alerta se o CPF estiver incompleto
+      if (alertCpf.show && (alertCpf.color === 'warning' || alertCpf.color === 'danger')) {
+        setAlertCpf({ show: false, message: '', color: 'info' })
+      }
       return
     }
 
@@ -1214,25 +1297,40 @@ const UsuariosModal = ({
       // durante a edição o CPF está travado, então ignora
       if (editingUser) {
         setCpfJaExiste(false)
+        setValidandoCpf(false)
+        // Limpar alerta durante edição
+        if (alertCpf.show && (alertCpf.color === 'warning' || alertCpf.color === 'danger')) {
+          setAlertCpf({ show: false, message: '', color: 'info' })
+        }
         return
       }
 
+      setValidandoCpf(true)
       console.log('Validando CPF ao sair do campo usando API popularTabela:', cpf)
       const existe = await verificarCpfExistente(cpf)
       setCpfJaExiste(!!existe)
 
       if (existe) {
-        showCpfAlert('Este CPF já possui cadastro no sistema.', 'warning')
+        showCpfAlert(
+          '⚠️ Este CPF já possui cadastro no sistema. Verifique os dados e tente novamente.',
+          'warning',
+        )
       } else {
-        // Limpar alerta se o CPF for válido
-        if (alertCpf.show && alertCpf.color === 'warning') {
+        // Limpar alerta se o CPF for válido e mostrar sucesso
+        if (alertCpf.show && (alertCpf.color === 'warning' || alertCpf.color === 'danger')) {
           setAlertCpf({ show: false, message: '', color: 'info' })
         }
+        // Para CPF válido, mostrar feedback positivo temporário
+        showCpfAlert('✅ CPF disponível para cadastro.', 'success')
       }
     } catch (err) {
       console.error('Falha ao validar CPF duplicado via API popularTabela:', err)
       // não bloqueia em caso de erro, mas também não marca como duplicado
       setCpfJaExiste(false)
+      // Mostrar alerta de erro na validação
+      showCpfAlert('⚠️ Erro ao validar CPF. Tente novamente ou verifique sua conexão.', 'danger')
+    } finally {
+      setValidandoCpf(false)
     }
   }
 
@@ -1251,7 +1349,7 @@ const UsuariosModal = ({
 
   return (
     <>
-      <CModal alignment="center" visible={showModal} onClose={() => setShowModal(false)} size="xl">
+      <CModal alignment="center" visible={showModal} onClose={fecharModal} size="xl">
         <CModalHeader>
           <CModalTitle>
             {editingUser ? 'Editar Usuário' : 'Adicionar Novo Usuário'}
@@ -1326,32 +1424,67 @@ const UsuariosModal = ({
               <CCol md={4} className="mb-4">
                 <CFormLabel htmlFor="cpf" className="mb-2">
                   CPF:<span className="text-danger">*</span>
-                  {(consultandoCpf || carregandoDadosEdicao) && (
+                  {(consultandoCpf || carregandoDadosEdicao || validandoCpf) && (
                     <CSpinner size="sm" className="ms-2" />
                   )}
+                  {validandoCpf && <small className="text-info ms-2">Validando...</small>}
+                  {cpfJaExiste && <small className="text-warning ms-2">CPF já cadastrado</small>}
+                  {!cpfJaExiste &&
+                    !validandoCpf &&
+                    !editingUser &&
+                    formData.cpf &&
+                    formData.cpf.replace(/[^\d]/g, '').length === 11 && (
+                      <small className="text-success ms-2">CPF disponível</small>
+                    )}
                 </CFormLabel>
-                <CFormInput
-                  id="cpf"
-                  name="cpf"
-                  value={formData.cpf}
-                  onChange={(e) => {
-                    handleInputChange(e)
-                    if (cpfJaExiste) setCpfJaExiste(false)
-                  }}
-                  onBlur={(e) => validarCpfDuplicado(e.target.value)}
-                  invalid={!!formErrors.cpf || cpfJaExiste}
-                  disabled={isLoading || noTypeSelected || consultandoCpf || editingUser}
-                  required
-                  placeholder={
-                    editingUser
-                      ? 'CPF não pode ser alterado'
-                      : noTypeSelected
-                        ? 'Primeiro selecione o tipo de contrato. '
-                        : consultandoCpf || carregandoDadosEdicao
-                          ? 'Consultando...'
-                          : 'Digite o CPF'
-                  }
-                />
+                <div className="position-relative">
+                  <CInputGroup>
+                    <CFormInput
+                      id="cpf"
+                      name="cpf"
+                      value={formData.cpf}
+                      onChange={(e) => {
+                        handleInputChange(e)
+                        if (cpfJaExiste) setCpfJaExiste(false)
+                        // Limpar alertas quando o usuário está digitando
+                        if (
+                          alertCpf.show &&
+                          (alertCpf.color === 'warning' || alertCpf.color === 'danger')
+                        ) {
+                          setAlertCpf({ show: false, message: '', color: 'info' })
+                        }
+                      }}
+                      onBlur={(e) => validarCpfDuplicado(e.target.value)}
+                      invalid={!!formErrors.cpf || cpfJaExiste}
+                      disabled={
+                        isLoading || noTypeSelected || consultandoCpf || editingUser || validandoCpf
+                      }
+                      required
+                      placeholder={
+                        editingUser
+                          ? 'CPF não pode ser alterado'
+                          : noTypeSelected
+                            ? 'Primeiro selecione o tipo de contrato. '
+                            : consultandoCpf || carregandoDadosEdicao
+                              ? 'Consultando...'
+                              : validandoCpf
+                                ? 'Validando CPF...'
+                                : 'Digite o CPF (000.000.000-00)'
+                      }
+                    />
+                    <CInputGroupText>
+                      {consultandoCpf || carregandoDadosEdicao || validandoCpf ? (
+                        <CSpinner size="sm" />
+                      ) : cpfJaExiste ? (
+                        <CIcon icon={cilWarning} className="text-warning" />
+                      ) : formData.cpf &&
+                        formData.cpf.replace(/[^\d]/g, '').length === 11 &&
+                        !editingUser ? (
+                        <CIcon icon={cilCheckCircle} className="text-success" />
+                      ) : null}
+                    </CInputGroupText>
+                  </CInputGroup>
+                </div>
                 <CFormFeedback invalid>
                   {formErrors.cpf || (cpfJaExiste && 'Este CPF já está cadastrado.')}
                 </CFormFeedback>
@@ -1743,18 +1876,31 @@ const UsuariosModal = ({
           </CForm>
         </CModalBody>
         <CModalFooter>
-          <CButton color="secondary" onClick={() => setShowModal(false)} disabled={isLoading}>
+          <CButton color="secondary" onClick={fecharModal} disabled={isLoading}>
             Cancelar
           </CButton>
           <CButton
-            color="primary"
+            color={!editingUser && cpfJaExiste ? 'danger' : 'primary'}
             onClick={handleFormSubmit}
-            disabled={isLoading || consultandoCpf}
+            disabled={isLoading || consultandoCpf || validandoCpf || (!editingUser && cpfJaExiste)}
+            title={
+              !editingUser && cpfJaExiste
+                ? 'CPF já cadastrado - não é possível prosseguir'
+                : validandoCpf
+                  ? 'Aguarde a validação do CPF'
+                  : ''
+            }
           >
             {salvandoUsuario || editandoUsuario || carregandoDadosEdicao ? (
               <CSpinner size="sm" className="me-1" />
+            ) : !editingUser && cpfJaExiste ? (
+              <CIcon icon={cilWarning} className="me-1" />
             ) : null}
-            {editingUser ? 'Salvar Alterações' : 'Cadastrar Usuário'}
+            {!editingUser && cpfJaExiste
+              ? 'CPF Já Cadastrado'
+              : editingUser
+                ? 'Salvar Alterações'
+                : 'Cadastrar Usuário'}
           </CButton>
         </CModalFooter>
       </CModal>
