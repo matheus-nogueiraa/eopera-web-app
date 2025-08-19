@@ -4,7 +4,7 @@ export const gerenciarUsuarios = {
   // Cadastrar novo usuário
   enviarCadastro: async (dadosUsuario) => {
     try {
-      console.log('Enviando dados para cadastro:', dadosUsuario)
+      
 
       const resposta = await httpRequest('/postUserEopera', {
         method: 'POST',
@@ -21,7 +21,7 @@ export const gerenciarUsuarios = {
       }
 
       const resultado = await resposta.json()
-      console.log('Usuário cadastrado com sucesso:', resultado)
+      
       return resultado
     } catch (erro) {
       console.error('Erro ao cadastrar usuário:', erro)
@@ -32,7 +32,7 @@ export const gerenciarUsuarios = {
   // Atualizar usuário existente
   atualizarUsuario: async (dadosAlterados) => {
     try {
-      console.log('Enviando dados para atualização:', dadosAlterados)
+     
 
       const resposta = await httpRequest('/postUserEopera', {
         method: 'POST', // Usando a mesma API
@@ -49,7 +49,7 @@ export const gerenciarUsuarios = {
       }
 
       const resultado = await resposta.json()
-      console.log('Usuário atualizado com sucesso:', resultado)
+     
       return resultado
     } catch (erro) {
       console.error('Erro ao atualizar usuário:', erro)

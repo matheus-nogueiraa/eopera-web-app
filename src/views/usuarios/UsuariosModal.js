@@ -832,7 +832,7 @@ const UsuariosModal = ({
     try {
       // Verificar se o CPF já existe no sistema usando a API popularTabela
       const cpfLimpo = formData.cpf.replace(/[^\d]/g, '')
-      console.log('Verificando CPF antes do cadastro usando API popularTabela:', cpfLimpo)
+      
 
       const cpfJaExiste = await verificarCpfNaPopularTabela(cpfLimpo)
 
@@ -960,7 +960,7 @@ const UsuariosModal = ({
       if (String(originalTransformed) !== String(currentValue)) {
         changedData[field] = currentValue
         hasChanges = true
-        console.log(`Campo ${field} alterado: "${originalTransformed}" -> "${currentValue}"`)
+     
       }
     })
 
@@ -968,7 +968,7 @@ const UsuariosModal = ({
     if (formData.senha && formData.senha.trim()) {
       changedData.senha = formData.senha
       hasChanges = true
-      console.log('Nova senha definida')
+      
     }
 
     // NÃO incluir campos fixos automaticamente - apenas se foram alterados
@@ -978,8 +978,7 @@ const UsuariosModal = ({
     // changedData.equipeHancock = formData.equipeHancock || ''
     // changedData.admin = formData.admin || false
 
-    console.log('Dados alterados para envio:', changedData)
-    console.log('Tem alterações:', hasChanges)
+    
 
     return hasChanges ? changedData : null
   }
@@ -1116,8 +1115,6 @@ const UsuariosModal = ({
         }, 2000)
         return
       }
-
-      console.log('Enviando para API apenas os dados alterados:', dadosAlterados)
 
       // Enviar para a API de atualização
       const response = await gerenciarUsuarios.atualizarUsuario(dadosAlterados)
@@ -1306,7 +1303,6 @@ const UsuariosModal = ({
       }
 
       setValidandoCpf(true)
-      console.log('Validando CPF ao sair do campo usando API popularTabela:', cpf)
       const existe = await verificarCpfExistente(cpf)
       setCpfJaExiste(!!existe)
 
