@@ -24,6 +24,7 @@ import { editarFuncionario } from '../../services/alterarUsuario'
 import { gerenciaGruposCentralizados } from '../../services/campoGruposCentralizados'
 import { gerenciarUsuarios } from '../../services/gerenciarUsuarios'
 import { consultarListaProjetos } from '../../services/consultarProjetosPj'
+import { verificarCpfExistente as verificarCpfNaPopularTabela } from '../../services/popularTabela'
 import CIcon from '@coreui/icons-react'
 import { cilSearch, cilCheckCircle, cilWarning } from '@coreui/icons'
 
@@ -707,17 +708,6 @@ const UsuariosModal = ({
   }
 
   const cadastrarUsuario = async (formData) => {
-    // Adicionar validação de CPF existente antes do cadastro
-    if (!editingUser) {
-      const cpf = limparCpf(formData.cpf)
-      const existe = await verificarCpfExistente(cpf)
-      if (existe) {
-        setCpfJaExiste(true)
-        showCpfAlert('Este CPF já está cadastrado no sistema.', 'danger')
-        return false // Bloquear o envio
-      }
-    }
-
     try {
       // Converter os dados do formulário para o formato da API
       const dadosFormatados = formatarDadosParaAPI(formData)
@@ -767,10 +757,26 @@ const UsuariosModal = ({
       return
     }
 
-    // Se não está editando (novo usuário), submeter diretamente
+    // NOVA VALIDAÇÃO: Verificar se CPF já existe antes de cadastrar
     setSalvandoUsuario(true) // ATIVAR LOADING PARA CADASTRO
 
     try {
+      // Verificar se o CPF já existe no sistema usando a API popularTabela
+      const cpfLimpo = formData.cpf.replace(/[^\d]/g, '')
+      console.log('Verificando CPF antes do cadastro usando API popularTabela:', cpfLimpo)
+
+      const cpfJaExiste = await verificarCpfNaPopularTabela(cpfLimpo)
+
+      if (cpfJaExiste) {
+        showCpfAlert(
+          'Este CPF já está cadastrado no sistema. Verifique os dados e tente novamente.',
+          'danger',
+        )
+        setCpfJaExiste(true)
+        return // Bloquear o envio e manter modal aberto
+      }
+
+      // Se chegou até aqui, o CPF não existe, prosseguir com o cadastro
       const response = await cadastrarUsuario(formData)
 
       // Se o cadastro foi bloqueado por CPF duplicado
@@ -1196,17 +1202,6 @@ const UsuariosModal = ({
     return (v || '').replace(/[^\d]/g, '')
   }
 
-  const verificarCpfExistente = async (cpf) => {
-    try {
-      // Usar o serviço de gerenciar usuários para verificar se o CPF já existe
-      const response = await gerenciarUsuarios.verificarCpfExistente(cpf)
-      return response
-    } catch (error) {
-      console.error('Erro ao verificar CPF existente:', error)
-      return false // Em caso de erro, não bloquear o cadastro
-    }
-  }
-
   const validarCpfDuplicado = async (valorCpf) => {
     const cpf = limparCpf(valorCpf)
     // só checa se tiver 11 dígitos
@@ -1222,16 +1217,33 @@ const UsuariosModal = ({
         return
       }
 
+      console.log('Validando CPF ao sair do campo usando API popularTabela:', cpf)
       const existe = await verificarCpfExistente(cpf)
       setCpfJaExiste(!!existe)
 
       if (existe) {
         showCpfAlert('Este CPF já possui cadastro no sistema.', 'warning')
+      } else {
+        // Limpar alerta se o CPF for válido
+        if (alertCpf.show && alertCpf.color === 'warning') {
+          setAlertCpf({ show: false, message: '', color: 'info' })
+        }
       }
     } catch (err) {
-      console.error('Falha ao validar CPF duplicado:', err)
+      console.error('Falha ao validar CPF duplicado via API popularTabela:', err)
       // não bloqueia em caso de erro, mas também não marca como duplicado
       setCpfJaExiste(false)
+    }
+  }
+
+  const verificarCpfExistente = async (cpf) => {
+    try {
+      // Usar a API popularTabela para verificar se o CPF já existe no sistema
+      const response = await verificarCpfNaPopularTabela(cpf)
+      return response
+    } catch (error) {
+      console.error('Erro ao verificar CPF existente na API popularTabela:', error)
+      return false // Em caso de erro, não bloquear o cadastro
     }
   }
 
@@ -1282,8 +1294,8 @@ const UsuariosModal = ({
             <CRow>
               {isCLT && (
                 <small className="text-muted">
-                  *Para colaboradores CLT, os dados serão preenchidos automaticamente após digitar o CPF
-                  completo.
+                  *Para colaboradores CLT, os dados serão preenchidos automaticamente após digitar o
+                  CPF completo.
                 </small>
               )}
               <br />
