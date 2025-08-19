@@ -87,7 +87,6 @@ const Usuarios = () => {
   const carregarUsuariosPagina = async (page, termo = '') => {
     setLoading(true)
     try {
-
       // Buscar todos os usuários da API
       const todosUsuarios = await consultarUsuariosEoperaX()
 
@@ -186,8 +185,6 @@ const Usuarios = () => {
       setTotalUsuarios(total)
       setTotalPages(totalPaginas)
       setHasMore(temMais)
-
-
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
       showAlert('Erro ao carregar usuários. Verifique a conexão ou contate o suporte.', 'danger')
@@ -209,7 +206,6 @@ const Usuarios = () => {
 
   const handlePageChange = (page) => {
     if (page !== currentPage && page >= 1 && page <= totalPages && !loading) {
-
       setCurrentPage(page)
       // Remover a chamada direta aqui, pois o useEffect vai cuidar disso
     }
@@ -240,7 +236,6 @@ const Usuarios = () => {
   }
 
   const handleEdit = (user) => {
-    
     setEditingUser(user)
 
     // Inicializar o formulário apenas com dados básicos
@@ -332,6 +327,11 @@ const Usuarios = () => {
   }
 
   const visiblePages = getVisiblePages()
+
+  // Função para recarregar a lista de usuários (será chamada após cadastro/edição)
+  const recarregarUsuarios = () => {
+    carregarUsuariosPagina(currentPage, termoPesquisa)
+  }
 
   return (
     <div className="container-fluid">
@@ -455,6 +455,7 @@ const Usuarios = () => {
         formData={formData}
         setFormData={setFormData}
         formErrors={formErrors}
+        onUsuarioSalvo={recarregarUsuarios} // Adicionar callback para recarregar
       />
     </div>
   )

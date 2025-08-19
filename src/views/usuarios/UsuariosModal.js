@@ -55,9 +55,16 @@ const UsuariosModal = ({
   // Estados para modal de confirmação
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [originalData, setOriginalData] = useState(null)
+  const [changedFields, setChangedFields] = useState([])
 
-  // Novo estado para controlar o carregamento dos dados de edição
+  const [cpfJaExiste, setCpfJaExiste] = useState(false)
+
+  // Estado para controlar o carregamento dos dados de edição
   const [carregandoDadosEdicao, setCarregandoDadosEdicao] = useState(false)
+
+  // NOVOS ESTADOS PARA LOADING
+  const [salvandoUsuario, setSalvandoUsuario] = useState(false) // Loading para salvar/cadastrar
+  const [editandoUsuario, setEditandoUsuario] = useState(false) // Loading específico para edição
 
   // Carregar grupos centralizados ao abrir o modal
   useEffect(() => {
@@ -88,22 +95,16 @@ const UsuariosModal = ({
 
   // Filtrar grupos quando o usuário digita
   useEffect(() => {
-   
-
-
     if (!gruposCentralizados || gruposCentralizados.length === 0) {
-     
       setGruposFiltrados([])
       return
     }
 
-
     if (searchGrupo.trim() === '') {
       const primeiros10 = gruposCentralizados.slice(0, 10)
-     
+
       setGruposFiltrados(primeiros10)
     } else {
-
       const filtrados = gruposCentralizados
         .filter((grupo) => {
           // Verificar se o grupo tem as propriedades necessárias
@@ -124,30 +125,22 @@ const UsuariosModal = ({
 
       setGruposFiltrados(filtrados)
     }
-    
   }, [searchGrupo, gruposCentralizados])
 
   // Filtrar projetos PJ quando o usuário digita
   useEffect(() => {
-   
-    
-
     if (!projetosPj || projetosPj.length === 0) {
-   
       setProjetosPjFiltrados([])
       return
     }
 
-    
-
     if (searchProjetoPj.trim() === '') {
       // Se não há busca, mostrar os primeiros 10 projetos
-      
+
       const primeiros10 = projetosPj.slice(0, 10)
-    
+
       setProjetosPjFiltrados(primeiros10)
     } else {
-
       const filtrados = projetosPj
         .filter((projeto) => {
           // Verificar se o projeto tem as propriedades necessárias
@@ -163,7 +156,6 @@ const UsuariosModal = ({
           const matchCodigo = codGrupoString.includes(searchProjetoPj.trim())
 
           // Log detalhado para debug
-         
 
           return matchDescricao || matchCodigo
         })
@@ -372,7 +364,6 @@ const UsuariosModal = ({
           const ddd = funcionario.ddd.toString().replace(/[^\d]/g, '').padStart(2, '0')
           let celularLimpo = funcionario.celular.toString().replace(/[^\d]/g, '')
 
-
           // Se o celular tem 9 dígitos, remover o primeiro 9 para ficar com 8 dígitos
           if (celularLimpo.length === 9 && celularLimpo.startsWith('9')) {
             celularLimpo = celularLimpo.substring(1)
@@ -387,7 +378,6 @@ const UsuariosModal = ({
             if (numeroCompleto10.length === 10) {
               numeroCompleto = numeroCompleto10.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
             }
-
           }
         }
 
@@ -713,15 +703,24 @@ const UsuariosModal = ({
       dadosAPI.senha = formData.senha
     }
 
-
     return dadosAPI
   }
 
   const cadastrarUsuario = async (formData) => {
+    // Adicionar validação de CPF existente antes do cadastro
+    if (!editingUser) {
+      const cpf = limparCpf(formData.cpf)
+      const existe = await verificarCpfExistente(cpf)
+      if (existe) {
+        setCpfJaExiste(true)
+        showCpfAlert('Este CPF já está cadastrado no sistema.', 'danger')
+        return false // Bloquear o envio
+      }
+    }
+
     try {
       // Converter os dados do formulário para o formato da API
       const dadosFormatados = formatarDadosParaAPI(formData)
-
 
       // Enviar para a API
       const response = await gerenciarUsuarios.enviarCadastro(dadosFormatados)
@@ -763,13 +762,21 @@ const UsuariosModal = ({
       }
 
       // Mostrar modal de confirmação com as mudanças
+      setChangedFields(changes)
       setShowConfirmModal(true)
       return
     }
 
     // Se não está editando (novo usuário), submeter diretamente
+    setSalvandoUsuario(true) // ATIVAR LOADING PARA CADASTRO
+
     try {
       const response = await cadastrarUsuario(formData)
+
+      // Se o cadastro foi bloqueado por CPF duplicado
+      if (response === false) {
+        return // Não fechar o modal, manter aberto para correção
+      }
 
       // Verificar se a resposta indica sucesso
       if (response === true || response?.success === true || response?.status === true) {
@@ -798,12 +805,15 @@ const UsuariosModal = ({
       }
 
       showCpfAlert(mensagemErro, 'danger')
+    } finally {
+      setSalvandoUsuario(false) // DESATIVAR LOADING PARA CADASTRO
     }
   }
 
   // Função para cancelar a confirmação
   const cancelarConfirmacao = () => {
     setShowConfirmModal(false)
+    setChangedFields([])
   }
 
   // Função para comparar dados originais com os editados e retornar apenas os alterados
@@ -819,27 +829,22 @@ const UsuariosModal = ({
     // Mapear campos do formulário para campos da API
     const fieldMapping = {
       tipoUsuario: (value) => (value === 'CLT' ? 'C' : value === 'PJ' ? 'P' : value),
-      nome: (value) => value.trim(),
+      nome: (value) => value?.trim() || '',
       matricula: (value) => value || '',
       celular: (value) => {
-        // Extrair apenas os números do celular (remover formatação)
-        let celularLimpo = value.replace(/[^\d]/g, '')
-
-        // Se o celular tem 11 dígitos (DDD + 9 + 8 dígitos), remover o 9 extra
+        let celularLimpo = (value || '').replace(/[^\d]/g, '')
         if (celularLimpo.length === 11 && celularLimpo.substring(2, 3) === '9') {
           celularLimpo = celularLimpo.substring(0, 2) + celularLimpo.substring(3)
         }
-
         return celularLimpo
       },
-      grupoCentralizador: (value) => value.split(' - ')[0] || value,
+      grupoCentralizador: (value) => (value || '').split(' - ')[0] || value,
       projetoPj: (value) => (value ? value.split(' - ')[0] : ''),
       supervisor: (value) => value,
       numOperacional: (value) => value,
       userIpal: (value) => value,
       userSesmt: (value) => value,
       ativo: (value) => value,
-      senha: (value) => value || undefined, // Não enviar se vazio
     }
 
     // Verificar cada campo e adicionar apenas os que mudaram
@@ -852,7 +857,7 @@ const UsuariosModal = ({
         currentValue = fieldMapping[field](currentValue)
       }
 
-      // Comparar valores (considerando valores transformados)
+      // Transformar o valor original para comparação
       let originalTransformed = originalValue
       if (field === 'tipoUsuario') {
         originalTransformed =
@@ -863,34 +868,39 @@ const UsuariosModal = ({
         originalTransformed = (originalValue || '').split(' - ')[0] || originalValue
       } else if (field === 'nome') {
         originalTransformed = (originalValue || '').trim()
+      } else if (field === 'matricula') {
+        originalTransformed = originalValue || ''
       }
 
-      // Verificar se houve mudança
-      if (originalTransformed !== currentValue) {
-        // Para senha, só incluir se foi preenchida
-        if (field === 'senha') {
-          if (currentValue && currentValue.trim()) {
-            changedData[field] = currentValue
-            hasChanges = true
-          }
-        } else {
-          changedData[field] = currentValue
-          hasChanges = true
-        }
+      // Verificar se houve mudança real
+      if (String(originalTransformed) !== String(currentValue)) {
+        changedData[field] = currentValue
+        hasChanges = true
+        console.log(`Campo ${field} alterado: "${originalTransformed}" -> "${currentValue}"`)
       }
     })
 
-    // Adicionar campos fixos que sempre devem estar presentes
-    changedData.filialFuncionario = formData.filialFuncionario || ''
-    changedData.armazemHancock = formData.armazemHancock || ''
-    changedData.equipeHancock = formData.equipeHancock || ''
-    changedData.admin = formData.admin || false
+    // Tratar senha separadamente (só incluir se foi preenchida)
+    if (formData.senha && formData.senha.trim()) {
+      changedData.senha = formData.senha
+      hasChanges = true
+      console.log('Nova senha definida')
+    }
 
+    // NÃO incluir campos fixos automaticamente - apenas se foram alterados
+    // Remover estas linhas que sempre adicionavam os campos:
+    // changedData.filialFuncionario = formData.filialFuncionario || ''
+    // changedData.armazemHancock = formData.armazemHancock || ''
+    // changedData.equipeHancock = formData.equipeHancock || ''
+    // changedData.admin = formData.admin || false
+
+    console.log('Dados alterados para envio:', changedData)
+    console.log('Tem alterações:', hasChanges)
 
     return hasChanges ? changedData : null
   }
 
-  // Função para formatar dados para exibição na confirmação
+  // Melhorar a função de comparação para exibição
   const getChangedFields = () => {
     if (!originalData) return []
 
@@ -914,31 +924,90 @@ const UsuariosModal = ({
       const original = originalData[field]
       const current = formData[field]
 
-      if (original !== current) {
-        let originalValue = original
-        let currentValue = current
+      // Normalizar valores para comparação
+      let normalizedOriginal = original
+      let normalizedCurrent = current
 
-        // Formatar valores para melhor exibição
+      if (field === 'nome') {
+        normalizedOriginal = (original || '').trim()
+        normalizedCurrent = (current || '').trim()
+      } else if (field === 'matricula') {
+        normalizedOriginal = original || ''
+        normalizedCurrent = current || ''
+      } else if (field === 'celular') {
+        const cleanOriginal = (original || '').replace(/[^\d]/g, '')
+        const cleanCurrent = (current || '').replace(/[^\d]/g, '')
+
+        // Normalizar celular (remover 9 extra se existir)
+        const normalizePhone = (phone) => {
+          if (phone.length === 11 && phone.substring(2, 3) === '9') {
+            return phone.substring(0, 2) + phone.substring(3)
+          }
+          return phone
+        }
+
+        normalizedOriginal = normalizePhone(cleanOriginal)
+        normalizedCurrent = normalizePhone(cleanCurrent)
+      } else if (field === 'grupoCentralizador' || field === 'projetoPj') {
+        normalizedOriginal = (original || '').split(' - ')[0]
+        normalizedCurrent = (current || '').split(' - ')[0]
+      } else if (field === 'tipoUsuario') {
+        normalizedOriginal = original === 'CLT' ? 'C' : original === 'PJ' ? 'P' : original
+        normalizedCurrent = current === 'CLT' ? 'C' : current === 'PJ' ? 'P' : current
+      } else if (field === 'senha') {
+        // Para senha, considerar mudança apenas se foi preenchida
+        if (current && current.trim()) {
+          normalizedOriginal = '••••••'
+          normalizedCurrent = 'Nova senha definida'
+        } else {
+          return // Não incluir se não há nova senha
+        }
+      }
+
+      // Verificar se houve mudança real
+      if (String(normalizedOriginal) !== String(normalizedCurrent)) {
+        // Formatar valores para exibição
+        let displayOriginal = original
+        let displayCurrent = current
+
         if (
           field === 'supervisor' ||
           field === 'numOperacional' ||
           field === 'userIpal' ||
           field === 'userSesmt'
         ) {
-          originalValue = original === 'S' ? 'Sim' : 'Não'
-          currentValue = current === 'S' ? 'Sim' : 'Não'
+          displayOriginal = original === 'S' ? 'Sim' : original === 'N' ? 'Não' : 'Não informado'
+          displayCurrent = current === 'S' ? 'Sim' : current === 'N' ? 'Não' : 'Não informado'
         } else if (field === 'ativo') {
-          originalValue = original === 'S' ? 'Ativo' : 'Inativo'
-          currentValue = current === 'S' ? 'Ativo' : 'Inativo'
+          displayOriginal =
+            original === 'S' ? 'Ativo' : original === 'N' ? 'Inativo' : 'Não informado'
+          displayCurrent = current === 'S' ? 'Ativo' : current === 'N' ? 'Inativo' : 'Não informado'
+        } else if (field === 'tipoUsuario') {
+          displayOriginal =
+            original === 'CLT'
+              ? 'CLT (Funcionário)'
+              : original === 'PJ'
+                ? 'PJ (Pessoa Jurídica)'
+                : original || 'Não informado'
+          displayCurrent =
+            current === 'CLT'
+              ? 'CLT (Funcionário)'
+              : current === 'PJ'
+                ? 'PJ (Pessoa Jurídica)'
+                : current || 'Não informado'
         } else if (field === 'senha') {
-          originalValue = '****'
-          currentValue = current ? 'Nova senha definida' : '****'
+          displayOriginal = '••••••'
+          displayCurrent = 'Nova senha definida'
+        } else {
+          displayOriginal = original || 'Não informado'
+          displayCurrent = current || 'Não informado'
         }
 
         changes.push({
           field: fieldsToCheck[field],
-          original: originalValue || 'Não informado',
-          current: currentValue || 'Não informado',
+          original: displayOriginal,
+          current: displayCurrent,
+          currentCadastro: displayOriginal, // Para manter compatibilidade
         })
       }
     })
@@ -946,9 +1015,11 @@ const UsuariosModal = ({
     return changes
   }
 
-  // Modificar a função confirmarEdicao
+  // Atualizar a função confirmarEdicao para usar logs mais detalhados
   const confirmarEdicao = async () => {
     setShowConfirmModal(false)
+    setChangedFields([])
+    setEditandoUsuario(true)
 
     try {
       // Obter apenas os dados que foram alterados
@@ -962,6 +1033,7 @@ const UsuariosModal = ({
         return
       }
 
+      console.log('Enviando para API apenas os dados alterados:', dadosAlterados)
 
       // Enviar para a API de atualização
       const response = await gerenciarUsuarios.atualizarUsuario(dadosAlterados)
@@ -990,6 +1062,8 @@ const UsuariosModal = ({
       }
 
       showCpfAlert(mensagemErro, 'danger')
+    } finally {
+      setEditandoUsuario(false)
     }
   }
 
@@ -1015,13 +1089,11 @@ const UsuariosModal = ({
       // Limpar formatação do CPF
       const cpfLimpo = cpf.replace(/[^\d]/g, '')
 
-
       // Buscar dados na API de edição
       const dadosUsuario = await editarFuncionario(cpfLimpo)
 
       if (dadosUsuario && dadosUsuario.length > 0) {
         const usuario = dadosUsuario[0]
-
 
         // Processar telefone/celular
         let numeroCompleto = ''
@@ -1120,24 +1192,71 @@ const UsuariosModal = ({
     }
   }
 
+  function limparCpf(v) {
+    return (v || '').replace(/[^\d]/g, '')
+  }
+
+  const verificarCpfExistente = async (cpf) => {
+    try {
+      // Usar o serviço de gerenciar usuários para verificar se o CPF já existe
+      const response = await gerenciarUsuarios.verificarCpfExistente(cpf)
+      return response
+    } catch (error) {
+      console.error('Erro ao verificar CPF existente:', error)
+      return false // Em caso de erro, não bloquear o cadastro
+    }
+  }
+
+  const validarCpfDuplicado = async (valorCpf) => {
+    const cpf = limparCpf(valorCpf)
+    // só checa se tiver 11 dígitos
+    if (cpf.length !== 11) {
+      setCpfJaExiste(false)
+      return
+    }
+
+    try {
+      // durante a edição o CPF está travado, então ignora
+      if (editingUser) {
+        setCpfJaExiste(false)
+        return
+      }
+
+      const existe = await verificarCpfExistente(cpf)
+      setCpfJaExiste(!!existe)
+
+      if (existe) {
+        showCpfAlert('Este CPF já possui cadastro no sistema.', 'warning')
+      }
+    } catch (err) {
+      console.error('Falha ao validar CPF duplicado:', err)
+      // não bloqueia em caso de erro, mas também não marca como duplicado
+      setCpfJaExiste(false)
+    }
+  }
+
+  const isLoading = loading || salvandoUsuario || editandoUsuario || carregandoDadosEdicao
+
   return (
     <>
       <CModal alignment="center" visible={showModal} onClose={() => setShowModal(false)} size="xl">
         <CModalHeader>
           <CModalTitle>
             {editingUser ? 'Editar Usuário' : 'Adicionar Novo Usuário'}
-            {carregandoDadosEdicao && <CSpinner size="sm" className="ms-2" />}
+            {(carregandoDadosEdicao || editandoUsuario) && <CSpinner size="sm" className="ms-2" />}
           </CModalTitle>
         </CModalHeader>
         <CModalBody>
           {alertCpf.show && (
             <CAlert color={alertCpf.color} className="d-flex align-items-center mb-3">
-              {(consultandoCpf || carregandoDadosEdicao) && <CSpinner size="sm" className="me-2" />}
+              {(consultandoCpf || carregandoDadosEdicao || salvandoUsuario || editandoUsuario) && (
+                <CSpinner size="sm" className="me-2" />
+              )}
               {alertCpf.message}
             </CAlert>
           )}
 
-          {/* Mostrar indicador de carregamento para dados de edição */}
+          {/* Indicadores de loading específicos */}
           {carregandoDadosEdicao && (
             <CAlert color="info" className="d-flex align-items-center mb-3">
               <CSpinner size="sm" className="me-2" />
@@ -1145,8 +1264,29 @@ const UsuariosModal = ({
             </CAlert>
           )}
 
+          {salvandoUsuario && (
+            <CAlert color="primary" className="d-flex align-items-center mb-3">
+              <CSpinner size="sm" className="me-2" />
+              Cadastrando novo usuário...
+            </CAlert>
+          )}
+
+          {editandoUsuario && (
+            <CAlert color="success" className="d-flex align-items-center mb-3">
+              <CSpinner size="sm" className="me-2" />
+              Salvando alterações do usuário...
+            </CAlert>
+          )}
+
           <CForm onSubmit={handleSubmit}>
             <CRow>
+              {isCLT && (
+                <small className="text-muted">
+                  *Para colaboradores CLT, os dados serão preenchidos automaticamente após digitar o CPF
+                  completo.
+                </small>
+              )}
+              <br />
               {/* Campo do tipo de usuario */}
               <CCol md={4} className="mb-4">
                 <CFormLabel htmlFor="tipoUsuario" className="mb-2">
@@ -1158,11 +1298,11 @@ const UsuariosModal = ({
                   value={formData.tipoUsuario}
                   onChange={handleInputChange}
                   invalid={!!formErrors.tipoUsuario}
-                  disabled={loading || carregandoDadosEdicao}
+                  disabled={isLoading}
                   required
                 >
                   <option value="" disabled>
-                    Selecione o tipo de usuário
+                    Primeiro selecione o tipo de contrato.
                   </option>
                   <option value="CLT">CLT</option>
                   <option value="PJ">PJ</option>
@@ -1182,27 +1322,27 @@ const UsuariosModal = ({
                   id="cpf"
                   name="cpf"
                   value={formData.cpf}
-                  onChange={handleInputChange}
-                  invalid={!!formErrors.cpf}
-                  disabled={
-                    loading ||
-                    noTypeSelected ||
-                    consultandoCpf ||
-                    editingUser ||
-                    carregandoDadosEdicao
-                  }
+                  onChange={(e) => {
+                    handleInputChange(e)
+                    if (cpfJaExiste) setCpfJaExiste(false)
+                  }}
+                  onBlur={(e) => validarCpfDuplicado(e.target.value)}
+                  invalid={!!formErrors.cpf || cpfJaExiste}
+                  disabled={isLoading || noTypeSelected || consultandoCpf || editingUser}
                   required
                   placeholder={
                     editingUser
                       ? 'CPF não pode ser alterado'
                       : noTypeSelected
-                        ? 'Selecione primeiro o tipo de contrato'
+                        ? 'Primeiro selecione o tipo de contrato. '
                         : consultandoCpf || carregandoDadosEdicao
                           ? 'Consultando...'
                           : 'Digite o CPF'
                   }
                 />
-                <CFormFeedback invalid>{formErrors.cpf}</CFormFeedback>
+                <CFormFeedback invalid>
+                  {formErrors.cpf || (cpfJaExiste && 'Este CPF já está cadastrado.')}
+                </CFormFeedback>
               </CCol>
 
               {/* Campo para o nome */}
@@ -1217,12 +1357,11 @@ const UsuariosModal = ({
                   onChange={handleInputChange}
                   invalid={!!formErrors.nome}
                   disabled={
-                    loading ||
+                    isLoading ||
                     noTypeSelected ||
                     consultandoCpf ||
-                    carregandoDadosEdicao ||
                     (isCLT && !editingUser) ||
-                    editingUser // Adicionar esta condição para desabilitar na edição
+                    editingUser
                   }
                   required={isPJ}
                   placeholder={
@@ -1231,7 +1370,7 @@ const UsuariosModal = ({
                       : carregandoDadosEdicao
                         ? 'Carregando dados...'
                         : noTypeSelected
-                          ? 'Selecione primeiro o tipo de contrato'
+                          ? 'Primeiro selecione o tipo de contrato. '
                           : isCLT && !editingUser
                             ? 'Nome será preenchido automaticamente.'
                             : 'Digite o nome'
@@ -1262,11 +1401,11 @@ const UsuariosModal = ({
                         onChange={handleProjetoPjSearch}
                         onFocus={() => setShowDropdownProjetoPj(true)}
                         invalid={!!formErrors.projetoPj}
-                        disabled={loading || noTypeSelected || carregandoProjetosPj}
+                        disabled={isLoading || noTypeSelected || carregandoProjetosPj}
                         required
                         placeholder={
                           noTypeSelected
-                            ? 'Selecione primeiro o tipo de contrato'
+                            ? 'Primeiro selecione o tipo de contrato. '
                             : carregandoProjetosPj
                               ? 'Carregando projetos...'
                               : 'Digite para buscar o projeto PJ'
@@ -1275,75 +1414,44 @@ const UsuariosModal = ({
                       />
                     </CInputGroup>
 
-                    {/* Dropdown com os projetos PJ filtrados */}
-                    {showDropdownProjetoPj &&
-                      !carregandoProjetosPj &&
-                      projetosPjFiltrados.length > 0 && (
-                        <div
-                          data-dropdown="projeto-pj"
-                          className="position-absolute w-100 bg-white border border-light-subtle rounded shadow-sm"
-                          style={{
-                            top: '100%',
-                            zIndex: 1050,
-                            maxHeight: '200px',
-                            overflowY: 'auto',
-                          }}
-                        >
-                          {projetosPjFiltrados.map((projeto) => (
-                            <div
-                              key={projeto.codGrupo}
-                              className="px-3 py-2 cursor-pointer border-bottom border-light"
-                              style={{
-                                cursor: 'pointer',
-                                backgroundColor: 'white',
-                                transition: 'background-color 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => (e.target.style.backgroundColor = '#f8f9fa')}
-                              onMouseLeave={(e) => (e.target.style.backgroundColor = 'white')}
-                              onClick={() => handleProjetoPjSelect(projeto)}
-                            >
-                              <div className="d-flex justify-content-between align-items-center">
-                                <div>
-                                  <strong className="text-primary">{projeto.codGrupo}</strong>
-                                  <span className="ms-2 text-dark">{projeto.descricao.trim()}</span>
-                                </div>
-                                <small className="text-muted">Clique para selecionar</small>
-                              </div>
-                            </div>
-                          ))}
-
-                          {/* Mostrar mensagem se não encontrou resultados na busca */}
-                          {searchProjetoPj.trim() !== '' && projetosPjFiltrados.length === 0 && (
-                            <div className="px-3 py-2 text-muted text-center">
-                              <small>Nenhum projeto encontrado para "{searchProjetoPj}"</small>
-                            </div>
-                          )}
-
-                          {/* Botão para fechar o dropdown */}
-                          <div className="px-3 py-2 border-top bg-light">
-                            <small
-                              className="text-muted cursor-pointer text-center d-block"
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => setShowDropdownProjetoPj(false)}
-                            >
-                              Clique aqui ou pressione ESC para fechar
-                            </small>
-                          </div>
-                        </div>
-                      )}
-
-                    {/* Mostrar mensagem quando não há projetos carregados */}
-                    {showDropdownProjetoPj && !carregandoProjetosPj && projetosPj.length === 0 && (
+                    {/* Dropdown para projetos PJ */}
+                    {showDropdownProjetoPj && projetosPjFiltrados.length > 0 && (
                       <div
-                        className="position-absolute w-100 bg-white border border-light-subtle rounded shadow-sm"
+                        data-dropdown="projeto-pj"
+                        className="position-absolute bg-white border rounded shadow-sm w-100"
                         style={{
                           top: '100%',
                           zIndex: 1050,
+                          maxHeight: '200px',
+                          overflowY: 'auto',
                         }}
                       >
-                        <div className="px-3 py-2 text-muted text-center">
-                          <small>Nenhum projeto PJ encontrado</small>
-                        </div>
+                        {carregandoProjetosPj ? (
+                          <div className="p-3 text-center">
+                            <CSpinner size="sm" /> Carregando projetos...
+                          </div>
+                        ) : (
+                          projetosPjFiltrados.map((projeto, index) => (
+                            <div
+                              key={`${projeto.codGrupo}-${index}`}
+                              className="p-2 border-bottom cursor-pointer hover-bg-light"
+                              onClick={() => handleProjetoPjSelect(projeto)}
+                              style={{
+                                cursor: 'pointer',
+                                borderBottom: '1px solid #dee2e6',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.backgroundColor = '#faf8f8ff'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.backgroundColor = 'transparent'
+                              }}
+                            >
+                              <div className="fw-bold">{projeto.codGrupo}</div>
+                              <div className="small text-muted">{projeto.descricao}</div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     )}
                   </div>
@@ -1356,7 +1464,7 @@ const UsuariosModal = ({
                     onChange={handleInputChange}
                     invalid={!!formErrors.matricula}
                     disabled={
-                      loading ||
+                      isLoading ||
                       noTypeSelected ||
                       consultandoCpf ||
                       (isCLT && !editingUser) ||
@@ -1367,7 +1475,7 @@ const UsuariosModal = ({
                       editingUser
                         ? 'Matrícula não pode ser alterada'
                         : noTypeSelected
-                          ? 'Selecione primeiro o tipo de contrato'
+                          ? 'Primeiro selecione o tipo de contrato. '
                           : isCLT && !editingUser
                             ? 'Matrícula será preenchida automaticamente.'
                             : 'Digite a matrícula'
@@ -1392,15 +1500,11 @@ const UsuariosModal = ({
                   onChange={handleInputChange}
                   invalid={!!formErrors.celular}
                   disabled={
-                    loading ||
-                    noTypeSelected ||
-                    consultandoCpf ||
-                    carregandoDadosEdicao ||
-                    (isCLT && !editingUser)
+                    isLoading || noTypeSelected || consultandoCpf || (isCLT && !editingUser)
                   }
                   placeholder={
                     noTypeSelected
-                      ? 'Selecione primeiro o tipo de contrato'
+                      ? 'Primeiro selecione o tipo de contrato. '
                       : isCLT && !editingUser
                         ? 'DDD + Celular será preenchido automaticamente.'
                         : '(62) 9999-9999'
@@ -1429,11 +1533,11 @@ const UsuariosModal = ({
                       onChange={handleGrupoSearch}
                       onFocus={() => setShowDropdown(true)}
                       invalid={!!formErrors.grupoCentralizador}
-                      disabled={loading || noTypeSelected || carregandoGrupos}
+                      disabled={isLoading || noTypeSelected || carregandoGrupos}
                       required
                       placeholder={
                         noTypeSelected
-                          ? 'Selecione primeiro o tipo de contrato'
+                          ? 'Primeiro selecione o tipo de contrato. '
                           : carregandoGrupos
                             ? 'Carregando grupos...'
                             : 'Digite para buscar o grupo centralizador'
@@ -1442,11 +1546,11 @@ const UsuariosModal = ({
                     />
                   </CInputGroup>
 
-                  {/* Dropdown com os grupos filtrados */}
-                  {showDropdown && !carregandoGrupos && gruposFiltrados.length > 0 && (
+                  {/* Dropdown para grupos centralizados */}
+                  {showDropdown && gruposFiltrados.length > 0 && (
                     <div
                       data-dropdown="grupo-centralizador"
-                      className="position-absolute w-100 bg-white border border-light-subtle rounded shadow-sm"
+                      className="position-absolute bg-white border rounded shadow-sm w-100"
                       style={{
                         top: '100%',
                         zIndex: 1050,
@@ -1454,61 +1558,32 @@ const UsuariosModal = ({
                         overflowY: 'auto',
                       }}
                     >
-                      {gruposFiltrados.map((grupo) => (
-                        <div
-                          key={grupo.codGrupo}
-                          className="px-3 py-2 cursor-pointer border-bottom border-light"
-                          style={{
-                            cursor: 'pointer',
-                            backgroundColor: 'white',
-                            transition: 'background-color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => (e.target.style.backgroundColor = '#f8f9fa')}
-                          onMouseLeave={(e) => (e.target.style.backgroundColor = 'white')}
-                          onClick={() => handleGrupoSelect(grupo)}
-                        >
-                          <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                              <strong className="text-primary">{grupo.codGrupo}</strong>
-                              <span className="ms-2 text-dark">{grupo.descricao.trim()}</span>
-                            </div>
-                            <small className="text-muted">Clique para selecionar</small>
+                      {carregandoGrupos ? (
+                        <div className="p-3 text-center">
+                          <CSpinner size="sm" /> Carregando grupos...
+                        </div>
+                      ) : (
+                        gruposFiltrados.map((grupo, index) => (
+                          <div
+                            key={`${grupo.codGrupo}-${index}`}
+                            className="p-2 border-bottom cursor-pointer hover-bg-light"
+                            onClick={() => handleGrupoSelect(grupo)}
+                            style={{
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #dee2e6',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#f8f9fa'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = 'transparent'
+                            }}
+                          >
+                            <div className="fw-bold">{grupo.codGrupo}</div>
+                            <div className="small text-muted">{grupo.descricao}</div>
                           </div>
-                        </div>
-                      ))}
-
-                      {/* Mostrar mensagem se não encontrou resultados na busca */}
-                      {searchGrupo.trim() !== '' && gruposFiltrados.length === 0 && (
-                        <div className="px-3 py-2 text-muted text-center">
-                          <small>Nenhum grupo encontrado para "{searchGrupo}"</small>
-                        </div>
+                        ))
                       )}
-
-                      {/* Botão para fechar o dropdown */}
-                      <div className="px-3 py-2 border-top bg-light">
-                        <small
-                          className="text-muted cursor-pointer text-center d-block"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => setShowDropdown(false)}
-                        >
-                          Clique aqui ou pressione ESC para fechar
-                        </small>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Mostrar mensagem quando não há grupos carregados */}
-                  {showDropdown && !carregandoGrupos && gruposCentralizados.length === 0 && (
-                    <div
-                      className="position-absolute w-100 bg-white border border-light-subtle rounded shadow-sm"
-                      style={{
-                        top: '100%',
-                        zIndex: 1050,
-                      }}
-                    >
-                      <div className="px-3 py-2 text-muted text-center">
-                        <small>Nenhum grupo centralizador encontrado</small>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1529,7 +1604,7 @@ const UsuariosModal = ({
                   value={formData.senha}
                   onChange={handleInputChange}
                   invalid={!!formErrors.senha}
-                  disabled={loading || noTypeSelected}
+                  disabled={isLoading || noTypeSelected}
                   required={!editingUser}
                   maxLength={6}
                   inputMode="numeric"
@@ -1538,7 +1613,7 @@ const UsuariosModal = ({
                     editingUser
                       ? 'Digite 6 dígitos numéricos'
                       : noTypeSelected
-                        ? 'Selecione primeiro o tipo de contrato'
+                        ? 'Primeiro selecione o tipo de contrato.'
                         : 'Somente 6 dígitos numéricos'
                   }
                 />
@@ -1563,7 +1638,7 @@ const UsuariosModal = ({
                   value={formData.confirmarSenha || ''}
                   onChange={handleInputChange}
                   invalid={!!formErrors.confirmarSenha}
-                  disabled={loading || noTypeSelected}
+                  disabled={isLoading || noTypeSelected}
                   required={!editingUser}
                   maxLength={6}
                   inputMode="numeric"
@@ -1572,19 +1647,13 @@ const UsuariosModal = ({
                     editingUser
                       ? 'Confirme os 6 dígitos'
                       : noTypeSelected
-                        ? 'Selecione primeiro o tipo de contrato'
+                        ? 'Primeiro selecione o tipo de contrato.'
                         : 'Somente 6 dígitos numéricos'
                   }
                 />
                 <CFormFeedback invalid>{formErrors.confirmarSenha}</CFormFeedback>
               </CCol>
             </CRow>
-            {isCLT && (
-              <small style={{ color: 'primary' }} className="text-muted">
-                Para usuários CLT, os dados serão preenchidos automaticamente após digitar o CPF
-                completo.
-              </small>
-            )}
 
             <hr />
 
@@ -1598,7 +1667,7 @@ const UsuariosModal = ({
                   name="supervisor"
                   checked={formData.supervisor === 'S'}
                   onChange={handleInputChange}
-                  disabled={loading || noTypeSelected}
+                  disabled={isLoading || noTypeSelected}
                 />
                 <CFormFeedback invalid>{formErrors.supervisor}</CFormFeedback>
               </CCol>
@@ -1612,7 +1681,7 @@ const UsuariosModal = ({
                   name="numOperacional"
                   checked={formData.numOperacional === 'S'}
                   onChange={handleInputChange}
-                  disabled={loading || noTypeSelected}
+                  disabled={isLoading || noTypeSelected}
                 />
                 <CFormFeedback invalid>{formErrors.numOperacional}</CFormFeedback>
               </CCol>
@@ -1626,7 +1695,7 @@ const UsuariosModal = ({
                   name="userIpal"
                   checked={formData.userIpal === 'S'}
                   onChange={handleInputChange}
-                  disabled={loading || noTypeSelected}
+                  disabled={isLoading || noTypeSelected}
                 />
                 <CFormFeedback invalid>{formErrors.userIpal}</CFormFeedback>
               </CCol>
@@ -1640,7 +1709,7 @@ const UsuariosModal = ({
                   name="userSesmt"
                   checked={formData.userSesmt === 'S'}
                   onChange={handleInputChange}
-                  disabled={loading || noTypeSelected}
+                  disabled={isLoading || noTypeSelected}
                 />
                 <CFormFeedback invalid>{formErrors.userSesmt}</CFormFeedback>
               </CCol>
@@ -1654,7 +1723,7 @@ const UsuariosModal = ({
                   name="ativo"
                   checked={formData.ativo === 'S'}
                   onChange={handleInputChange}
-                  disabled={loading || noTypeSelected}
+                  disabled={isLoading || noTypeSelected}
                 />
                 <CFormFeedback invalid>{formErrors.ativo}</CFormFeedback>
               </CCol>
@@ -1662,15 +1731,17 @@ const UsuariosModal = ({
           </CForm>
         </CModalBody>
         <CModalFooter>
-          <CButton color="secondary" onClick={() => setShowModal(false)}>
+          <CButton color="secondary" onClick={() => setShowModal(false)} disabled={isLoading}>
             Cancelar
           </CButton>
           <CButton
             color="primary"
             onClick={handleFormSubmit}
-            disabled={loading || consultandoCpf || carregandoDadosEdicao}
+            disabled={isLoading || consultandoCpf}
           >
-            {loading || carregandoDadosEdicao ? <CSpinner size="sm" className="me-1" /> : null}
+            {salvandoUsuario || editandoUsuario || carregandoDadosEdicao ? (
+              <CSpinner size="sm" className="me-1" />
+            ) : null}
             {editingUser ? 'Salvar Alterações' : 'Cadastrar Usuário'}
           </CButton>
         </CModalFooter>
@@ -1692,74 +1763,45 @@ const UsuariosModal = ({
         </CModalHeader>
         <CModalBody>
           <div className="mb-3">
-            <p className="mb-3">
-              <strong>Você está prestes a editar as informações do usuário:</strong>
-            </p>
-            <div className="bg-light p-3 rounded mb-3">
-              <p className="mb-1">
-                <strong>Nome:</strong> {formData.nome}
-              </p>
-              <p className="mb-1">
-                <strong>CPF:</strong> {formData.cpf}
-              </p>
-              <p className="mb-0">
-                <strong>Tipo:</strong> {formData.tipoUsuario}
-              </p>
-            </div>
+            <p>Você está prestes a alterar os seguintes dados do usuário:</p>
           </div>
 
-          {getChangedFields().length > 0 && (
-            <>
-              <h6 className="mb-3 text-primary">
-                <CIcon icon={cilCheckCircle} className="me-2" />
-                Alterações que serão salvas:
-              </h6>
-              <div className="table-responsive">
-                <table className="table table-sm table-striped">
-                  <thead>
-                    <tr className="table-primary">
-                      <th>Campo</th>
-                      <th>Valor Atual</th>
-                      <th>Novo Valor</th>
+          {changedFields.length > 0 && (
+            <div className="table-responsive">
+              <table className="table table-sm table-striped">
+                <thead>
+                  <tr>
+                    <th>Campos alterados</th>
+                    <th>Atual</th>
+                    <th>Atualizações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {changedFields.map((change, index) => (
+                    <tr key={index}>
+                      <td className="fw-bold">{change.field}</td>
+                      <td className="text-info">{change.currentCadastro}</td>
+                      <td className="text-success">{change.current}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {getChangedFields().map((change, index) => (
-                      <tr key={index}>
-                        <td>
-                          <strong>{change.field}</strong>
-                        </td>
-                        <td>
-                          <span className="text-muted">{change.original}</span>
-                        </td>
-                        <td>
-                          <span className="text-success fw-bold">{change.current}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
-          <CAlert color="warning" className="mt-3 mb-0">
-            <div className="d-flex align-items-center">
-              <CIcon icon={cilWarning} className="me-2" />
-              <div>
-                <strong>Atenção:</strong> Esta ação não pode ser desfeita. Certifique-se de que
-                todas as informações estão corretas antes de confirmar.
-              </div>
-            </div>
-          </CAlert>
+          <div className="mt-3">
+            <small className="text-muted">
+              Confirme se as alterações estão corretas antes de prosseguir.
+            </small>
+          </div>
         </CModalBody>
         <CModalFooter>
-          <CButton color="secondary" onClick={cancelarConfirmacao} disabled={loading}>
+          <CButton color="secondary" onClick={cancelarConfirmacao} disabled={editandoUsuario}>
             <span className="me-1">✕</span>
             Cancelar
           </CButton>
-          <CButton color="success" onClick={confirmarEdicao} disabled={loading}>
-            {loading ? (
+          <CButton color="success" onClick={confirmarEdicao} disabled={editandoUsuario}>
+            {editandoUsuario ? (
               <CSpinner size="sm" className="me-1" />
             ) : (
               <CIcon icon={cilCheckCircle} className="me-1" />
