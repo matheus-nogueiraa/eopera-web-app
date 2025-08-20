@@ -10,44 +10,44 @@ import {
   CInputGroup,
   CAlert,
   CBadge,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CButtonGroup,
   CSpinner,
   CPagination,
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilPlus, cilX, cilInfo } from '@coreui/icons'
+// Importar os novos services
+=======
+import { cilPencil, cilTrash, cilX, cilInfo, cilPlus, cilReload, cilSearch} from '@coreui/icons'
 import UsuariosModal from './UsuariosModal'
 import UsuariosTabela from './UsuariosTabela'
 import UsuarioPermissaoModal from './usuarioPermisaoModal'
+import { consultarUsuariosEoperaX } from '../../services/popularTabela'
 import { usePermissoesCRUD } from '../../contexts/PermissoesContext'
 
-// Importar o service de usuários
-import { consultarUsuariosEoperaX } from '../../services/usuariosService'
 
 const Usuarios = () => {
   // Hook para verificar permissões da rota /usuarios
   const { podeAdicionar, podeEditar, podeDeletar } = usePermissoesCRUD('/usuarios');
   
   const [usuarios, setUsuarios] = useState([])
-  const [usuariosFiltrados, setUsuariosFiltrados] = useState([])
   const [termoPesquisa, setTermoPesquisa] = useState('')
   const [alert, setAlert] = useState({ show: false, message: '', color: 'success' })
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [userToDelete, setUserToDelete] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
   const [formData, setFormData] = useState({
     matricula: '',
     nome: '',
     cpf: '',
     tipoUsuario: '',
+    celular: '',
+    grupoCentralizador: '',
+    ativo: '',
+    supervisor: '',
+    numOperacional: '',
+    userIpal: '',
+    userSesmt: '',
+    senha: '',
   })
   const [formErrors, setFormErrors] = useState({})
 
@@ -57,33 +57,144 @@ const Usuarios = () => {
 
   // Estados da paginação
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10 // Quantidade de usuários por página
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalUsuarios, setTotalUsuarios] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const itemsPerPage = 10
+
+  // Estado para debounce da pesquisa
+  const [pesquisaTimeout, setPesquisaTimeout] = useState(null)
 
   // Carregar usuários da API ao montar componente
   useEffect(() => {
-    carregarUsuarios()
+    carregarUsuariosPagina(1)
   }, [])
 
-  // Efeito para filtrar usuários quando o termo de pesquisa muda
+  // Efeito para recarregar dados quando a página muda
   useEffect(() => {
-    filtrarUsuarios()
-  }, [usuarios, termoPesquisa])
+    if (currentPage > 0) {
+      carregarUsuariosPagina(currentPage, termoPesquisa)
+    }
+  }, [currentPage])
 
-  // Paginação dos usuários filtrados
-  const totalPages = Math.ceil(usuariosFiltrados.length / itemsPerPage)
-  const paginatedUsuarios = usuariosFiltrados.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  )
-
-  // Resetar página quando pesquisa mudar
+  // Efeito para pesquisa com debounce
   useEffect(() => {
-    setCurrentPage(1)
+    if (pesquisaTimeout) {
+      clearTimeout(pesquisaTimeout)
+    }
+
+    const timeout = setTimeout(() => {
+      setCurrentPage(1) // Resetar para página 1 ao pesquisar
+      carregarUsuariosPagina(1, termoPesquisa)
+    }, 500) // Aguardar 500ms após parar de digitar
+
+    setPesquisaTimeout(timeout)
+
+    return () => {
+      if (timeout) clearTimeout(timeout)
+    }
   }, [termoPesquisa])
 
-  const carregarUsuarios = async () => {
+  const carregarUsuariosPagina = async (page, termo = '') => {
     setLoading(true)
     try {
+      const todosUsuarios = await consultarUsuariosEoperaX()
+
+      // Filtrar por termo de pesquisa se fornecido
+      let usuariosFiltrados = todosUsuarios
+      if (termo.trim()) {
+        const termoLower = termo.toLowerCase().trim()
+        const termoNumerico = termo.replace(/[^\d]/g, '') // Remove tudo que não é número
+
+        usuariosFiltrados = todosUsuarios.filter((usuario) => {
+          // 1. Busca por nome (prioridade alta)
+          const nomeMatch = usuario.nome && usuario.nome.toLowerCase().includes(termoLower)
+
+          // 2. Busca por CPF (removendo formatação)
+          const cpfLimpo = usuario.cpf ? usuario.cpf.replace(/[^\d]/g, '') : ''
+          const cpfMatch = termoNumerico && cpfLimpo.includes(termoNumerico)
+
+          // 3. Busca por matrícula
+          const matriculaMatch =
+            usuario.matricula && usuario.matricula.toString().toLowerCase().includes(termoLower)
+
+          // 4. Busca por grupo centralizador
+          const grupoMatch =
+            usuario.grupoCentralizador &&
+            usuario.grupoCentralizador.toLowerCase().includes(termoLower)
+
+          // 5. Busca por tipo de usuário - melhorada para PJ/CLT
+          const tipoMatch =
+            usuario.tipoUsuario &&
+            // Busca por "PJ" quando tipoUsuario é "P"
+            ((termoLower.includes('pj') && usuario.tipoUsuario === 'P') ||
+              // Busca por "CLT" quando tipoUsuario é "C"
+              (termoLower.includes('clt') && usuario.tipoUsuario === 'C') ||
+              // Busca pela letra original também
+              usuario.tipoUsuario.toLowerCase().includes(termoLower))
+
+          // 6. Busca por celular
+          const celularLimpo = usuario.celular ? usuario.celular.replace(/[^\d]/g, '') : ''
+          const celularMatch = termoNumerico && celularLimpo.includes(termoNumerico)
+
+          // 7. Busca por projeto PJ (se aplicável)
+          const projetoMatch =
+            usuario.projetoPj && usuario.projetoPj.toLowerCase().includes(termoLower)
+
+          return (
+            nomeMatch ||
+            cpfMatch ||
+            matriculaMatch ||
+            grupoMatch ||
+            tipoMatch ||
+            celularMatch ||
+            projetoMatch
+          )
+        })
+      }
+
+      // Ordenar os resultados para melhor relevância
+      if (termo.trim()) {
+        usuariosFiltrados.sort((a, b) => {
+          const termoLower = termo.toLowerCase().trim()
+
+          // Priorizar correspondências exatas no nome
+          const nomeAExato = a.nome && a.nome.toLowerCase().startsWith(termoLower)
+          const nomeBExato = b.nome && b.nome.toLowerCase().startsWith(termoLower)
+
+          if (nomeAExato && !nomeBExato) return -1
+          if (!nomeAExato && nomeBExato) return 1
+
+          // Depois priorizar correspondências no nome (qualquer posição)
+          const nomeAMatch = a.nome && a.nome.toLowerCase().includes(termoLower)
+          const nomeBMatch = b.nome && b.nome.toLowerCase().includes(termoLower)
+
+          if (nomeAMatch && !nomeBMatch) return -1
+          if (!nomeAMatch && nomeBMatch) return 1
+
+          // Por último, ordenar alfabeticamente
+          return (a.nome || '').localeCompare(b.nome || '')
+        })
+      } else {
+        // Sem filtro, ordenar alfabeticamente por nome
+        usuariosFiltrados.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+      }
+
+      // Aplicar paginação
+      const startIndex = (page - 1) * itemsPerPage
+      const endIndex = startIndex + itemsPerPage
+      const usuariosPaginados = usuariosFiltrados.slice(startIndex, endIndex)
+
+      // Calcular informações de paginação
+      const total = usuariosFiltrados.length
+      const totalPaginas = Math.ceil(total / itemsPerPage)
+      const temMais = endIndex < total
+
+      // Atualizar estados
+      setUsuarios(usuariosPaginados)
+      setTotalUsuarios(total)
+      setTotalPages(totalPaginas)
+      setHasMore(temMais)
       const dadosUsuarios = await consultarUsuariosEoperaX()
 
       // Transformar os dados da API para o formato esperado pelo componente
@@ -97,60 +208,13 @@ const Usuarios = () => {
       setUsuarios(usuariosFormatados)
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
-      showAlert(
-        'Erro ao carregar usuários da API. Verifique a conexão ou contate o suporte.',
-        'danger',
-      )
-
-      // Em caso de erro, manter dados simulados para não quebrar a aplicação
-      const dadosSimulados = [
-        {
-          matricula: '001134',
-          nome: 'LUCAS YAN BEZERRA DE OLIVEIRA',
-          cpf: '07391225177',
-          tipoUsuario: 'CLT',
-        },
-        {
-          matricula: '001135',
-          nome: 'MARIA SILVA SANTOS',
-          cpf: '12345678901',
-          tipoUsuario: 'PJ',
-        },
-        {
-          matricula: '001136',
-          nome: 'JOÃO CARLOS PEREIRA',
-          cpf: '98765432109',
-          tipoUsuario: 'CLT',
-        },
-      ]
-      setUsuarios(dadosSimulados)
+      showAlert('Erro ao carregar usuários. Verifique a conexão ou contate o suporte.', 'danger')
+      setUsuarios([])
+      setTotalUsuarios(0)
+      setTotalPages(1)
     } finally {
       setLoading(false)
     }
-  }
-
-  const filtrarUsuarios = () => {
-    if (!termoPesquisa.trim()) {
-      setUsuariosFiltrados(usuarios)
-      return
-    }
-
-    const termo = termoPesquisa.toLowerCase().trim()
-    const usuariosFiltrados = usuarios.filter((usuario) => {
-      const nome = usuario.nome?.toLowerCase() || ''
-      const cpf = usuario.cpf?.replace(/[^\d]/g, '') || '' // Remove formatação do CPF
-      const cpfFormatado = formatarCPF(usuario.cpf || '').toLowerCase()
-      const matricula = usuario.matricula?.toLowerCase() || ''
-
-      return (
-        nome.includes(termo) ||
-        cpf.includes(termo) ||
-        cpfFormatado.includes(termo) ||
-        matricula.includes(termo)
-      )
-    })
-
-    setUsuariosFiltrados(usuariosFiltrados)
   }
 
   const handlePesquisaChange = (e) => {
@@ -161,12 +225,27 @@ const Usuarios = () => {
     setTermoPesquisa('')
   }
 
+  const handlePageChange = (page) => {
+    if (page !== currentPage && page >= 1 && page <= totalPages && !loading) {
+      setCurrentPage(page)
+      // Remover a chamada direta aqui, pois o useEffect vai cuidar disso
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       matricula: '',
       nome: '',
       cpf: '',
       tipoUsuario: '',
+      celular: '',
+      grupoCentralizador: '',
+      ativo: '',
+      supervisor: '',
+      numOperacional: '',
+      userIpal: '',
+      userSesmt: '',
+      senha: '',
     })
     setFormErrors({})
     setEditingUser(null)
@@ -174,132 +253,10 @@ const Usuarios = () => {
 
   const showAlert = (message, color = 'success') => {
     setAlert({ show: true, message, color })
-    setTimeout(() => setAlert({ show: false, message: '', color: 'success' }), 4000)
-  }
-
-  const validarCPF = (cpf) => {
-    const s = cpf.replace(/\D/g, '')
-    if (s.length !== 11 || /^(\d)\1{10}$/.test(s)) return false
-
-    // Dígito 1
-    let soma = 0
-    for (let i = 0; i < 9; i++) soma += Number(s[i]) * (10 - i)
-    let resto = soma % 11
-    const d1 = resto < 2 ? 0 : 11 - resto
-    if (d1 !== Number(s[9])) return false
-
-    // Dígito 2
-    soma = 0
-    for (let i = 0; i < 10; i++) soma += Number(s[i]) * (11 - i)
-    resto = soma % 11
-    const d2 = resto < 2 ? 0 : 11 - resto
-    return d2 === Number(s[10])
-  }
-
-  const formatarCPF = (cpf) => {
-    if (!cpf) return ''
-    cpf = cpf.replace(/[^\d]/g, '')
-    if (cpf.length === 11) {
-      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
-    }
-    return cpf
-  }
-
-  const validateForm = () => {
-    const errors = {}
-
-    if (!formData.matricula.trim()) {
-      errors.matricula = 'Matrícula é obrigatória'
-    } else if (formData.matricula.length < 6) {
-      errors.matricula = 'Matrícula deve ter pelo menos 6 caracteres'
-    }
-
-    if (!formData.nome.trim()) {
-      errors.nome = 'Nome é obrigatório'
-    } else if (formData.nome.trim().length < 3) {
-      errors.nome = 'Nome deve ter pelo menos 3 caracteres'
-    }
-
-    const cpfLimpo = formData.cpf.replace(/[^\d]/g, '')
-    if (!cpfLimpo) {
-      errors.cpf = 'CPF é obrigatório'
-    } else if (cpfLimpo.length !== 11) {
-      errors.cpf = 'CPF deve conter 11 dígitos'
-    } else if (!validarCPF(cpfLimpo)) {
-      errors.cpf = 'CPF inválido'
-    }
-
-    if (!formData.tipoUsuario) {
-      errors.tipoUsuario = 'Tipo de usuário é obrigatório'
-    }
-
-    // Verificar se matrícula já existe
-    const matriculaExists = usuarios.some(
-      (user) => user.matricula === formData.matricula && user.matricula !== editingUser?.matricula,
-    )
-    if (matriculaExists) {
-      errors.matricula = 'Esta matrícula já está em uso'
-    }
-
-    // Verificar se CPF já existe
-    const cpfExists = usuarios.some((user) => {
-      const cpfUsuario = user.cpf?.replace(/[^\d]/g, '') || ''
-      return cpfUsuario === cpfLimpo && user.matricula !== editingUser?.matricula
-    })
-    if (cpfExists) {
-      errors.cpf = 'Este CPF já está cadastrado'
-    }
-
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    if (!validateForm()) {
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const dadosParaAPI = {
-        matricula: formData.matricula,
-        nome: formData.nome.trim(),
-        cpf: formData.cpf.replace(/[^\d]/g, ''),
-        tipoUsuario: formData.tipoUsuario,
-      }
-
-      if (editingUser) {
-        // Editar usuário - chamada PUT para API
-        setUsuarios((prev) =>
-          prev.map((user) => (user.matricula === editingUser.matricula ? dadosParaAPI : user)),
-        )
-        showAlert('Usuário atualizado com sucesso!')
-      } else {
-        // Adicionar novo usuário - chamada POST para API
-        setUsuarios((prev) => [...prev, dadosParaAPI])
-        showAlert('Usuário cadastrado com sucesso!')
-      }
-
-      setShowModal(false)
-      resetForm()
-    } catch (error) {
-      console.error('Erro ao salvar usuário:', error)
-      showAlert('Erro ao salvar usuário: ' + error.message, 'danger')
-    }
-
-    setLoading(false)
+    setTimeout(() => setAlert({ show: false, message: '', color: 'success' }), 5000)
   }
 
   const handleEdit = (user) => {
-    setFormData({
-      matricula: user.matricula,
-      nome: user.nome,
-      cpf: formatarCPF(user.cpf),
-      tipoUsuario: user.tipoUsuario,
-    })
     setEditingUser(user)
     setShowModal(true)
   }
@@ -317,23 +274,24 @@ const Usuarios = () => {
 
   const confirmDelete = async () => {
     if (!userToDelete) return
+    setFormData({
+      matricula: user.matricula || '',
+      nome: user.nome || '',
+      cpf: user.cpf || '',
+      tipoUsuario: user.tipoUsuario || '',
+      celular: user.celular || '',
+      grupoCentralizador: user.grupoCentralizador || '',
+      ativo: user.ativo || 'S',
+      supervisor: user.supervisor || 'N',
+      numOperacional: user.numOperacional || 'N',
+      userIpal: user.userIpal || 'N',
+      userSesmt: user.userSesmt || 'N',
+      senha: '',
+      confirmarSenha: '',
+      projetoPj: user.projetoPj || '',
+    })
 
-    setLoading(true)
-    try {
-      setUsuarios((prev) => prev.filter((user) => user.matricula !== userToDelete.matricula))
-      showAlert('Usuário excluído com sucesso!')
-      setShowDeleteModal(false)
-      setUserToDelete(null)
-    } catch (error) {
-      console.error('Erro ao excluir usuário:', error)
-      showAlert('Erro ao excluir usuário: ' + error.message, 'danger')
-    }
-    setLoading(false)
-  }
-
-  const cancelDelete = () => {
-    setShowDeleteModal(false)
-    setUserToDelete(null)
+    setShowModal(true)
   }
 
   const handleNewUser = () => {
@@ -348,7 +306,6 @@ const Usuarios = () => {
       'NÃO INFORMADO': 'secondary',
     }
 
-    // Formatação dos valores
     let tipoFormatado = ''
     if (tipo === 'C') {
       tipoFormatado = 'CLT'
@@ -357,11 +314,19 @@ const Usuarios = () => {
     } else if (!tipo || tipo.trim() === '') {
       tipoFormatado = 'NÃO INFORMADO'
     } else {
-      // Para outros valores que já podem estar formatados (CLT, PJ)
       tipoFormatado = tipo
     }
 
     return <CBadge color={cores[tipoFormatado] || 'secondary'}>{tipoFormatado}</CBadge>
+  }
+
+  const formatarCPF = (cpf) => {
+    if (!cpf) return ''
+    cpf = cpf.replace(/[^\d]/g, '')
+    if (cpf.length === 11) {
+      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    }
+    return cpf
   }
 
   // Função para calcular as páginas a serem exibidas
@@ -397,12 +362,17 @@ const Usuarios = () => {
 
   const visiblePages = getVisiblePages()
 
+  // Função para recarregar a lista de usuários (será chamada após cadastro/edição)
+  const recarregarUsuarios = () => {
+    carregarUsuariosPagina(currentPage, termoPesquisa)
+  }
+
   return (
     <div className="container-fluid">
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
         <div>
           <h1 className="h3 mb-0 text-gray-800">Gestão de Usuários</h1>
-          <p className="mb-0 text-muted">Crie, exclua ou altere dados dos usuários.</p>
+          <p className="mb-0 text-muted">Crie ou altere dados dos usuários.</p>
         </div>
       </div>
 
@@ -417,7 +387,7 @@ const Usuarios = () => {
                 <CCol lg={6}>
                   <CInputGroup>
                     <CFormInput
-                      placeholder="Pesquisar por nome, CPF ou matrícula..."
+                      placeholder="Pesquisar por nome, CPF, matrícula, grupo, PJ, CLT..."
                       value={termoPesquisa}
                       onChange={handlePesquisaChange}
                     />
@@ -432,63 +402,29 @@ const Usuarios = () => {
                     </CButton>
                   </CInputGroup>
                 </CCol>
-                {/* <CCol lg={7}>
-                  {podeAdicionar ? (
-                    <CButton
-                      className="w-100"
-                      color="primary"
-                      onClick={handleNewUser}
-                      disabled={loading}
-                    >
-                      <CIcon icon={cilPlus} className="me-1" />
-                      Adicionar Novo Usuário
-                    </CButton>
-                  ) : (
-                    <div className="text-muted text-center">
-                      <small>
-                        <CIcon icon={cilInfo} className="me-1" />
-                        Você não tem permissão para adicionar usuários
-                      </small>
-                    </div>
-                  )}
-                </CCol> */}
+                <CCol lg={6}>
+                  <CButton
+                    className="w-100"
+                    color="primary"
+                    onClick={handleNewUser}
+                    disabled={loading}
+                  >
+                    <CIcon icon={cilPlus} className="me-1" />
+                    Novo Usuário
+                  </CButton>
+                </CCol>
               </CRow>
 
-              {termoPesquisa && (
-                <div className="mb-3">
-                  <small className="text-muted">
-                    Mostrando {usuariosFiltrados.length} de {usuarios.length} usuários
-                    {termoPesquisa && ` para "${termoPesquisa}"`}
-                  </small>
-                </div>
-              )}
-
-              {usuariosFiltrados.length > itemsPerPage && (
-                <div className="mb-3 d-flex justify-content-between align-items-center">
-                  <small className="text-muted">
-                    Página {currentPage} de {totalPages} - Exibindo{' '}
-                    {(currentPage - 1) * itemsPerPage + 1} a{' '}
-                    {Math.min(currentPage * itemsPerPage, usuariosFiltrados.length)} de{' '}
-                    {usuariosFiltrados.length} usuários
-                  </small>
-                </div>
-              )}
-
               <hr />
+
               {alert.show && (
                 <CAlert color={alert.color} className="d-flex align-items-center">
                   {alert.message}
                 </CAlert>
               )}
-              {loading && (
-                <div className="text-center py-3">
-                  <CSpinner color="primary" />
-                  <p className="mt-2 text-muted">Carregando usuários...</p>
-                </div>
-              )}
 
               <UsuariosTabela
-                paginatedUsuarios={paginatedUsuarios}
+                paginatedUsuarios={usuarios}
                 formatarCPF={formatarCPF}
                 getTipoUsuarioBadge={getTipoUsuarioBadge}
                 handleEdit={handleEdit}
@@ -500,17 +436,16 @@ const Usuarios = () => {
                 podeDeletar={podeDeletar}
               />
 
-              
-
+              {/* Paginação */}
               {totalPages > 1 && (
-                <div className="d-flex justify-content-end">
+                <div className="d-flex justify-content-end mt-4">
                   <CPagination className="mb-0">
                     <CPaginationItem
                       aria-label="Previous"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                      disabled={currentPage === 1 || loading}
+                      onClick={() => handlePageChange(currentPage - 1)}
                       style={{ cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
-                    > 
+                    >
                       <span aria-hidden="true">&laquo;</span>
                     </CPaginationItem>
 
@@ -524,9 +459,10 @@ const Usuarios = () => {
                           key={page}
                           aria-label={`Page ${page}`}
                           active={currentPage === page}
-                          onClick={() => setCurrentPage(page)}
-                          style={{ cursor: 'pointer' }}
-                        > 
+                          disabled={loading}
+                          onClick={() => handlePageChange(page)}
+                          style={{ cursor: loading ? 'not-allowed' : 'pointer' }}
+                        >
                           {page}
                         </CPaginationItem>
                       ),
@@ -534,14 +470,12 @@ const Usuarios = () => {
 
                     <CPaginationItem
                       aria-label="Next"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
+                      disabled={currentPage === totalPages || loading}
+                      onClick={() => handlePageChange(currentPage + 1)}
                       style={{ cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
                     >
                       <span aria-hidden="true">&raquo;</span>
                     </CPaginationItem>
-
-                    
                   </CPagination>
                 </div>
               )}
@@ -553,17 +487,13 @@ const Usuarios = () => {
       <UsuariosModal
         showModal={showModal}
         setShowModal={setShowModal}
-        showDeleteModal={showDeleteModal}
-        setShowDeleteModal={setShowDeleteModal}
-        userToDelete={userToDelete}
         editingUser={editingUser}
         loading={loading}
         formData={formData}
         setFormData={setFormData}
         formErrors={formErrors}
-        handleSubmit={handleSubmit}
-        cancelDelete={cancelDelete}
-        confirmDelete={confirmDelete}
+        setFormErrors={setFormErrors}
+        onUsuarioSalvo={recarregarUsuarios} // Adicionar callback para recarregar
       />
 
       <UsuarioPermissaoModal
