@@ -9,17 +9,23 @@ import {
   CButton,
   CButtonGroup,
   CBadge,
+  CTooltip
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilLockLocked, cilPencil } from '@coreui/icons'
+import { cilPencil, cilTrash, cilLockLocked, cilLockLocked, cilPencil from '@coreui/icons'
 
 const UsuariosTabela = ({
   paginatedUsuarios,
   formatarCPF,
   getTipoUsuarioBadge,
   handleEdit,
+  gerenciar-usuarios-atualizado
+  handleEditPermissao,
+  handleDelete,
   loading,
   termoPesquisa,
+  podeEditar,
+  podeDeletar,
 }) => {
   // Função para formatar e exibir o grupo
   const formatarGrupo = (grupo) => {
@@ -118,26 +124,37 @@ const UsuariosTabela = ({
             </CTableDataCell>
             <CTableDataCell>
               {/*Grupo de botões da tabela */}
-              <CButtonGroup className="w-100">
-                {/*Editar usuário*/}
-                <CButton
-                  className="flex-fill"
-                  color="info"
-                  size="sm"
-                  onClick={() => handleEdit(user)}
-                  disabled={loading}
+             <CButtonGroup className="w-100">
+                {/* {podeEditar && (
+                  <CTooltip
+                    content="Editar usuário"
+                    placement="top"
+                  >
+                    <CButton
+                      className="flex-fill"
+                      color="warning"
+                      size="sm"
+                      onClick={() => handleEdit(user)}
+                      disabled={loading}
+                    >
+                      <CIcon icon={cilPencil} />
+                    </CButton>
+                  </CTooltip>
+                )} */}
+                <CTooltip
+                  content="Alterar permissões"
+                  placement="top"
                 >
-                  <CIcon icon={cilPencil} />
-                </CButton>
-                {/*Permissões do Usuario */}
-                <CButton
-                  className="flex-fill"
-                  color="warning"
-                  size="sm"
-                  disabled={loading}
-                >
-                  <CIcon icon={cilLockLocked} />
-                </CButton>
+                  <CButton
+                    className="flex-fill"
+                    color="info"
+                    size="sm"
+                    onClick={() => handleEditPermissao(user)}
+                    disabled={loading}
+                  >
+                    <CIcon icon={cilLockLocked} />
+                  </CButton>
+                </CTooltip>
               </CButtonGroup>
             </CTableDataCell>
           </CTableRow>

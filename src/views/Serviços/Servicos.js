@@ -7,9 +7,10 @@ import {
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react';
-import { cilPlus, cilCloudDownload, cilCheckCircle, cilX } from '@coreui/icons'
+import { cilPlus, cilCloudDownload, cilCheckCircle, cilX, cilInfo } from '@coreui/icons'
 import ServicosModal from './servicosModal';
 import ServicosTabela from './servicosTabela';
+import { usePermissoesCRUD } from '../../contexts/PermissoesContext';
 
 // Adicionando estilos CSS para animação
 const styles = `
@@ -30,14 +31,22 @@ const styles = `
 `;
 
 const criarConteudos = () => {
-  const [showModal, setShowModal] = useState(false);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({
+  const [ showModal, setShowModal ] = useState(false);
+  const [ search, setSearch ] = useState('');
+  const [ loading, setLoading ] = useState(false);
+  const [ alert, setAlert ] = useState({
     visible: false,
     message: '',
     color: 'success'
   });
+
+  // Hook para verificar permissões da rota /servicos
+  const { podeAdicionar, podeEditar, podeDeletar } = usePermissoesCRUD('/servicos');
+
+  // Debug - pode ser removido depois
+  useEffect(() => {
+    const isAdmin = localStorage.getItem('admin') === 'T'
+  }, [ podeAdicionar, podeEditar, podeDeletar ]);
 
   // Referência para a tabela de serviços
   const tabelaRef = useRef(null);
@@ -48,7 +57,7 @@ const criarConteudos = () => {
     styleSheet.type = "text/css";
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
-    
+
     return () => {
       document.head.removeChild(styleSheet);
     };
@@ -81,7 +90,7 @@ const criarConteudos = () => {
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 className="h3 mb-0 text-gray-800">Lançamento de Serviços</h1>
       </div>
-      
+
       {/* Alertas */}
       {alert.visible && alert.color === 'success' && (
         <CAlert 
@@ -104,39 +113,53 @@ const criarConteudos = () => {
             dangerouslySetInnerHTML={{ __html: alert.message }}
           />
         </CAlert>
-      )}
-      
+      )} 
+
       <CRow className="mb-4">
         <CCol lg={12} className="d-flex align-items-center gap-2 mb-4">
-          <CButton 
-            color="primary" 
-            style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }} 
-            onClick={() => setShowModal(true)}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <CSpinner size="sm" className="me-2" />
-                Processando...
-              </>
-            ) : (
-              <>
-                <CIcon icon={cilPlus} className="text-white" /> Adicionar OS
-              </>
-            )}
-          </CButton>
+          {podeAdicionar ? (
+            <CButton
+              color="primary"
+              style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}
+              onClick={() => setShowModal(true)}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <CSpinner size="sm" className="me-2" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <CIcon icon={cilPlus} className="text-white" /> Adicionar OS
+                </>
+              )}
+            </CButton>
+          ) : (
+            <div className="text-muted">
+              <small>
+                <CIcon icon={cilInfo} className="me-1" />
+                Você não tem permissão para adicionar serviços
+              </small>
+            </div>
+          )}
         </CCol>
-        <ServicosTabela ref={tabelaRef} />
+        <ServicosTabela
+          ref={tabelaRef}
+          podeEditar={podeEditar}
+          podeDeletar={podeDeletar}
+          showAlertParent={showAlert}
+        />
       </CRow>
-      
-      <ServicosModal 
-        visible={showModal} 
-        setVisible={setShowModal} 
+
+      <ServicosModal
+        visible={showModal}
+        setVisible={setShowModal}
         setLoadingParent={setLoading}
         showAlertParent={showAlert}
         onSuccess={handleCadastroSucesso}
       />
-      
+
     </div>
   );
 };

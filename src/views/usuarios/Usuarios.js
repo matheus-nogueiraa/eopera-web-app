@@ -15,13 +15,20 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilX, cilReload, cilSearch } from '@coreui/icons'
+// Importar os novos services
+=======
+import { cilPencil, cilTrash, cilX, cilInfo, cilPlus, cilReload, cilSearch} from '@coreui/icons'
 import UsuariosModal from './UsuariosModal'
 import UsuariosTabela from './UsuariosTabela'
+import UsuarioPermissaoModal from './usuarioPermisaoModal'
 import { consultarUsuariosEoperaX } from '../../services/popularTabela'
-// Importar os novos services
+import { usePermissoesCRUD } from '../../contexts/PermissoesContext'
+
 
 const Usuarios = () => {
+  // Hook para verificar permissões da rota /usuarios
+  const { podeAdicionar, podeEditar, podeDeletar } = usePermissoesCRUD('/usuarios');
+  
   const [usuarios, setUsuarios] = useState([])
   const [termoPesquisa, setTermoPesquisa] = useState('')
   const [alert, setAlert] = useState({ show: false, message: '', color: 'success' })
@@ -43,6 +50,10 @@ const Usuarios = () => {
     senha: '',
   })
   const [formErrors, setFormErrors] = useState({})
+
+  // Estados para modal de permissões
+  const [showPermissaoModal, setShowPermissaoModal] = useState(false)
+  const [editingUserPermissao, setEditingUserPermissao] = useState(null)
 
   // Estados da paginação
   const [currentPage, setCurrentPage] = useState(1)
@@ -87,7 +98,6 @@ const Usuarios = () => {
   const carregarUsuariosPagina = async (page, termo = '') => {
     setLoading(true)
     try {
-      // Buscar todos os usuários da API
       const todosUsuarios = await consultarUsuariosEoperaX()
 
       // Filtrar por termo de pesquisa se fornecido
@@ -185,6 +195,17 @@ const Usuarios = () => {
       setTotalUsuarios(total)
       setTotalPages(totalPaginas)
       setHasMore(temMais)
+      const dadosUsuarios = await consultarUsuariosEoperaX()
+
+      // Transformar os dados da API para o formato esperado pelo componente
+      const usuariosFormatados = dadosUsuarios.map((usuario) => ({
+        matricula: usuario.matricula || '',
+        nome: usuario.nome || '',
+        cpf: usuario.cpf || '',
+        tipoUsuario: usuario.tipoUsuario || '',
+      }))
+
+      setUsuarios(usuariosFormatados)
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
       showAlert('Erro ao carregar usuários. Verifique a conexão ou contate o suporte.', 'danger')
@@ -237,9 +258,22 @@ const Usuarios = () => {
 
   const handleEdit = (user) => {
     setEditingUser(user)
+    setShowModal(true)
+  }
 
-    // Inicializar o formulário apenas com dados básicos
-    // Os dados completos serão carregados da API no modal
+  const handleEditPermissao = (user) => {
+    setEditingUserPermissao(user)
+    setShowPermissaoModal(true)
+  }
+
+  const handleDelete = (matricula) => {
+    const user = usuarios.find((u) => u.matricula === matricula)
+    setUserToDelete(user)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return
     setFormData({
       matricula: user.matricula || '',
       nome: user.nome || '',
@@ -368,7 +402,6 @@ const Usuarios = () => {
                     </CButton>
                   </CInputGroup>
                 </CCol>
-
                 <CCol lg={6}>
                   <CButton
                     className="w-100"
@@ -395,8 +428,12 @@ const Usuarios = () => {
                 formatarCPF={formatarCPF}
                 getTipoUsuarioBadge={getTipoUsuarioBadge}
                 handleEdit={handleEdit}
+                handleEditPermissao={handleEditPermissao}
+                handleDelete={handleDelete}
                 loading={loading}
                 termoPesquisa={termoPesquisa}
+                podeEditar={podeEditar}
+                podeDeletar={podeDeletar}
               />
 
               {/* Paginação */}
@@ -458,6 +495,13 @@ const Usuarios = () => {
         setFormErrors={setFormErrors}
         onUsuarioSalvo={recarregarUsuarios} // Adicionar callback para recarregar
       />
+
+      <UsuarioPermissaoModal
+        showModal={showPermissaoModal}
+        setShowModal={setShowPermissaoModal}
+        editingUser={editingUserPermissao}
+      />
+      
     </div>
   )
 }

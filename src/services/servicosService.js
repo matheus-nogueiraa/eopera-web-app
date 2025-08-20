@@ -141,10 +141,21 @@ export default servicosService;
 export const consultarServicosProtheus = async (params = {}) => {
   try {
     let endpoint = '/consultaServicosProtheus';
+    const queryParams = [];
+    
+    // Adicionar parâmetro centroCusto se fornecido
+    if (params.centroCusto) {
+      queryParams.push(`centroCusto=${params.centroCusto}`);
+    }
     
     // Adicionar parâmetro idServico se fornecido
     if (params.idServico) {
-      endpoint += `?idServico=${params.idServico}`;
+      queryParams.push(`idServico=${params.idServico}`);
+    }
+    
+    // Montar a URL com os parâmetros
+    if (queryParams.length > 0) {
+      endpoint += `?${queryParams.join('&')}`;
     }
 
     const response = await httpRequest(endpoint, {

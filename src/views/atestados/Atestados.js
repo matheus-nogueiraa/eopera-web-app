@@ -32,6 +32,7 @@ const Atestados = () => {
   const [ showSuccessAlert, setShowSuccessAlert ] = useState(false)
   const [ isLoading, setIsLoading ] = useState(false)
   const [ selectedCid, setSelectedCid ] = useState(null)
+  const [ dadosUsuarioValidos, setDadosUsuarioValidos ] = useState(true)
 
   // Estados para gerenciar os CIDs da API
   const [ cidOptions, setCidOptions ] = useState([
@@ -47,6 +48,29 @@ const Atestados = () => {
   // Hooks necessários
   const fileInputRef = useRef(null)
   const { file, fileError, handleFileChange, handleViewFile, handleRemoveFile } = useFileHandler()
+
+  // Verificar dados do localStorage ao montar o componente
+  useEffect(() => {
+    const verificarDadosUsuario = () => {
+      const matricula = localStorage.getItem('matricula')
+      const cpf = localStorage.getItem('cpf')
+      const nomeUsuario = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome')
+      
+      if (!matricula || !cpf || !nomeUsuario) {
+        setDadosUsuarioValidos(false)
+        setProcessInfo({
+          idProcess: null,
+          mensagem: 'Dados do usuário não encontrados no sistema. Por favor, faça login novamente para acessar esta funcionalidade.',
+        })
+        setAlertType('danger')
+        setShowSuccessAlert(true)
+        return false
+      }
+      return true
+    }
+    
+    verificarDadosUsuario()
+  }, [])
 
   // Função para buscar CIDs da API
   const buscarCidsComFiltro = async (termoBusca = '') => {
@@ -143,7 +167,6 @@ const Atestados = () => {
         setCidOptions(cidsFormatados)
       } else {
         setCidOptions([])
-        console.log('Nenhum CID encontrado na resposta')
       }
     } catch (error) {
       console.error('Erro ao buscar CIDs:', error)
@@ -196,14 +219,82 @@ const Atestados = () => {
     }
   }
 
+  // Função para validar todos os campos obrigatórios
+  const validarFormulario = () => {
+    const erros = []
+    
+    // Validar dados do localStorage (principais)
+    const matricula = localStorage.getItem('matricula')
+    const cpf = localStorage.getItem('cpf')
+    const nomeUsuario = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome')
+    
+    if (!matricula || matricula.trim() === '') {
+      erros.push('Matrícula não encontrada no sistema. Faça login novamente.')
+    }
+    
+    if (!cpf || cpf.trim() === '') {
+      erros.push('CPF não encontrado no sistema. Faça login novamente.')
+    }
+    
+    if (!nomeUsuario || nomeUsuario.trim() === '') {
+      erros.push('Nome do usuário não encontrado no sistema. Faça login novamente.')
+    }
+
+    // Validar campos do formulário
+    const tipificacao = document.getElementById('tipificacaoAtestado')?.value
+    if (!tipificacao || tipificacao === '') {
+      erros.push('Tipificação é obrigatória.')
+    }
+
+    const especificacao = document.getElementById('especificacaoAtestado')?.value
+    if (!especificacao || especificacao === '') {
+      erros.push('Especificação é obrigatória.')
+    }
+
+    const dataInicio = document.getElementById('dataInicioAtestado')?.value
+    if (!dataInicio || dataInicio === '') {
+      erros.push('Data de início é obrigatória.')
+    }
+
+    const diasAtestado = document.getElementById('diasAtestado')?.value
+    if (!diasAtestado || diasAtestado === '' || parseInt(diasAtestado) < 1) {
+      erros.push('Dias de atestado é obrigatório e deve ser maior que 0.')
+    }
+
+    const nomeMedico = document.getElementById('medicoAtestado')?.value
+    if (!nomeMedico || nomeMedico.trim() === '') {
+      erros.push('Nome do médico responsável é obrigatório.')
+    }
+
+    // CID não é obrigatório - comentado
+    // if (!selectedCid || !selectedCid.value) {
+    //   erros.push('CID é obrigatório.')
+    // }
+
+    // Validar anexo
+    if (!file && (!fileInputRef.current?.files || fileInputRef.current.files.length === 0)) {
+      erros.push('Anexo do atestado é obrigatório.')
+    }
+
+    return erros
+  }
+
   // Função para lidar com o submit do formulário
   const handleSubmit = async (event) => {
     event.preventDefault()
-    const formElement = event.currentTarget
-    const anexoBase64 = fileInputRef.current?.files[ 0 ] ? await getFileBase64(fileInputRef.current.files[ 0 ]) : ''
-
-    if (formElement.checkValidity() === false) {
-      event.stopPropagation()
+    
+    // Executar validação personalizada
+    const errosValidacao = validarFormulario()
+    
+    if (errosValidacao.length > 0) {
+      // Mostrar todos os erros
+      const mensagemErro = errosValidacao.join('\n')
+      setProcessInfo({
+        idProcess: null,
+        mensagem: `Erro de validação:\n${mensagemErro}`,
+      })
+      setAlertType('danger')
+      setShowSuccessAlert(true)
       setValidated(true)
       return
     }
@@ -211,10 +302,22 @@ const Atestados = () => {
     setIsLoading(true)
 
     try {
+      const anexoBase64 = fileInputRef.current?.files[ 0 ] ? await getFileBase64(fileInputRef.current.files[ 0 ]) : ''
+      
+      // Obter dados do localStorage com verificação
+      const matricula = localStorage.getItem('matricula') || ''
+      const cpf = localStorage.getItem('cpf') || ''
+      const userNome = localStorage.getItem('nomeUsuario') || localStorage.getItem('nome') || ''
+      
+      // Verificar novamente se os dados principais estão presentes
+      if (!matricula || !cpf || !userNome) {
+        throw new Error('Dados do usuário não encontrados. Faça login novamente.')
+      }
+
       const dadosFormulario = {
-        matricula: localStorage.getItem('matricula') || '',
-        cpf: localStorage.getItem('cpf') || '',
-        userNome: localStorage.getItem('nomeUsuario') || '',
+        matricula,
+        cpf,
+        userNome,
         atestado: document.getElementById('tipificacaoAtestado')?.options[ document.getElementById('tipificacaoAtestado')?.selectedIndex ]?.text || '',
         motivoAfastamento: document.getElementById('especificacaoAtestado')?.options[ document.getElementById('especificacaoAtestado')?.selectedIndex ]?.text || '',
         dataInicio: document.getElementById('dataInicioAtestado')?.value || '',
@@ -226,7 +329,23 @@ const Atestados = () => {
         nomeAnexo: file?.name || (fileInputRef.current?.files[ 0 ]?.name ?? ''),
       }
 
-      console.log('Dados do formulário:', dadosFormulario)
+      // Verificar se todos os campos obrigatórios estão preenchidos
+      const camposObrigatoriosVazios = []
+      if (!dadosFormulario.matricula) camposObrigatoriosVazios.push('Matrícula')
+      if (!dadosFormulario.cpf) camposObrigatoriosVazios.push('CPF')
+      if (!dadosFormulario.userNome) camposObrigatoriosVazios.push('Nome do usuário')
+      if (!dadosFormulario.atestado) camposObrigatoriosVazios.push('Tipificação')
+      if (!dadosFormulario.motivoAfastamento) camposObrigatoriosVazios.push('Especificação')
+      if (!dadosFormulario.dataInicio) camposObrigatoriosVazios.push('Data de início')
+      if (!dadosFormulario.qtdDias) camposObrigatoriosVazios.push('Dias de atestado')
+      // CID não é obrigatório - comentado
+      // if (!dadosFormulario.cid) camposObrigatoriosVazios.push('CID')
+      if (!dadosFormulario.nomeMedico) camposObrigatoriosVazios.push('Nome do médico')
+      if (!dadosFormulario.anexoBase64) camposObrigatoriosVazios.push('Anexo do atestado')
+
+      if (camposObrigatoriosVazios.length > 0) {
+        throw new Error(`Os seguintes campos obrigatórios não foram preenchidos: ${camposObrigatoriosVazios.join(', ')}`)
+      }
 
       await enviarAtestado(dadosFormulario)
       limparFormulario(setValidated, fileInputRef)
@@ -253,14 +372,33 @@ const Atestados = () => {
       handleRemoveFile(fileInputRef)
 
       // Resetar o estado do formulário
-      formElement.reset()
+      // formElement.reset()
       setValidated(false)
 
       // Esconder alerta após 5 segundos
       setTimeout(() => setShowSuccessAlert(false), 5000)
     } catch (error) {
       console.error('Erro ao enviar atestado:', error)
-      // Aqui você pode adicionar tratamento de erro (toast, modal, etc.)
+      
+      // Tratar diferentes tipos de erro
+      let mensagemErro = 'Erro inesperado ao enviar atestado.'
+      if (error.message) {
+        mensagemErro = error.message
+      } else if (error.response?.data?.message) {
+        mensagemErro = error.response.data.message
+      } else if (typeof error === 'string') {
+        mensagemErro = error
+      }
+      
+      setProcessInfo({
+        idProcess: null,
+        mensagem: mensagemErro,
+      })
+      setAlertType('danger')
+      setShowSuccessAlert(true)
+      
+      // Esconder alerta de erro após 8 segundos
+      setTimeout(() => setShowSuccessAlert(false), 8000)
     } finally {
       setIsLoading(false)
     }
@@ -289,21 +427,34 @@ const Atestados = () => {
         <div>
           <h1 className="h3 mb-0 text-gray-800">Enviar Atestados</h1>
           <small className="text-muted">
-            Matrícula: {localStorage.getItem('matricula') || 'NÃO ENCONTRADA'} | Nome:{' '}
-            {localStorage.getItem('nomeUsuario') ||
-              localStorage.getItem('nome') ||
-              'NÃO ENCONTRADO'}
+            {localStorage.getItem('matricula') ? (
+              <>
+                Matrícula: {localStorage.getItem('matricula') || ''} | Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }
+              </>
+            ) : (
+              <span>Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }</span>
+            )}
           </small>
         </div>
       </div>
 
-      {/* Alert de Sucesso com Ícone */}
+      {/* Alert de Sucesso/Erro com Ícone */}
       {showSuccessAlert && processInfo && (
         <CAlert
           color={alertType}
           dismissible
           onClose={() => setShowSuccessAlert(false)}
-          className="d-flex align-items-center shadow-sm"
+          className="d-flex align-items-start shadow-sm"
           style={{
             borderRadius: '10px',
             border: 'none',
@@ -311,10 +462,19 @@ const Atestados = () => {
             fontWeight: '500',
           }}
         >
-          <CIcon icon={cilCheckCircle} className="flex-shrink-0 me-2" width={24} height={24} />
-          <div>
-            <strong>Concluído!</strong> {processInfo.mensagem}<br />
-            <span>Protocolo: <strong>{processInfo.idProcess}</strong></span>
+          <CIcon icon={cilCheckCircle} className="flex-shrink-0 me-2 mt-1" width={24} height={24} />
+          <div style={{ whiteSpace: 'pre-line' }}>
+            {alertType === 'success' ? (
+              <>
+                <strong>Concluído!</strong> {processInfo.mensagem}<br />
+                <span>Protocolo: <strong>{processInfo.idProcess}</strong></span>
+              </>
+            ) : (
+              <>
+                <strong>Erro!</strong><br />
+                {processInfo.mensagem}
+              </>
+            )}
           </div>
         </CAlert>
       )}
@@ -343,26 +503,33 @@ const Atestados = () => {
               <h6 className="m-0 font-weight-bold text-primary">Incluir Atestado Médico</h6>
             </CCardHeader>
             <CCardBody>
-              <CForm
-                className="needs-validation"
-                noValidate
-                validated={validated}
-                onSubmit={handleSubmit}
-              >
+              {!dadosUsuarioValidos ? (
+                <div className="text-center py-5">
+                  <div className="alert alert-warning">
+                    <h5>Acesso Restrito</h5>
+                    <p>Para acessar esta funcionalidade, é necessário estar logado com dados válidos (matrícula, CPF e nome).</p>
+                    <p>Por favor, faça login novamente.</p>
+                  </div>
+                </div>
+              ) : (
+                <CForm
+                  className="needs-validation"
+                  noValidate
+                  onSubmit={handleSubmit}
+                >
                 <CRow className="g-3">
                   {/* Seletor de Tipificação */}
                   <CCol md={4}>
                     <CFormLabel htmlFor="tipificacaoAtestado">
                       Tipificação:<span className="text-danger">*</span>
                     </CFormLabel>
-                    <CFormSelect id="tipificacaoAtestado" required defaultValue="">
+                    <CFormSelect id="tipificacaoAtestado" defaultValue="">
                       <option value="" disabled>
                         Selecione a tipificação:
                       </option>
                       <option value="1">Médico.</option>
                       <option value="2">Odontológico.</option>
                     </CFormSelect>
-                    <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
 
                   {/* Seletor de Especificação */}
@@ -370,7 +537,7 @@ const Atestados = () => {
                     <CFormLabel htmlFor="especificacaoAtestado">
                       Especificação:<span className="text-danger">*</span>
                     </CFormLabel>
-                    <CFormSelect id="especificacaoAtestado" required defaultValue="">
+                    <CFormSelect id="especificacaoAtestado" defaultValue="">
                       <option value="" disabled>
                         Selecione a especificação:
                       </option>
@@ -378,7 +545,6 @@ const Atestados = () => {
                       <option value="2">Acidente de trabalho.</option>
                       <option value="3">Licença maternidade.</option>
                     </CFormSelect>
-                    <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
 
                   {/* Seletor de CID com React Select */}
@@ -400,7 +566,6 @@ const Atestados = () => {
                       options={cidOptions}
                       value={selectedCid}
                       onChange={(selected) => {
-                        console.log('CID selecionado:', selected)
                         setSelectedCid(selected)
                         // Limpar o input após seleção para melhor UX
                         if (selected) {
@@ -497,7 +662,6 @@ const Atestados = () => {
                       <CFormInput
                         type="date"
                         id="dataInicioAtestado"
-                        required
                         max={new Date().toISOString().split('T')[ 0 ]}
                         onChange={calcularDataFinal}
                         onClick={() => {
@@ -506,7 +670,6 @@ const Atestados = () => {
                           calcularDataFinal()
                         }}
                       />
-                      <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                     </CInputGroup>
                     <small className="form-text text-muted">
                       <span id="diasAtras"></span>
@@ -524,13 +687,11 @@ const Atestados = () => {
                       min="1"
                       max="365"
                       placeholder="Ex: 3"
-                      required
                       onChange={calcularDataFinal}
                     />
                     <small className="form-text text-muted">
                       <span id="informacaoDias"></span>
                     </small>
-                    <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                   </CCol>
 
                   {/* Campo de Data Final */}
@@ -544,7 +705,6 @@ const Atestados = () => {
                       readOnly
                       style={{ backgroundColor: '#e5e7ebb7' }}
                     />
-                    <CFormFeedback invalid>Campo obrigatório.</CFormFeedback>
                     <small className="form-text text-muted">
                       <span id="informacaoDataFinal"></span>
                     </small>
@@ -552,8 +712,14 @@ const Atestados = () => {
 
                   {/* Campos de Médico */}
                   <CCol md={4}>
-                    <CFormLabel htmlFor="medicoAtestado">Médico responsável:</CFormLabel>
-                    <CFormInput type="text" id="medicoAtestado" placeholder="Nome do médico:" />
+                    <CFormLabel htmlFor="medicoAtestado">
+                      Médico responsável:<span className="text-danger">*</span>
+                    </CFormLabel>
+                    <CFormInput 
+                      type="text" 
+                      id="medicoAtestado" 
+                      placeholder="Nome do médico:" 
+                    />
                   </CCol>
 
                   {/* Campo de justificativa */}
@@ -571,11 +737,6 @@ const Atestados = () => {
                     <CFormLabel htmlFor="anexoAtestado">
                       Anexo do Atestado: <span className="text-danger">*</span>
                     </CFormLabel>
-                    {validated && !file && (
-                      <div className="alert alert-danger" role="alert">
-                        O anexo do atestado é obrigatório.
-                      </div>
-                    )}
                     {/* Área de anexo do atestado*/}
                     <div className="upload-container mb-3">
                       <input
@@ -583,7 +744,6 @@ const Atestados = () => {
                         className="d-none"
                         id="anexoAtestado"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        required
                         ref={fileInputRef}
                         onChange={(e) => handleFileChange(e.target.files[ 0 ])}
                       />
@@ -770,6 +930,7 @@ const Atestados = () => {
                   </CCol>
                 </CRow>
               </CForm>
+              )}
             </CCardBody>
           </CCard>
         </CCol>

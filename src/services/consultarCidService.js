@@ -13,7 +13,6 @@ export const cidService = {
         throw new Error(`Erro ao consultar CIDs: ${response.statusText}`)
       }
       const responseData = await response.json()
-      console.log('CIDs consultados com sucesso:', responseData)
       return responseData
     } catch (error) {
       console.error('Erro ao consultar CID:', error)
