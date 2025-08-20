@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   CCard,
   CCardBody,
@@ -15,13 +15,11 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-// Importar os novos services
-=======
 import { cilPencil, cilTrash, cilX, cilInfo, cilPlus, cilReload, cilSearch} from '@coreui/icons'
 import UsuariosModal from './UsuariosModal'
 import UsuariosTabela from './UsuariosTabela'
 import UsuarioPermissaoModal from './usuarioPermisaoModal'
-import { consultarUsuariosEoperaX } from '../../services/popularTabela'
+import { consultarUsuariosEoperaX, limparCacheUsuarios } from '../../services/popularTabela'
 import { usePermissoesCRUD } from '../../contexts/PermissoesContext'
 
 
@@ -60,22 +58,21 @@ const Usuarios = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [totalUsuarios, setTotalUsuarios] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+  const [todosUsuarios, setTodosUsuarios] = useState([]) // Cache de todos os usuários
   const itemsPerPage = 10
 
   // Estado para debounce da pesquisa
   const [pesquisaTimeout, setPesquisaTimeout] = useState(null)
 
-  // Carregar usuários da API ao montar componente
+  // Carregar usuários da API apenas uma vez ao montar componente
   useEffect(() => {
-    carregarUsuariosPagina(1)
+    carregarTodosUsuarios()
   }, [])
 
-  // Efeito para recarregar dados quando a página muda
+  // Efeito para aplicar filtros e paginação quando dados ou filtros mudam
   useEffect(() => {
-    if (currentPage > 0) {
-      carregarUsuariosPagina(currentPage, termoPesquisa)
-    }
-  }, [currentPage])
+    aplicarFiltrosEPaginacao()
+  }, [todosUsuarios, termoPesquisa, currentPage])
 
   // Efeito para pesquisa com debounce
   useEffect(() => {
@@ -85,7 +82,6 @@ const Usuarios = () => {
 
     const timeout = setTimeout(() => {
       setCurrentPage(1) // Resetar para página 1 ao pesquisar
-      carregarUsuariosPagina(1, termoPesquisa)
     }, 500) // Aguardar 500ms após parar de digitar
 
     setPesquisaTimeout(timeout)
@@ -95,142 +91,132 @@ const Usuarios = () => {
     }
   }, [termoPesquisa])
 
-  const carregarUsuariosPagina = async (page, termo = '') => {
+  // Função para carregar todos os usuários uma única vez
+  const carregarTodosUsuarios = async (forceRefresh = false) => {
     setLoading(true)
     try {
-      const todosUsuarios = await consultarUsuariosEoperaX()
-
-      // Filtrar por termo de pesquisa se fornecido
-      let usuariosFiltrados = todosUsuarios
-      if (termo.trim()) {
-        const termoLower = termo.toLowerCase().trim()
-        const termoNumerico = termo.replace(/[^\d]/g, '') // Remove tudo que não é número
-
-        usuariosFiltrados = todosUsuarios.filter((usuario) => {
-          // 1. Busca por nome (prioridade alta)
-          const nomeMatch = usuario.nome && usuario.nome.toLowerCase().includes(termoLower)
-
-          // 2. Busca por CPF (removendo formatação)
-          const cpfLimpo = usuario.cpf ? usuario.cpf.replace(/[^\d]/g, '') : ''
-          const cpfMatch = termoNumerico && cpfLimpo.includes(termoNumerico)
-
-          // 3. Busca por matrícula
-          const matriculaMatch =
-            usuario.matricula && usuario.matricula.toString().toLowerCase().includes(termoLower)
-
-          // 4. Busca por grupo centralizador
-          const grupoMatch =
-            usuario.grupoCentralizador &&
-            usuario.grupoCentralizador.toLowerCase().includes(termoLower)
-
-          // 5. Busca por tipo de usuário - melhorada para PJ/CLT
-          const tipoMatch =
-            usuario.tipoUsuario &&
-            // Busca por "PJ" quando tipoUsuario é "P"
-            ((termoLower.includes('pj') && usuario.tipoUsuario === 'P') ||
-              // Busca por "CLT" quando tipoUsuario é "C"
-              (termoLower.includes('clt') && usuario.tipoUsuario === 'C') ||
-              // Busca pela letra original também
-              usuario.tipoUsuario.toLowerCase().includes(termoLower))
-
-          // 6. Busca por celular
-          const celularLimpo = usuario.celular ? usuario.celular.replace(/[^\d]/g, '') : ''
-          const celularMatch = termoNumerico && celularLimpo.includes(termoNumerico)
-
-          // 7. Busca por projeto PJ (se aplicável)
-          const projetoMatch =
-            usuario.projetoPj && usuario.projetoPj.toLowerCase().includes(termoLower)
-
-          return (
-            nomeMatch ||
-            cpfMatch ||
-            matriculaMatch ||
-            grupoMatch ||
-            tipoMatch ||
-            celularMatch ||
-            projetoMatch
-          )
-        })
-      }
-
-      // Ordenar os resultados para melhor relevância
-      if (termo.trim()) {
-        usuariosFiltrados.sort((a, b) => {
-          const termoLower = termo.toLowerCase().trim()
-
-          // Priorizar correspondências exatas no nome
-          const nomeAExato = a.nome && a.nome.toLowerCase().startsWith(termoLower)
-          const nomeBExato = b.nome && b.nome.toLowerCase().startsWith(termoLower)
-
-          if (nomeAExato && !nomeBExato) return -1
-          if (!nomeAExato && nomeBExato) return 1
-
-          // Depois priorizar correspondências no nome (qualquer posição)
-          const nomeAMatch = a.nome && a.nome.toLowerCase().includes(termoLower)
-          const nomeBMatch = b.nome && b.nome.toLowerCase().includes(termoLower)
-
-          if (nomeAMatch && !nomeBMatch) return -1
-          if (!nomeAMatch && nomeBMatch) return 1
-
-          // Por último, ordenar alfabeticamente
-          return (a.nome || '').localeCompare(b.nome || '')
-        })
-      } else {
-        // Sem filtro, ordenar alfabeticamente por nome
-        usuariosFiltrados.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
-      }
-
-      // Aplicar paginação
-      const startIndex = (page - 1) * itemsPerPage
-      const endIndex = startIndex + itemsPerPage
-      const usuariosPaginados = usuariosFiltrados.slice(startIndex, endIndex)
-
-      // Calcular informações de paginação
-      const total = usuariosFiltrados.length
-      const totalPaginas = Math.ceil(total / itemsPerPage)
-      const temMais = endIndex < total
-
-      // Atualizar estados
-      setUsuarios(usuariosPaginados)
-      setTotalUsuarios(total)
-      setTotalPages(totalPaginas)
-      setHasMore(temMais)
-      const dadosUsuarios = await consultarUsuariosEoperaX()
-
-      // Transformar os dados da API para o formato esperado pelo componente
-      const usuariosFormatados = dadosUsuarios.map((usuario) => ({
-        matricula: usuario.matricula || '',
-        nome: usuario.nome || '',
-        cpf: usuario.cpf || '',
-        tipoUsuario: usuario.tipoUsuario || '',
-      }))
-
-      setUsuarios(usuariosFormatados)
+      const dadosUsuarios = await consultarUsuariosEoperaX(forceRefresh)
+      setTodosUsuarios(dadosUsuarios)
     } catch (error) {
       console.error('Erro ao carregar usuários:', error)
       showAlert('Erro ao carregar usuários. Verifique a conexão ou contate o suporte.', 'danger')
-      setUsuarios([])
-      setTotalUsuarios(0)
-      setTotalPages(1)
+      setTodosUsuarios([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handlePesquisaChange = (e) => {
+  // Função para aplicar filtros e paginação nos dados já carregados
+  const aplicarFiltrosEPaginacao = () => {
+    if (todosUsuarios.length === 0) return
+
+    // Filtrar por termo de pesquisa se fornecido
+    let usuariosFiltrados = [...todosUsuarios]
+    
+    if (termoPesquisa.trim()) {
+      const termoLower = termoPesquisa.toLowerCase().trim()
+      const termoNumerico = termoPesquisa.replace(/[^\d]/g, '') // Remove tudo que não é número
+
+      usuariosFiltrados = todosUsuarios.filter((usuario) => {
+        // 1. Busca por nome (prioridade alta)
+        const nomeMatch = usuario.nome && usuario.nome.toLowerCase().includes(termoLower)
+
+        // 2. Busca por CPF (removendo formatação)
+        const cpfLimpo = usuario.cpf ? usuario.cpf.replace(/[^\d]/g, '') : ''
+        const cpfMatch = termoNumerico && cpfLimpo.includes(termoNumerico)
+
+        // 3. Busca por matrícula
+        const matriculaMatch =
+          usuario.matricula && usuario.matricula.toString().toLowerCase().includes(termoLower)
+
+        // 4. Busca por grupo centralizador
+        const grupoMatch =
+          usuario.grupoCentralizador &&
+          usuario.grupoCentralizador.toLowerCase().includes(termoLower)
+
+        // 5. Busca por tipo de usuário - melhorada para PJ/CLT
+        const tipoMatch =
+          usuario.tipoUsuario &&
+          // Busca por "PJ" quando tipoUsuario é "P"
+          ((termoLower.includes('pj') && usuario.tipoUsuario === 'P') ||
+            // Busca por "CLT" quando tipoUsuario é "C"
+            (termoLower.includes('clt') && usuario.tipoUsuario === 'C') ||
+            // Busca pela letra original também
+            usuario.tipoUsuario.toLowerCase().includes(termoLower))
+
+        // 6. Busca por celular
+        const celularLimpo = usuario.celular ? usuario.celular.replace(/[^\d]/g, '') : ''
+        const celularMatch = termoNumerico && celularLimpo.includes(termoNumerico)
+
+        // 7. Busca por projeto PJ (se aplicável)
+        const projetoMatch =
+          usuario.projetoPj && usuario.projetoPj.toLowerCase().includes(termoLower)
+
+        return (
+          nomeMatch ||
+          cpfMatch ||
+          matriculaMatch ||
+          grupoMatch ||
+          tipoMatch ||
+          celularMatch ||
+          projetoMatch
+        )
+      })
+
+      // Ordenar os resultados para melhor relevância
+      usuariosFiltrados.sort((a, b) => {
+        // Priorizar correspondências exatas no nome
+        const nomeAExato = a.nome && a.nome.toLowerCase().startsWith(termoLower)
+        const nomeBExato = b.nome && b.nome.toLowerCase().startsWith(termoLower)
+
+        if (nomeAExato && !nomeBExato) return -1
+        if (!nomeAExato && nomeBExato) return 1
+
+        // Depois priorizar correspondências no nome (qualquer posição)
+        const nomeAMatch = a.nome && a.nome.toLowerCase().includes(termoLower)
+        const nomeBMatch = b.nome && b.nome.toLowerCase().includes(termoLower)
+
+        if (nomeAMatch && !nomeBMatch) return -1
+        if (!nomeAMatch && nomeBMatch) return 1
+
+        // Por último, ordenar alfabeticamente
+        return (a.nome || '').localeCompare(b.nome || '')
+      })
+    } else {
+      // Sem filtro, ordenar alfabeticamente por nome
+      usuariosFiltrados.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+    }
+
+    // Aplicar paginação
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    const usuariosPaginados = usuariosFiltrados.slice(startIndex, endIndex)
+
+    // Calcular informações de paginação
+    const total = usuariosFiltrados.length
+    const totalPaginas = Math.ceil(total / itemsPerPage)
+    const temMais = endIndex < total
+
+    // Atualizar estados
+    setUsuarios(usuariosPaginados)
+    setTotalUsuarios(total)
+    setTotalPages(totalPaginas)
+    setHasMore(temMais)
+  }
+
+  const handlePesquisaChange = useCallback((e) => {
     setTermoPesquisa(e.target.value)
-  }
+  }, [])
 
-  const limparPesquisa = () => {
+  const limparPesquisa = useCallback(() => {
     setTermoPesquisa('')
-  }
+  }, [])
 
-  const handlePageChange = (page) => {
+  const handlePageChange = useCallback((page) => {
     if (page !== currentPage && page >= 1 && page <= totalPages && !loading) {
       setCurrentPage(page)
-      // Remover a chamada direta aqui, pois o useEffect vai cuidar disso
     }
-  }
+  }, [currentPage, totalPages, loading])
 
   const resetForm = () => {
     setFormData({
@@ -256,15 +242,15 @@ const Usuarios = () => {
     setTimeout(() => setAlert({ show: false, message: '', color: 'success' }), 5000)
   }
 
-  const handleEdit = (user) => {
+  const handleEdit = useCallback((user) => {
     setEditingUser(user)
     setShowModal(true)
-  }
+  }, [])
 
-  const handleEditPermissao = (user) => {
+  const handleEditPermissao = useCallback((user) => {
     setEditingUserPermissao(user)
     setShowPermissaoModal(true)
-  }
+  }, [])
 
   const handleDelete = (matricula) => {
     const user = usuarios.find((u) => u.matricula === matricula)
@@ -294,10 +280,10 @@ const Usuarios = () => {
     setShowModal(true)
   }
 
-  const handleNewUser = () => {
+  const handleNewUser = useCallback(() => {
     resetForm()
     setShowModal(true)
-  }
+  }, [])
 
   const getTipoUsuarioBadge = (tipo) => {
     const cores = {
@@ -364,7 +350,9 @@ const Usuarios = () => {
 
   // Função para recarregar a lista de usuários (será chamada após cadastro/edição)
   const recarregarUsuarios = () => {
-    carregarUsuariosPagina(currentPage, termoPesquisa)
+    // Limpar cache e forçar nova requisição
+    limparCacheUsuarios()
+    carregarTodosUsuarios(true)
   }
 
   return (
@@ -422,6 +410,21 @@ const Usuarios = () => {
                   {alert.message}
                 </CAlert>
               )}
+
+              {/* Informações de paginação e total */}
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="text-muted">
+                  {loading ? (
+                    <CSpinner size="sm" className="me-2" />
+                  ) : (
+                    <span>
+                      Mostrando {usuarios.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} a{' '}
+                      {Math.min(currentPage * itemsPerPage, totalUsuarios)} de {totalUsuarios} usuários
+                      {termoPesquisa && ` (filtrados)`}
+                    </span>
+                  )}
+                </div>
+              </div>
 
               <UsuariosTabela
                 paginatedUsuarios={usuarios}

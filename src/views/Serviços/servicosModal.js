@@ -34,7 +34,7 @@ import { cilX, cilCheckAlt, cilWarning, cilCamera } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import servicosService, { consultarServicosProtheus } from '../../services/servicosService';
 import { consultarEquipes } from '../../services/equipesService';
-import { consultarUsuariosEoperaX, filtrarUsuarios } from '../../services/usuariosService';
+import { consultarUsuariosEoperaX, filtrarUsuarios } from '../../services/popularTabela';
 import ocorrenciasService from '../../services/ocorrenciasService';
 import municipiosService from '../../services/municipiosService';
 import fotosService from '../../services/fotosService';

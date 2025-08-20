@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import {
   CTable,
   CTableHead,
@@ -9,23 +9,21 @@ import {
   CButton,
   CButtonGroup,
   CBadge,
-  CTooltip
+  CTooltip,
+  CPlaceholder
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilLockLocked, cilLockLocked, cilPencil from '@coreui/icons'
+import { cilPencil, cilTrash, cilLockLocked } from '@coreui/icons'
 
 const UsuariosTabela = ({
   paginatedUsuarios,
   formatarCPF,
   getTipoUsuarioBadge,
   handleEdit,
-  gerenciar-usuarios-atualizado
   handleEditPermissao,
-  handleDelete,
   loading,
   termoPesquisa,
   podeEditar,
-  podeDeletar,
 }) => {
   // Função para formatar e exibir o grupo
   const formatarGrupo = (grupo) => {
@@ -100,6 +98,39 @@ const UsuariosTabela = ({
     )
   }
 
+  // Renderizar skeleton loading
+  const renderSkeletonRows = () => {
+    return Array.from({ length: 5 }, (_, index) => (
+      <CTableRow key={`skeleton-${index}`}>
+        <CTableDataCell className="text-center">
+          <CPlaceholder animation="glow">
+            <CPlaceholder xs={6} />
+          </CPlaceholder>
+        </CTableDataCell>
+        <CTableDataCell>
+          <CPlaceholder animation="glow">
+            <CPlaceholder xs={8} />
+          </CPlaceholder>
+        </CTableDataCell>
+        <CTableDataCell className="text-center">
+          <CPlaceholder animation="glow">
+            <CPlaceholder xs={7} />
+          </CPlaceholder>
+        </CTableDataCell>
+        <CTableDataCell className="text-center">
+          <CPlaceholder animation="glow">
+            <CPlaceholder xs={4} />
+          </CPlaceholder>
+        </CTableDataCell>
+        <CTableDataCell>
+          <CPlaceholder animation="glow">
+            <CPlaceholder xs={10} />
+          </CPlaceholder>
+        </CTableDataCell>
+      </CTableRow>
+    ))
+  }
+
   return (
     <CTable hover bordered align="middle" responsive>
       <CTableHead>
@@ -112,65 +143,72 @@ const UsuariosTabela = ({
         </CTableRow>
       </CTableHead>
       <CTableBody>
-        {paginatedUsuarios.map((user, index) => (
-          <CTableRow key={user.id || index}>
-            <CTableDataCell className="text-center">
-              {formatarMatriculaProjeto(user)}
-            </CTableDataCell>
-            <CTableDataCell>{user.nome}</CTableDataCell>
-            <CTableDataCell className="text-center">{formatarCPF(user.cpf)}</CTableDataCell>
-            <CTableDataCell className="text-center">
-              {getTipoUsuarioBadge(user.tipoUsuario)}
-            </CTableDataCell>
-            <CTableDataCell>
-              {/*Grupo de botões da tabela */}
-             <CButtonGroup className="w-100">
-                {/* {podeEditar && (
+        {loading ? (
+          renderSkeletonRows()
+        ) : (
+          <>
+            {paginatedUsuarios.map((user, index) => (
+              <CTableRow key={user.id || index}>
+                <CTableDataCell className="text-center">
+                  {formatarMatriculaProjeto(user)}
+                </CTableDataCell>
+                <CTableDataCell>{user.nome}</CTableDataCell>
+                <CTableDataCell className="text-center">{formatarCPF(user.cpf)}</CTableDataCell>
+                <CTableDataCell className="text-center">
+                  {getTipoUsuarioBadge(user.tipoUsuario)}
+                </CTableDataCell>
+                <CTableDataCell className="text-center">
+                  {/*Grupo de botões da tabela */}
+                  {podeEditar && (
+                    <CTooltip
+                      content="Editar usuário"
+                      placement="top"
+                    >
+                      <CButton
+                        className="me-2"
+                        color="secondary"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(user)}
+                        disabled={loading}
+                        aria-label="Editar usuário"
+                      >
+                        <CIcon icon={cilPencil} />
+                      </CButton>
+                    </CTooltip>
+                  )}
                   <CTooltip
-                    content="Editar usuário"
+                    content="Alterar permissões"
                     placement="top"
                   >
                     <CButton
-                      className="flex-fill"
-                      color="warning"
+                      color="info"
+                      variant="outline"
                       size="sm"
-                      onClick={() => handleEdit(user)}
+                      onClick={() => handleEditPermissao(user)}
                       disabled={loading}
+                      aria-label="Alterar permissões"
                     >
-                      <CIcon icon={cilPencil} />
+                      <CIcon icon={cilLockLocked} />
                     </CButton>
                   </CTooltip>
-                )} */}
-                <CTooltip
-                  content="Alterar permissões"
-                  placement="top"
-                >
-                  <CButton
-                    className="flex-fill"
-                    color="info"
-                    size="sm"
-                    onClick={() => handleEditPermissao(user)}
-                    disabled={loading}
-                  >
-                    <CIcon icon={cilLockLocked} />
-                  </CButton>
-                </CTooltip>
-              </CButtonGroup>
-            </CTableDataCell>
-          </CTableRow>
-        ))}
-        {paginatedUsuarios.length === 0 && !loading && (
-          <CTableRow>
-            <CTableDataCell colSpan="6" className="text-center">
-              {termoPesquisa
-                ? 'Nenhum usuário encontrado para esta pesquisa'
-                : 'Nenhum usuário encontrado na API'}
-            </CTableDataCell>
-          </CTableRow>
+                </CTableDataCell>
+              </CTableRow>
+            ))}
+            {paginatedUsuarios.length === 0 && !loading && (
+              <CTableRow>
+                <CTableDataCell colSpan="5" className="text-center">
+                  {termoPesquisa
+                    ? 'Nenhum usuário encontrado para esta pesquisa'
+                    : 'Nenhum usuário encontrado na API'}
+                </CTableDataCell>
+              </CTableRow>
+            )}
+          </>
         )}
       </CTableBody>
     </CTable>
   )
 }
 
-export default UsuariosTabela
+export default memo(UsuariosTabela)
