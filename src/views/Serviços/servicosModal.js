@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 // Este componente é responsável pelo modal de edição de serviços.
 // Todas as chamadas à API devem ser feitas via os serviços em src/services para evitar duplicidade e facilitar manutenção.
+import './servicosModal.css';
 import {
   CModal,
   CModalHeader,
@@ -272,7 +273,7 @@ const ServicosModal = ({
           if (servico.servicoSelecionado && servico.servicoSelecionado.idServico) {
             return {
               ...servico,
-              servicoNome: `${servico.servicoSelecionado.idServico} - ${servico.servicoSelecionado.descricaoServico}`
+              servicoNome: `${servico.servicoSelecionado.codServico?.trim() || servico.servicoSelecionado.idServico} - ${servico.servicoSelecionado.descricaoServico}`
             };
           }
           // Busca local nos serviços já carregados
@@ -282,7 +283,7 @@ const ServicosModal = ({
             if (servicoEncontrado) {
               return {
                 ...servico,
-                servicoNome: `${servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
+                servicoNome: `${servicoEncontrado.codServico?.trim() || servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
               };
             }
           }
@@ -291,7 +292,7 @@ const ServicosModal = ({
             const servicoEncontrado = await servicosService.buscarServicoPorId(servicoId);
             return {
               ...servico,
-              servicoNome: `${servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
+              servicoNome: `${servicoEncontrado.codServico?.trim() || servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
             };
           } catch (error) {
             // Se não encontrar, retorna apenas o ID
@@ -855,14 +856,18 @@ const ServicosModal = ({
           const valorGrupoStr = valorGrupo !== undefined && valorGrupo !== null ? valorGrupo.toString() : '';
           const valorPontosStr = valorPontos !== undefined && valorPontos !== null ? valorPontos.toString() : '';
           
+          // Usar codServico para exibição, mas manter idServico para a API
+          const displayServico = servico.codServico ? `${servico.codServico.trim()} - ${servico.descricaoServico?.trim() || ''}` : servico.idServico || '';
+          
           return {
-            servico: servico.idServico || '',
+            servico: displayServico,
             observacao: servico.observacao || '',
             valorGrupo: valorGrupoStr,
             valorServico: valorPontosStr,
             quantidade: servico.quantidade?.toString() || '',
             servicoSelecionado: {
               idServico: servico.idServico,
+              codServico: servico.codServico,
               descricaoServico: servico.descricaoServico || '',
               valorGrupo: valorGrupo || 0,
               valorPontos: valorPontos || 0
@@ -1126,6 +1131,22 @@ const ServicosModal = ({
         if (dadosOcorrencia.hrFimDeslocamento) {
           const hrFimDeslocamentoEl = document.getElementById('hrFimDeslocamento');
           if (hrFimDeslocamentoEl) hrFimDeslocamentoEl.value = dadosOcorrencia.hrFimDeslocamento;
+        }
+        
+        // Preencher novos campos
+        if (dadosOcorrencia.osSgm) {
+          const osSGMEl = document.getElementById('osSgm');
+          if (osSGMEl) osSGMEl.value = dadosOcorrencia.osSgm;
+        }
+        
+        if (dadosOcorrencia.osAcionamentoEmergencial) {
+          const osAcionamentoEmergencialEl = document.getElementById('osAcionamentoEmergencial');
+          if (osAcionamentoEmergencialEl) osAcionamentoEmergencialEl.value = dadosOcorrencia.osAcionamentoEmergencial;
+        }
+        
+        if (dadosOcorrencia.osTablet) {
+          const osTabletEl = document.getElementById('osTablet');
+          if (osTabletEl) osTabletEl.value = dadosOcorrencia.osTablet;
         }
         
         // Preencher usuários
@@ -1459,9 +1480,9 @@ const ServicosModal = ({
 
   // Selecionar serviço
   const selecionarServico = (servico, index) => {
-    // Mostrar ID e descrição no input
+    // Mostrar codServico e descrição no input (mas manter idServico para API)
     const descricaoServico = servico.descricaoServico?.trim() || '';
-    const textoExibicao = `${servico.idServico?.trim()} - ${descricaoServico}`;
+    const textoExibicao = `${servico.codServico?.trim()} - ${descricaoServico}`;
 
     atualizarServico(index, 'servico', textoExibicao);
     atualizarServico(index, 'servicoSelecionado', servico);
@@ -1696,6 +1717,33 @@ const ServicosModal = ({
     }
   };
 
+  // Função para posicionar corretamente os dropdowns
+  const posicionarDropdowns = useCallback(() => {
+    Object.keys(servicoDropdownVisivel).forEach(index => {
+      if (servicoDropdownVisivel[index] && servicosRefs.current[`ref_${index}`]) {
+        const rect = servicosRefs.current[`ref_${index}`].getBoundingClientRect();
+        const dropdown = document.querySelector(`#servico-dropdown-${index}`);
+        if (dropdown) {
+          dropdown.style.top = `${rect.bottom}px`;
+          dropdown.style.left = `${rect.left}px`;
+          dropdown.style.width = `${rect.width}px`;
+        }
+      }
+    });
+  }, [servicoDropdownVisivel]);
+
+  // Atualizar posição dos dropdowns quando eles são exibidos
+  useEffect(() => {
+    posicionarDropdowns();
+    window.addEventListener('scroll', posicionarDropdowns);
+    window.addEventListener('resize', posicionarDropdowns);
+    
+    return () => {
+      window.removeEventListener('scroll', posicionarDropdowns);
+      window.removeEventListener('resize', posicionarDropdowns);
+    };
+  }, [posicionarDropdowns, servicoDropdownVisivel]);
+
   // Fechar dropdowns quando clicar fora
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1805,7 +1853,7 @@ const ServicosModal = ({
               </div>
             )}
           </CCol>
-          <CCol md={2}>
+          <CCol md={3}>
             <CFormLabel htmlFor="unConsumidora" className="mb-1">UN. Consumidora:</CFormLabel>
             <CFormInput
               id="unConsumidora"
@@ -1821,6 +1869,37 @@ const ServicosModal = ({
             )}
           </CCol>
           <CCol md={3}>
+            <CFormLabel htmlFor="osSgm" className="mb-1">OS SGM</CFormLabel>
+            <CFormInput
+              id="osSgm"
+              readOnly={modoVisualizacao}
+            />
+          </CCol>
+          <CCol md={3}>
+            <CFormLabel htmlFor="osAcionamentoEmergencial" className="mb-1">OS Acionamento Emergencial</CFormLabel>
+            <CFormInput
+              id="osAcionamentoEmergencial"
+              readOnly={modoVisualizacao}
+            />
+          </CCol>
+        </CRow>
+        <CRow className='mb-4'>
+          <CCol md={3}>
+             <CFormLabel htmlFor="osTablet" className="mb-1">OS Tablet</CFormLabel>
+            <CFormInput
+              id="osTablet"
+              // className={camposComErro.numeroOS ? 'campo-erro' : ''}
+              onChange={() => limparErroCampo('numeroOS')}
+              readOnly={modoVisualizacao}
+            />
+            {/* {camposComErro.numeroOS && (
+              <div className="texto-erro fade-in-error">
+                <CIcon icon={cilX} size="sm" />
+                {camposComErro.numeroOS}
+              </div>
+            )} */}
+          </CCol>
+           <CCol md={3}>
             <CFormLabel htmlFor="status" className="mb-1">Status:</CFormLabel>
             <CFormSelect
               id="status"
@@ -1852,7 +1931,7 @@ const ServicosModal = ({
               </div>
             )}
           </CCol>
-          <CCol md={2}>
+          <CCol md={3}>
             <CFormLabel htmlFor="data" className="mb-1">Data:</CFormLabel>
             <CFormInput
               type="date"
@@ -1868,7 +1947,7 @@ const ServicosModal = ({
               </div>
             )}
           </CCol>
-            <CCol md={2}>
+            <CCol md={3}>
             <CFormLabel htmlFor="dataConclusao" className="mb-1">Data Conclusão:</CFormLabel>
             <CFormInput
               type="date"
@@ -1955,7 +2034,7 @@ const ServicosModal = ({
                     className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
                     style={{
                       zIndex: 1050,
-                      maxHeight: '150px',
+                      maxHeight: '400px',
                       overflowY: 'auto',
                       top: '100%'
                     }}
@@ -2190,7 +2269,7 @@ const ServicosModal = ({
                     className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
                     style={{
                       zIndex: 1050,
-                      maxHeight: '150px',
+                      maxHeight: '400px',
                       overflowY: 'auto',
                       top: '100%'
                     }}
@@ -2283,7 +2362,7 @@ const ServicosModal = ({
                     className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
                     style={{
                       zIndex: 1050,
-                      maxHeight: '150px',
+                      maxHeight: '400px',
                       overflowY: 'auto',
                       top: '100%'
                     }}
@@ -2575,7 +2654,7 @@ const ServicosModal = ({
                         className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
                         style={{
                           zIndex: 1050,
-                          maxHeight: '150px',
+                          maxHeight: '400px',
                           overflowY: 'auto',
                           top: '100%'
                         }}
@@ -2651,7 +2730,7 @@ const ServicosModal = ({
                 <CCol md={2}></CCol>
               </CRow>
 
-              <CTable hover className="mb-0" responsive>
+              <CTable hover className="mb-0 table-responsive">
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>Usuário</CTableHeaderCell>
@@ -2690,7 +2769,7 @@ const ServicosModal = ({
         </div>
 
         {/* Seção de serviços */}
-        <div className="mb-4">
+        <div className="mb-4" zIndex={1050}>
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="mb-0">Serviços</h6>
             <CButton
@@ -2710,10 +2789,10 @@ const ServicosModal = ({
             </div>
           )}
 
-          <CCard className="border">
+          <CCard className="border table-container">
             <CCardHeader className="bg-light py-2">
               <CRow className="align-items-center">
-                <CCol md={2}>
+                <CCol md={3}>
                   <span className="fw-semibold">Serviço</span>
                 </CCol>
                 <CCol md={2}>
@@ -2728,7 +2807,7 @@ const ServicosModal = ({
                 <CCol md={1}>
                   <span className="fw-semibold">Quantidade</span>
                 </CCol>
-                <CCol md={2}>
+                <CCol md={1}>
                   <span className="fw-semibold">Fotos</span>
                 </CCol>
                 <CCol md={1} className="text-center">
@@ -2736,7 +2815,7 @@ const ServicosModal = ({
                 </CCol>
               </CRow>
             </CCardHeader>
-            <CCardBody className="p-3">
+            <CCardBody className="p-3 overflow-visible">
               {servicos.length === 0 ? (
                 <div className="text-center text-muted py-4">
                   <small>Nenhum serviço adicionado. Clique em "Adicionar Serviço" para começar.</small>
@@ -2744,7 +2823,7 @@ const ServicosModal = ({
               ) : (
                 servicos.map((servico, index) => (
                   <CRow key={index} className="align-items-start mb-3 border-bottom pb-3">
-                    <CCol md={2}>
+                    <CCol md={3}>
                       {modoVisualizacao ? (
                         <CFormInput
                           value={
@@ -2788,7 +2867,7 @@ const ServicosModal = ({
                               className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
                               style={{
                                 zIndex: 1050,
-                                maxHeight: '150px',
+                                maxHeight: '400px',
                                 overflowY: 'auto',
                                 top: '100%'
                               }}
@@ -2858,7 +2937,7 @@ const ServicosModal = ({
                         </div>
                       ) : (
                         <div
-                          className="position-relative"
+                          className="dropdown-wrapper"
                           ref={el => servicosRefs.current[ `ref_${index}` ] = el}
                         >
                           <CFormInput
@@ -2884,12 +2963,12 @@ const ServicosModal = ({
                           )}
                           {servicoDropdownVisivel[ index ] && servicosOpcoes.length > 0 && (
                             <div
-                              className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
+                              id={`servico-dropdown-${index}`}
+                              className="dropdown-menu-service bg-white border border-top-0"
                               style={{
-                                zIndex: 1050,
-                                maxHeight: '150px',
-                                overflowY: 'auto',
-                                top: '100%'
+                                top: servicosRefs.current[`ref_${index}`]?.getBoundingClientRect().bottom + 'px',
+                                left: servicosRefs.current[`ref_${index}`]?.getBoundingClientRect().left + 'px',
+                                width: servicosRefs.current[`ref_${index}`]?.offsetWidth + 'px'
                               }}
                             >
                               <CListGroup flush>
@@ -2916,12 +2995,12 @@ const ServicosModal = ({
                                     }}
                                   >
                                     <div>
-                                      <strong>{servicoOpcao.idServico?.trim()}</strong>
+                                      <strong style={{ fontSize: '1rem' }}>{servicoOpcao.codServico?.trim()}</strong>
                                       {servicoOpcao.siglaUp && (
                                         <div className="text-primary small fw-bold">Sigla UP: {servicoOpcao.siglaUp.trim()}</div>
                                       )}
                                       {servicoOpcao.descricaoServico && (
-                                        <div className="text-muted small">
+                                        <div className="text-muted" style={{ fontSize: '0.9rem' }}>
                                           {servicoOpcao.descricaoServico.trim()}
                                         </div>
                                       )}
@@ -3081,7 +3160,7 @@ const ServicosModal = ({
                         readOnly={modoVisualizacao}
                         />
                       </CCol>
-                      <CCol md={2}>
+                      <CCol md={1}>
                         <div className="d-flex flex-column gap-2">
                           <CButton
                             color="outline-primary"
@@ -3091,7 +3170,7 @@ const ServicosModal = ({
                             title="Gerenciar fotos do serviço"
                           >
                             <CIcon icon={cilCamera} className="me-1" />
-                            Fotos ({servico.fotos?.length || 0})
+                            ({servico.fotos?.length || 0})
                           </CButton>
                           
                           {servico.fotos && servico.fotos.length > 0 && (
@@ -3154,7 +3233,7 @@ const ServicosModal = ({
                     
                     {/* Linha de Total */}
                     {servicos.length > 0 && (
-                      <CRow className="mt-3 pt-3 border-top bg-light rounded">
+                      <CRow className="mt-5 pt-3 border-top bg-light rounded">
                         <CCol md={3}>
                           <span className="fw-bold">TOTAL GERAL</span>
                         </CCol>
@@ -3278,7 +3357,24 @@ const ServicosModal = ({
               
               // Marcar serviços novos e alterados
               servicos.forEach(servicoAtual => {
-                const idServicoAtual = servicoAtual.servicoSelecionado?.idServico || servicoAtual.servico;
+                // Garantir que estamos usando o idServico para API, mesmo que o display mostre codServico
+                let idServicoAtual = '';
+                if (servicoAtual.servicoSelecionado?.idServico) {
+                  // Se temos o objeto completo do serviço, usar seu idServico
+                  idServicoAtual = servicoAtual.servicoSelecionado.idServico;
+                } else {
+                  // Caso contrário, tentar extrair do campo servico (que pode conter o codServico formatado)
+                  const servicoOriginalTexto = servicoAtual.servico?.split(' - ')[0]?.trim();
+                  
+                  // Verificar se servicoOriginalTexto é um idServico ou codServico
+                  const servicoEncontrado = todosServicos.find(serv => 
+                    serv.idServico?.trim() === servicoOriginalTexto || serv.codServico?.trim() === servicoOriginalTexto
+                  );
+                  
+                  // Se encontrou o serviço, usar seu idServico, caso contrário usar o valor original
+                  idServicoAtual = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginalTexto;
+                }
+                
                 const servicoOriginal = servicosOriginais.find(s => s.idServico === idServicoAtual);
                 
                 if (!servicoOriginal) {
@@ -3473,6 +3569,11 @@ const ServicosModal = ({
               const centroCusto = centroCustoSelecionado;
               const numOperacional = document.getElementById('numeroOperacional').value.trim().split('-')[ 0 ];
               
+              // Coleta dos novos campos
+              const osSgm = document.getElementById('osSgm')?.value.trim() || '';
+              const osAcionamentoEmergencial = document.getElementById('osAcionamentoEmergencial')?.value.trim() || '';
+              const osTablet = document.getElementById('osTablet')?.value.trim() || '';
+              
               // Novos campos de horário - conversão para formato 00:00:00
               const hrInicialDeslocamento = document.getElementById('hrInicialDeslocamento').value + ':00';
               const hrInicioAtividade = document.getElementById('hrInicioAtividade').value + ':00';
@@ -3496,14 +3597,34 @@ const ServicosModal = ({
               }));
 
               // Monta array de serviços
-              const servicosReq = servicos.map(s => ({
-                idServico: s.servicoSelecionado?.idServico || s.servico,
-                observacao: s.observacao || '',
-                quantidade: Number(s.quantidade) || 0,
-                valPontos: Number(s.valorServico) || 0,
-                valGrupo: Number(s.valorGrupo) || 0,
-                fotos: s.fotos || []
-              }));
+              const servicosReq = servicos.map(s => {
+                // Garantir que estamos usando o idServico para API, mesmo que o display mostre codServico
+                let idServico = '';
+                if (s.servicoSelecionado?.idServico) {
+                  // Se temos o objeto completo do serviço, usar seu idServico
+                  idServico = s.servicoSelecionado.idServico;
+                } else {
+                  // Caso contrário, tentar extrair do campo servico (que pode conter o codServico formatado)
+                  const servicoOriginal = s.servico?.split(' - ')[0]?.trim();
+                  
+                  // Verificar se servicoOriginal é um idServico ou codServico
+                  const servicoEncontrado = todosServicos.find(serv => 
+                    serv.idServico?.trim() === servicoOriginal || serv.codServico?.trim() === servicoOriginal
+                  );
+                  
+                  // Se encontrou o serviço, usar seu idServico, caso contrário usar o valor original
+                  idServico = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginal;
+                }
+                
+                return {
+                  idServico: idServico,
+                  observacao: s.observacao || '',
+                  quantidade: Number(s.quantidade) || 0,
+                  valPontos: Number(s.valorServico) || 0,
+                  valGrupo: Number(s.valorGrupo) || 0,
+                  fotos: s.fotos || []
+                };
+              });
 
               const body = {
                 numeroOs,
@@ -3528,6 +3649,9 @@ const ServicosModal = ({
                 hrFimIntervalo,
                 hrPrimeiroContatoCoi,
                 hrAutorizacaoCoi,
+                osSgm,
+                osAcionamentoEmergencial,
+                osTablet,
                 hrFechamentoCoi,
                 hrFimAtividade,
                 hrFimDeslocamento,
@@ -3619,6 +3743,10 @@ const ServicosModal = ({
                   hrFechamentoCoi,
                   hrFimAtividade,
                   hrFimDeslocamento,
+                  // Novos campos adicionados
+                  osSgm,
+                  osAcionamentoEmergencial,
+                  osTablet,
                   
                   // Comparar usuários existentes com novos para determinar ações
                   usuarios: construirUsuariosParaEdicao(),

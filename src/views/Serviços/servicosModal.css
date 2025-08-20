@@ -1,0 +1,64 @@
+/* Estilos para os dropdowns dentro de tabelas */
+.dropdown-wrapper {
+  position: relative;
+}
+
+.dropdown-menu-service {
+  position: fixed !important;
+  z-index: 9999 !important;
+  max-height: 600px; /* Aumentado para melhor visualização */
+  overflow-y: auto;
+  width: auto !important;
+  min-width: 600px; /* Aumentado para melhor visualização */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+  border-radius: 0 0 4px 4px;
+}
+
+.dropdown-item-service {
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.dropdown-item-service:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item-service.selected {
+  background-color: #e9ecef;
+}
+
+/* Garantindo que os dropdowns sempre fiquem visíveis */
+.position-fixed-dropdown {
+  position: fixed;
+  z-index: 9999;
+}
+
+/* Garantir que as tabelas sejam exibidas adequadamente */
+.card {
+  overflow: visible !important;
+}
+
+.card-body {
+  overflow: visible !important;
+}
+
+.table-container {
+  overflow: visible !important;
+  position: relative;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  min-height: 0.01%;
+}
+
+/* Melhorar visualização em telas pequenas */
+@media (max-width: 767px) {
+  .dropdown-menu-service {
+    min-width: 250px;
+    max-width: 90vw;
+    left: 5vw !important;
+  }
+}
