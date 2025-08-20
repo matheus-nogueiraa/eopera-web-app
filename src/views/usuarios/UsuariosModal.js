@@ -750,7 +750,7 @@ const UsuariosModal = ({
       projetoPj: projetoPjCodigo,
       armazemHancock: formData.armazemHancock || '',
       equipeHancock: formData.equipeHancock || '',
-      admin: formData.admin || false,
+      admin: false,
     }
 
     // Adicionar senha apenas se foi preenchida

@@ -582,7 +582,7 @@ const ServicosModal = ({
     setNumeroOperacionalSelecionado('');
     setMunicipioSelecionado('');
     setUsuarios([]);
-    setServicos([{ servico: '', observacao: '', valorGrupo: '', valorServico: '', quantidade: '' }]);
+    setServicos([{ servico: '', observacao: '', valorGrupo: '', valorServico: '', quantidade: '1' }]);
     setOcorrenciaSemEndereco(false);
     setDadosVisualizacao({});
     
@@ -1243,7 +1243,7 @@ const ServicosModal = ({
       observacao: '',
       valorGrupo: '',
       valorServico: '',
-      quantidade: '',
+      quantidade: '1',
       servicoSelecionado: null,
       fotos: []
     } ]);
@@ -1274,6 +1274,34 @@ const ServicosModal = ({
       return total + subtotal;
     }, 0);
   };
+
+  // Total geral calculado de forma reativa
+  const totalGeral = useMemo(() => {
+    return servicos.reduce((total, servico) => {
+      const valorGrupo = parseFloat(servico.valorGrupo) || 0;
+      const valorServico = parseFloat(servico.valorServico) || 0;
+      const quantidade = parseFloat(servico.quantidade) || 0;
+      return total + (valorGrupo * valorServico * quantidade);
+    }, 0);
+  }, [servicos]);
+
+  // Função para calcular o subtotal de uma linha específica
+  const calcularSubtotalLinha = (servico) => {
+    const valorGrupo = parseFloat(servico.valorGrupo) || 0;
+    const valorServico = parseFloat(servico.valorServico) || 0;
+    const quantidade = parseFloat(servico.quantidade) || 0;
+    
+    return valorGrupo * valorServico * quantidade;
+  };
+
+  // Função otimizada para calcular subtotal usando useMemo quando necessário
+  const calcularSubtotalLinhaOtimizado = useCallback((servico) => {
+    const valorGrupo = parseFloat(servico.valorGrupo) || 0;
+    const valorServico = parseFloat(servico.valorServico) || 0;
+    const quantidade = parseFloat(servico.quantidade) || 0;
+    
+    return valorGrupo * valorServico * quantidade;
+  }, []);
 
   // Função para abrir modal de fotos
   const abrirModalFotos = (servicoIndex) => {    
@@ -1493,6 +1521,12 @@ const ServicosModal = ({
     }
     if (servico.valorPontos && servico.valorPontos > 0) {
       atualizarServico(index, 'valorServico', servico.valorPontos.toString());
+    }
+
+    // Definir quantidade padrão como 1 se estiver vazia
+    const servicoAtual = servicos[index];
+    if (!servicoAtual.quantidade || servicoAtual.quantidade === '') {
+      atualizarServico(index, 'quantidade', '1');
     }
 
     setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
@@ -2798,7 +2832,7 @@ const ServicosModal = ({
                 <CCol md={2}>
                   <span className="fw-semibold">Observação</span>
                 </CCol>
-                <CCol md={2}>
+                <CCol md={1}>
                   <span className="fw-semibold">Valor Grupo</span>
                 </CCol>
                 <CCol md={2}>
@@ -2806,6 +2840,9 @@ const ServicosModal = ({
                 </CCol>
                 <CCol md={1}>
                   <span className="fw-semibold">Quantidade</span>
+                </CCol>
+                <CCol md={1}>
+                  <span className="fw-semibold">Total</span>
                 </CCol>
                 <CCol md={1}>
                   <span className="fw-semibold">Fotos</span>
@@ -3045,7 +3082,7 @@ const ServicosModal = ({
                         readOnly={modoVisualizacao}
                       />
                     </CCol>
-                    <CCol md={2}>
+                    <CCol md={1}>
                       <CFormInput
                         value={(() => {
                           // Se tem valorGrupo definido, use-o
@@ -3161,6 +3198,17 @@ const ServicosModal = ({
                         />
                       </CCol>
                       <CCol md={1}>
+                        <div 
+                          className="text-center"
+                          style={{ fontSize: '14px' }}
+                        >
+                          R$ {calcularSubtotalLinha(servico).toLocaleString('pt-BR', { 
+                            minimumFractionDigits: 2, 
+                            maximumFractionDigits: 2 
+                          })}
+                        </div>
+                      </CCol>
+                      <CCol md={1}>
                         <div className="d-flex flex-column gap-2">
                           <CButton
                             color="outline-primary"
@@ -3250,8 +3298,8 @@ const ServicosModal = ({
                           {/* Vazio */}
                         </CCol>
                         <CCol md={3}>
-                          <span className="fw-bold text-success fs-5">
-                            R$ {calcularTotalServicos().toLocaleString('pt-BR', { 
+                          <span className="fw-bold fs-5" style={{ color: 'black' }}>
+                            R$ {totalGeral.toLocaleString('pt-BR', { 
                               minimumFractionDigits: 2, 
                               maximumFractionDigits: 2 
                             })}
