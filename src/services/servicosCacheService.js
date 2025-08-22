@@ -18,7 +18,7 @@ class ServicosCacheService {
     this.servicos = []; // Cache global de serviços
     this.isLoading = false;
     this.lastLoadTime = null;
-    this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutos em ms
+    this.CACHE_DURATION = 30 * 60 * 1000; // 30 minutos em ms
     this.loadPromise = null; // Para evitar múltiplas chamadas simultâneas
   }
 
