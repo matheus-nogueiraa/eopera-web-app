@@ -38,6 +38,7 @@ import { consultarEquipes } from '../../services/equipesService';
 import { consultarUsuariosEoperaX, filtrarUsuarios } from '../../services/popularTabela';
 import ocorrenciasService from '../../services/ocorrenciasService';
 import municipiosService from '../../services/municipiosService';
+import municipiosCacheService from '../../services/municipiosCacheService';
 import fotosService from '../../services/fotosService';
 import ModalFotos from './modalFotos';
 
@@ -180,16 +181,15 @@ const ServicosModal = ({
     servicoDescricao: ''
   });
 
-  // Função para carregar todos os municípios (uma vez só)
-  // Função para carregar todos os municípios - otimizada para usar serviço centralizado
+  // Função para carregar todos os municípios usando cache
   const carregarTodosMunicipios = useCallback(async () => {
     // Busca todos os municípios apenas se ainda não estiverem carregados
     if (todosMunicipios.length > 0) return todosMunicipios;
     
     setLoadingMunicipios(true);
     try {
-      // Usando o serviço centralizado para evitar sobrecarga no backend
-      const municipios = await municipiosService.buscarTodosMunicipios();
+      // OTIMIZADO: Usando cache de municípios
+      const municipios = await municipiosCacheService.carregarTodosMunicipios();
       setTodosMunicipios(municipios);
       return municipios;
     } catch (e) {
@@ -241,20 +241,12 @@ const ServicosModal = ({
   };
 
   const buscarMunicipioPorCodigo = useCallback(async (codigoMunicipio) => {
-    // Busca o nome do município pelo código, usando cache local e serviço centralizado
+    // OTIMIZADO: Busca usando cache de municípios
     try {
-      // Verifica primeiro no cache local
-      if (todosMunicipios.length > 0) {
-        const municipio = todosMunicipios.find(m => m.codigo === codigoMunicipio);
-        if (municipio) {
-          return `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
-        }
-      }
-      
-      // Se não encontrou no cache, busca via serviço
-      const municipio = await municipiosService.buscarMunicipioPorCodigo(codigoMunicipio);
+      // Buscar diretamente no cache
+      const municipio = await municipiosCacheService.buscarMunicipioPorCodigo(codigoMunicipio);
       if (municipio) {
-        return `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+        return municipiosCacheService.formatarMunicipio(municipio);
       }
       
       return codigoMunicipio; // Retorna o código se não encontrar
@@ -262,7 +254,7 @@ const ServicosModal = ({
       console.error('Erro ao buscar município:', error);
       return codigoMunicipio;
     }
-  }, [todosMunicipios]);
+  }, []);
 
   const buscarServicosPorIds = async (servicosArray) => {
   // OTIMIZADO: Usa cache global em vez de múltiplas requisições
@@ -281,30 +273,25 @@ const ServicosModal = ({
     }
   };
 
-  // Função para filtrar municípios localmente
-  const filtrarMunicipios = (termo) => {
-    if (!termo || termo.length < 2) return [];
-    const termoLower = termo.toLowerCase().trim();
-    return todosMunicipios.filter(m =>
-      m.codigo?.toLowerCase().includes(termoLower) ||
-      m.descricao?.toLowerCase().includes(termoLower)
-    ).slice(0, 20);
-  };
-
-  // Função para buscar municípios
+  // Função para buscar municípios usando cache
   const buscarMunicipios = async (termo) => {
     if (!termo || termo.length < 2) {
       setMunicipiosOpcoes([]);
       setMunicipioDropdownVisivel(false);
       return;
     }
-    if (todosMunicipios.length === 0) {
-      await carregarTodosMunicipios();
+    
+    try {
+      // OTIMIZADO: Usar cache de municípios diretamente
+      const filtrados = await municipiosCacheService.filtrarMunicipios(termo, 20);
+      setMunicipiosOpcoes(filtrados);
+      setMunicipioDropdownVisivel(true);
+      setMunicipioSelectedIndex(-1);
+    } catch (error) {
+      console.error('Erro ao buscar municípios:', error);
+      setMunicipiosOpcoes([]);
+      setMunicipioDropdownVisivel(false);
     }
-    const filtrados = filtrarMunicipios(termo);
-    setMunicipiosOpcoes(filtrados);
-    setMunicipioDropdownVisivel(true);
-    setMunicipioSelectedIndex(-1);
   };
 
   // Debounce para busca de municípios
@@ -324,7 +311,7 @@ const ServicosModal = ({
 
   // Selecionar município
   const selecionarMunicipio = (municipio) => {
-    const texto = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
+    const texto = municipiosCacheService.formatarMunicipio(municipio);
     setMunicipioSelecionado(texto);
     setMunicipioDropdownVisivel(false);
     setMunicipiosOpcoes([]);
@@ -923,21 +910,30 @@ const ServicosModal = ({
 
   // UseEffect específico para preencher município em modo edição quando os dados são carregados
   useEffect(() => {
-    if (visible && modoEdicao && dadosOcorrencia && dadosOcorrencia.codMunicipio && todosMunicipios.length > 0) {
-      const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
-      if (municipio) {
-        const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
-        setMunicipioSelecionado(textoMunicipio);
-        // Usar setTimeout para garantir que o DOM esteja pronto
-        setTimeout(() => {
-          const municipioInput = document.getElementById('municipio');
-          if (municipioInput) {
-            municipioInput.value = textoMunicipio;
+    if (visible && modoEdicao && dadosOcorrencia && dadosOcorrencia.codMunicipio) {
+      // OTIMIZADO: Usar cache para buscar o município
+      const preencherMunicipio = async () => {
+        try {
+          const municipio = await municipiosCacheService.buscarMunicipioPorCodigo(dadosOcorrencia.codMunicipio);
+          if (municipio) {
+            const textoMunicipio = municipiosCacheService.formatarMunicipio(municipio);
+            setMunicipioSelecionado(textoMunicipio);
+            // Usar setTimeout para garantir que o DOM esteja pronto
+            setTimeout(() => {
+              const municipioInput = document.getElementById('municipio');
+              if (municipioInput) {
+                municipioInput.value = textoMunicipio;
+              }
+            }, 100);
           }
-        }, 100);
-      }
+        } catch (error) {
+          console.error('Erro ao carregar município para edição:', error);
+        }
+      };
+      
+      preencherMunicipio();
     }
-  }, [visible, modoEdicao, dadosOcorrencia, todosMunicipios]);
+  }, [visible, modoEdicao, dadosOcorrencia]);
 
   // UseEffect para preencher dados em modo visualização ou edição
   useEffect(() => {
@@ -1045,33 +1041,7 @@ const ServicosModal = ({
         // Cache de serviços é carregado automaticamente em background
         // Não precisa mais carregar por centro de custo
         
-        // Preencher campos de município em modo edição
-        if (modoEdicao && dadosOcorrencia.codMunicipio) {
-          // Carregar todos os municípios e definir o selecionado
-          if (todosMunicipios.length === 0) {
-            carregarTodosMunicipios().then((municipiosCarregados) => {
-              const municipio = municipiosCarregados.find(m => m.codigo === dadosOcorrencia.codMunicipio);
-              if (municipio) {
-                const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
-                setMunicipioSelecionado(textoMunicipio);
-                const municipioInput = document.getElementById('municipio');
-                if (municipioInput) {
-                  municipioInput.value = textoMunicipio;
-                }
-              }
-            });
-          } else {
-            const municipio = todosMunicipios.find(m => m.codigo === dadosOcorrencia.codMunicipio);
-            if (municipio) {
-              const textoMunicipio = `${municipio.codigo.trim()} - ${municipio.descricao.trim()} (${municipio.estado.trim()})`;
-              setMunicipioSelecionado(textoMunicipio);
-              const municipioInput = document.getElementById('municipio');
-              if (municipioInput) {
-                municipioInput.value = textoMunicipio;
-              }
-            }
-          }
-        }
+        // Município é preenchido via useEffect específico
         
         // Preencher campos de número operacional em modo edição
         if (modoEdicao && dadosOcorrencia.numeroOperacional) {
