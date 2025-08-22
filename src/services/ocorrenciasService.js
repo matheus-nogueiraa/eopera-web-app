@@ -139,7 +139,7 @@ const ocorrenciasService = {
       
       const result = await response.json();
       
-      if (result.status === false) {
+      if (result.data.status === false) {
         throw new Error(result.msg || 'Erro ao incluir ocorrência');
       }
       
