@@ -429,6 +429,25 @@ const ServicosModal = ({
     });
   };
 
+  // Função para fechar o modal e limpar dados
+  const fecharModal = () => {
+    // Fechar modal de fotos se estiver aberto
+    setModalFotosVisible(false);
+    setFotoServicoAtual({
+      index: -1,
+      idOcorrencia: '',
+      itemServico: '',
+      servicoDescricao: ''
+    });
+
+    // Se não está em modo visualização ou edição, limpar todos os campos (incluindo fotos)
+    if (!modoVisualizacao && !modoEdicao) {
+      limparCampos();
+    }
+    
+    setVisible(false);
+  };
+
   // Função para limpar todos os campos do modal
   const limparCampos = () => {
     // Limpar inputs de texto
@@ -503,6 +522,23 @@ const ServicosModal = ({
 
     // Limpar erros de validação
     setCamposComErro({});
+
+    // Resetar estados do modal de fotos
+    setModalFotosVisible(false);
+    setFotoServicoAtual({
+      index: -1,
+      idOcorrencia: '',
+      itemServico: '',
+      servicoDescricao: ''
+    });
+
+    // Limpar todas as fotos dos serviços
+    setServicos(servicosAtuais => 
+      servicosAtuais.map(servico => ({
+        ...servico,
+        fotos: []
+      }))
+    );
   };
 
   // Função para exibir alertas
@@ -1641,32 +1677,30 @@ const ServicosModal = ({
       const servicosEdicao = [];
       const servicosOriginais = dadosOcorrencia.servicos || [];
       
-      servicosOriginais.forEach(servicoOriginal => {
-        const servicoExiste = servicos.find(s => 
-          (s.servicoSelecionado?.idServico || s.servico) === servicoOriginal.idServico
-        );
+      // Mapear por posição/itemOcorrencia em vez de apenas por idServico
+      const maxItens = Math.max(servicosOriginais.length, servicos.length);
+      
+      for (let i = 0; i < maxItens; i++) {
+        const servicoOriginal = servicosOriginais[i];
+        const servicoAtual = servicos[i];
         
-        if (!servicoExiste) {
+        if (servicoOriginal && !servicoAtual) {
+          // Serviço foi removido - DELETE
           servicosEdicao.push({
             acao: "DELETE",
-            itemServico: servicoOriginal.itemOcorrencia || "001"
+            itemServico: servicoOriginal.itemOcorrencia || (i + 1).toString().padStart(3, '0')
           });
-        }
-      });
-      
-      for (const servicoAtual of servicos) {
-        let idServicoAtual = '';
-        if (servicoAtual.servicoSelecionado?.idServico) {
-          idServicoAtual = servicoAtual.servicoSelecionado.idServico;
-        } else {
-          const servicoOriginalTexto = servicoAtual.servico?.split(' - ')[0]?.trim();
-          const servicoEncontrado = await buscarServicoNoCachePorIdOuCodigo(servicoOriginalTexto);
-          idServicoAtual = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginalTexto;
-        }
-        
-        const servicoOriginal = servicosOriginais.find(s => s.idServico === idServicoAtual);
-        
-        if (!servicoOriginal) {
+        } else if (!servicoOriginal && servicoAtual) {
+          // Novo serviço adicionado - POST
+          let idServicoAtual = '';
+          if (servicoAtual.servicoSelecionado?.idServico) {
+            idServicoAtual = servicoAtual.servicoSelecionado.idServico;
+          } else {
+            const servicoOriginalTexto = servicoAtual.servico?.split(' - ')[0]?.trim();
+            const servicoEncontrado = await buscarServicoNoCachePorIdOuCodigo(servicoOriginalTexto);
+            idServicoAtual = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginalTexto;
+          }
+          
           servicosEdicao.push({
             acao: "POST",
             idServico: idServicoAtual,
@@ -1679,7 +1713,18 @@ const ServicosModal = ({
               base64: foto.base64 
             }))
           });
-        } else {
+        } else if (servicoOriginal && servicoAtual) {
+          // Comparar e atualizar serviço existente
+          let idServicoAtual = '';
+          if (servicoAtual.servicoSelecionado?.idServico) {
+            idServicoAtual = servicoAtual.servicoSelecionado.idServico;
+          } else {
+            const servicoOriginalTexto = servicoAtual.servico?.split(' - ')[0]?.trim();
+            const servicoEncontrado = await buscarServicoNoCachePorIdOuCodigo(servicoOriginalTexto);
+            idServicoAtual = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginalTexto;
+          }
+          
+          // Verificar se houve alterações
           const obsOriginal = (servicoOriginal.observacao || '').trim();
           const obsAtual = (servicoAtual.observacao || '').trim();
           const qtdOriginal = Math.round(Number(servicoOriginal.quantidade || 0));
@@ -1688,8 +1733,11 @@ const ServicosModal = ({
           const pontosAtual = Number(Number(servicoAtual.valorServico || 0).toFixed(6));
           const grupoOriginal = Number(Number(servicoOriginal.valGrupo || 0).toFixed(6));
           const grupoAtual = Number(Number(servicoAtual.valorGrupo || 0).toFixed(6));
+          const idServicoOriginal = servicoOriginal.idServico;
 
-          const temAlteracao = obsOriginal !== obsAtual || qtdOriginal !== qtdAtual || 
+          const temAlteracao = idServicoOriginal !== idServicoAtual ||
+                             obsOriginal !== obsAtual || 
+                             qtdOriginal !== qtdAtual || 
                              Math.abs(pontosOriginal - pontosAtual) > 0.000001 || 
                              Math.abs(grupoOriginal - grupoAtual) > 0.000001;
           
@@ -1698,6 +1746,7 @@ const ServicosModal = ({
             const fotosOriginais = servicoOriginal.fotos || [];
             const fotosAtuais = servicoAtual.fotos || [];
             
+            // Lógica de fotos permanece a mesma
             fotosOriginais.forEach((fotoOriginal, index) => {
               if (index < fotosAtuais.length) {
                 fotosEdicao.push({
@@ -1722,9 +1771,10 @@ const ServicosModal = ({
               }
             });
             
+            // SEMPRE PUT para serviços existentes, mesmo se apenas o idServico mudou
             servicosEdicao.push({
               acao: "PUT",
-              itemServico: servicoOriginal.itemOcorrencia || "001",
+              itemServico: servicoOriginal.itemOcorrencia || (i + 1).toString().padStart(3, '0'),
               idServico: idServicoAtual,
               observacao: servicoAtual.observacao || '',
               quantidade: Number(servicoAtual.quantidade) || 0,
@@ -1901,6 +1951,8 @@ const ServicosModal = ({
         incrementos: []
       };
 
+      console.log('baseBody:', baseBody);
+
       if (modoEdicao && dadosOcorrencia) {
         const bodyEdicao = { ...baseBody, idOcorrencia: dadosOcorrencia.idOcorrencia };
         await ocorrenciasService.alterarOcorrencia(bodyEdicao);
@@ -1916,7 +1968,7 @@ const ServicosModal = ({
 
       setTimeout(() => {
         limparCampos();
-        setVisible(false);
+        fecharModal();
       }, 1000);
 
     } catch (error) {
@@ -2033,10 +2085,7 @@ const ServicosModal = ({
     <>
       <CModal
         visible={visible}
-        onClose={() => {
-          limparCampos();
-          setVisible(false);
-        }}
+        onClose={fecharModal}
         size="xl"
         backdrop="static"
         keyboard={false}
@@ -3422,12 +3471,7 @@ const ServicosModal = ({
                 <CModalFooter className="bg-light border-top">
                 <CButton
                   color="secondary"
-                  onClick={() => {
-            if (!modoVisualizacao && !modoEdicao) {
-              limparCampos();
-            }
-            setVisible(false);
-          }}
+                  onClick={fecharModal}
           className="me-2"
           disabled={isSubmitting}
         >

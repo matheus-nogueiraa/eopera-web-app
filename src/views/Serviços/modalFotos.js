@@ -308,14 +308,19 @@ const ModalFotos = ({
     setPreviewFoto(null);
   };
 
+  // Função para fechar modal sem salvar (limpa fotos temporárias)
+  const fecharSemSalvar = () => {
+    // Apenas fecha o modal sem alterar as fotos
+    // As fotos já foram sincronizadas conforme o usuário adicionou/removeu
+    resetarModal();
+    setVisible(false);
+  };
+
   return (
     <>
       <CModal
         visible={visible}
-        onClose={() => {
-          resetarModal();
-          setVisible(false);
-        }}
+        onClose={fecharSemSalvar}
         size="xl"
         backdrop="static"
         keyboard={false}
@@ -499,10 +504,7 @@ const ModalFotos = ({
         <CModalFooter className="bg-light border-top">
           <CButton
             color="secondary"
-            onClick={() => {
-              resetarModal();
-              setVisible(false);
-            }}
+            onClick={fecharSemSalvar}
             className="me-2"
           >
             Fechar
@@ -511,7 +513,11 @@ const ModalFotos = ({
             <CButton
               color="primary"
               onClick={() => {
-                // As fotos já estão sendo sincronizadas via onFotosChange
+                // Sincronizar fotos com o modal pai antes de fechar
+                if (onFotosChange) {
+                  onFotosChange(fotos);
+                }
+                
                 mostrarAlert('Fotos salvas com sucesso!', 'success');
                 setTimeout(() => {
                   resetarModal();
