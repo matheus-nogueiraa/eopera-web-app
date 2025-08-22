@@ -1811,6 +1811,9 @@ const ServicosModal = ({
         erros.unConsumidora = 'Preencha pelo menos um dos campos: Número OS ou UN. Consumidora';
       }
 
+      if (!localStorage.getItem('cpf'))  erros.cpf = 'Este campo é obrigatório';
+      if (!localStorage.getItem('nomeUsuario'))  erros.nomeUsuario = 'Este campo é obrigatório';
+      if (!localStorage.getItem('matricula'))  erros.matricula = 'Este campo é obrigatório';
       if (!status) erros.status = 'Este campo é obrigatório';
       if (!data) erros.data = 'Este campo é obrigatório';
       if (!dataConclusao) erros.dataConclusao = 'Este campo é obrigatório';
@@ -1854,6 +1857,12 @@ const ServicosModal = ({
 
     try {
       if (validarCampos()) {
+        let message = ''
+        if (!localStorage.getItem('cpf') || !localStorage.getItem('matricula')) {
+          message = 'CPF ou matricula não localizado, por favor realize login novamente.';
+          mostrarAlert(message, 'danger');
+          return
+        }
         mostrarAlert('Por favor, corrija os campos destacados em vermelho.', 'danger');
         return;
       }
@@ -2098,33 +2107,6 @@ const ServicosModal = ({
         </CModalTitle>
       </CModalHeader>
       <CModalBody className="pb-0">
-        {/* Alert de sucesso/erro */}
-        {alertVisible && (
-          <CAlert
-            color={alertColor}
-            dismissible
-            onClose={() => setAlertVisible(false)}
-            className={`d-flex align-items-start mb-3 ${alertColor === 'danger' ? 'border-danger' : ''}`}
-            style={{
-              animation: 'fadeIn 0.3s',
-              boxShadow: alertColor === 'danger' ? '0 4px 12px rgba(220, 53, 69, 0.3)' : '0 4px 12px rgba(25, 135, 84, 0.3)',
-              zIndex: 1060
-            }}
-          >
-            <div className="flex-shrink-0 me-2 mt-1">
-              {alertColor === 'success' ? (
-                <CIcon icon={cilCheckAlt} />
-              ) : (
-                <CIcon icon={cilX} />
-              )}
-            </div>
-            <div
-              className="flex-grow-1"
-              dangerouslySetInnerHTML={{ __html: alertMessage }}
-            />
-          </CAlert>
-        )}
-
         {/* Primeira linha */}
         <CRow className="mb-4">
           <CCol md={3}>
@@ -3466,6 +3448,32 @@ const ServicosModal = ({
                     )}
                   </CCardBody>
                   </CCard>
+                   {/* Alert de sucesso/erro */}
+        {alertVisible && (
+          <CAlert
+            color={alertColor}
+            dismissible
+            onClose={() => setAlertVisible(false)}
+            className={`d-flex align-items-start mb-3 ${alertColor === 'danger' ? 'border-danger' : ''}`}
+            style={{
+              animation: 'fadeIn 0.3s',
+              boxShadow: alertColor === 'danger' ? '0 4px 12px rgba(220, 53, 69, 0.3)' : '0 4px 12px rgba(25, 135, 84, 0.3)',
+              zIndex: 1060
+            }}
+          >
+            <div className="flex-shrink-0 me-2 mt-1">
+              {alertColor === 'success' ? (
+                <CIcon icon={cilCheckAlt} />
+              ) : (
+                <CIcon icon={cilX} />
+              )}
+            </div>
+            <div
+              className="flex-grow-1"
+              dangerouslySetInnerHTML={{ __html: alertMessage }}
+            />
+          </CAlert>
+        )}
                 </div>
                 </CModalBody>
                 <CModalFooter className="bg-light border-top">
