@@ -11,6 +11,7 @@ import { cilPlus, cilCloudDownload, cilCheckCircle, cilX, cilInfo } from '@coreu
 import ServicosModal from './servicosModal';
 import ServicosTabela from './servicosTabela';
 import { usePermissoesCRUD } from '../../contexts/PermissoesContext';
+import servicosCacheService from '../../services/servicosCacheService';
 
 // Adicionando estilos CSS para animação
 const styles = `
@@ -34,6 +35,7 @@ const criarConteudos = () => {
   const [ showModal, setShowModal ] = useState(false);
   const [ search, setSearch ] = useState('');
   const [ loading, setLoading ] = useState(false);
+  const [ cacheLoading, setCacheLoading ] = useState(true);
   const [ alert, setAlert ] = useState({
     visible: false,
     message: '',
@@ -42,6 +44,24 @@ const criarConteudos = () => {
 
   // Hook para verificar permissões da rota /servicos
   const { podeAdicionar, podeEditar, podeDeletar } = usePermissoesCRUD('/servicos');
+
+  // Carregar cache de serviços ao inicializar a página
+  useEffect(() => {
+    const carregarCacheInicial = async () => {
+      setCacheLoading(true);
+      try {
+        await servicosCacheService.carregarTodosServicos();
+        console.log('Cache de serviços carregado com sucesso na página principal');
+      } catch (error) {
+        console.error('Erro ao carregar cache de serviços:', error);
+        showAlert('Erro ao carregar serviços iniciais. Alguns recursos podem estar indisponíveis.', 'warning');
+      } finally {
+        setCacheLoading(false);
+      }
+    };
+
+    carregarCacheInicial();
+  }, []);
 
   // Debug - pode ser removido depois
   useEffect(() => {
@@ -89,6 +109,12 @@ const criarConteudos = () => {
     <div className="container-fluid">
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 className="h3 mb-0 text-gray-800">Lançamento de Serviços</h1>
+        {cacheLoading && (
+          <div className="d-flex align-items-center text-muted">
+            <CSpinner size="sm" className="me-2" />
+            <small>Carregando serviços...</small>
+          </div>
+        )}
       </div>
 
       {/* Alertas */}

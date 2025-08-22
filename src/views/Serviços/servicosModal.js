@@ -33,6 +33,7 @@ import CIcon from '@coreui/icons-react';
 import { cilX, cilCheckAlt, cilWarning, cilCamera } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
 import servicosService, { consultarServicosProtheus } from '../../services/servicosService';
+import servicosCacheService from '../../services/servicosCacheService';
 import { consultarEquipes } from '../../services/equipesService';
 import { consultarUsuariosEoperaX, filtrarUsuarios } from '../../services/popularTabela';
 import ocorrenciasService from '../../services/ocorrenciasService';
@@ -264,46 +265,13 @@ const ServicosModal = ({
   }, [todosMunicipios]);
 
   const buscarServicosPorIds = async (servicosArray) => {
-  // Busca os nomes dos serviços por ID, usando cache local e serviço centralizado
+  // OTIMIZADO: Usa cache global em vez de múltiplas requisições
+  // Antes: 300 serviços = 300 requisições → Agora: 1 cache + busca local
     if (!servicosArray || !Array.isArray(servicosArray)) return [];
+    
     try {
-      const servicosComNomes = await Promise.all(
-        servicosArray.map(async (servico) => {
-          // Se já tem o objeto completo, retorna direto
-          if (servico.servicoSelecionado && servico.servicoSelecionado.idServico) {
-            return {
-              ...servico,
-              servicoNome: `${servico.servicoSelecionado.codServico?.trim() || servico.servicoSelecionado.idServico} - ${servico.servicoSelecionado.descricaoServico}`
-            };
-          }
-          // Busca local nos serviços já carregados
-          const servicoId = servico.servico || servico.idServico;
-          if (todosServicos.length > 0) {
-            const servicoEncontrado = todosServicos.find(s => s.idServico === servicoId || s.codServico === servicoId);
-            if (servicoEncontrado) {
-              return {
-                ...servico,
-                servicoNome: `${servicoEncontrado.codServico?.trim() || servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
-              };
-            }
-          }
-          // Se não encontrou localmente, busca via serviço (evita estourar pool)
-          try {
-            const servicoEncontrado = await servicosService.buscarServicoPorId(servicoId);
-            return {
-              ...servico,
-              servicoNome: `${servicoEncontrado.codServico?.trim() || servicoEncontrado.idServico.trim()} - ${servicoEncontrado.descricaoServico.trim()}`
-            };
-          } catch (error) {
-            // Se não encontrar, retorna apenas o ID
-            return {
-              ...servico,
-              servicoNome: servicoId || 'Serviço não identificado'
-            };
-          }
-        })
-      );
-      return servicosComNomes;
+      // Usar o serviço de cache otimizado
+      return await servicosCacheService.buscarServicosPorIds(servicosArray);
     } catch (error) {
       console.error('Erro ao buscar serviços por IDs:', error);
       return servicosArray.map(servico => ({
@@ -602,6 +570,29 @@ const ServicosModal = ({
     setCamposComErro({});
   };
 
+  // Função auxiliar para buscar serviço por ID ou código usando cache
+  const buscarServicoNoCachePorIdOuCodigo = async (idOuCodigo) => {
+    try {
+      // Primeiro buscar no cache por ID
+      let servico = await servicosCacheService.buscarServicoPorId(idOuCodigo);
+      
+      if (!servico) {
+        // Se não encontrou por ID, buscar por código no cache completo
+        const todosServicosCache = await servicosCacheService.obterTodosServicos();
+        servico = todosServicosCache.find(s => 
+          s.codServico?.trim() === idOuCodigo?.trim()
+        );
+      }
+      
+      return servico;
+    } catch (error) {
+      console.warn('Erro ao buscar serviço no cache:', error);
+      return null;
+    }
+  };
+
+  // UseEffect removido - cache será inicializado na página principal de serviços
+
   // UseEffect para resetar campos quando modal fechar
   useEffect(() => {
     if (!visible) {
@@ -815,23 +806,13 @@ const ServicosModal = ({
               
               setCentroCustoSelecionado(valorParaSelecionar);
               
-              // Carregar serviços do centro de custo (apenas uma vez)
-              if (!todosServicos.length) {
-                setTimeout(() => {
-                  carregarServicosPorCentroCusto(valorParaSelecionar);
-                }, 200);
-              }
+              // Cache é carregado automaticamente no background
             } else {
               // Se não encontrar na lista, usar o valor diretamente
               const valorDireto = dadosOcorrencia.centroCusto.trim();
               setCentroCustoSelecionado(valorDireto);
               
-              // Carregar serviços apenas uma vez
-              if (!todosServicos.length) {
-                setTimeout(() => {
-                  carregarServicosPorCentroCusto(valorDireto);
-                }, 200);
-              }
+              // Cache é carregado automaticamente no background
             }
           } 
         }, 300);
@@ -902,7 +883,7 @@ const ServicosModal = ({
         centroCustoInicializado.current = false;
       }
     };
-  }, [visible, modoEdicao, dadosOcorrencia, centroCustoOpcoes, todosServicos.length]);
+  }, [visible, modoEdicao, dadosOcorrencia, centroCustoOpcoes]);
 
   // UseEffect específico para preencher município em modo edição quando os dados são carregados
   useEffect(() => {
@@ -1025,10 +1006,8 @@ const ServicosModal = ({
           // Não fazer nada aqui, pois o centro de custo será tratado no useEffect específico
         }
         
-        // Em modo edição, precisamos carregar os serviços do centro de custo
-        if (modoEdicao && dadosOcorrencia.centroCusto) {
-          carregarServicosPorCentroCusto(dadosOcorrencia.centroCusto);
-        }
+        // Cache de serviços é carregado automaticamente em background
+        // Não precisa mais carregar por centro de custo
         
         // Preencher campos de município em modo edição
         if (modoEdicao && dadosOcorrencia.codMunicipio) {
@@ -1172,9 +1151,9 @@ const ServicosModal = ({
               // Converter para string com verificação de undefined/null
               const valorGrupoStr = valorGrupo !== undefined && valorGrupo !== null ? valorGrupo.toString() : '';
               const valorPontosStr = valorPontos !== undefined && valorPontos !== null ? valorPontos.toString() : '';
-            
+              const descServico = servico.codServico.trim() + ' - ' + servico.descricaoServico.trim();
               return {
-                servico: servico.idServico || '',
+                servico: descServico || '',
                 observacao: servico.observacao || '',
                 valorGrupo: valorGrupoStr,
                 valorServico: valorPontosStr,
@@ -1352,135 +1331,27 @@ const ServicosModal = ({
     }
   };
 
-  // Função para upload de imagens - REMOVIDA
-  // Agora usa o ModalFotos para gerenciar fotos
-  // A função abrirModalFotos() substitui esta funcionalidade
-
-  // Função para remover foto - REMOVIDA  
-  // Agora usa o ModalFotos para gerenciar fotos
-  // A remoção de fotos é feita dentro do ModalFotos
-
-  // Função para carregar todos os serviços (uma vez só)
-  const carregarTodosServicos = async () => {
-  // Carrega todos os serviços do Protheus apenas se ainda não estiverem carregados
-    if (todosServicos.length > 0) return; // Já carregados
-
-    setLoadingServicos(true);
-
-    try {
-
-      // Usar a função consultarServicosProtheus sem parâmetros para buscar todos
-      const dados = await consultarServicosProtheus();
-
-
-      // A função já retorna diretamente o array de dados
-      if (Array.isArray(dados)) {
-        setTodosServicos(dados);
-      } else {
-        console.warn('Resposta da API não é um array:', dados);
-        setTodosServicos([]);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
-      setTodosServicos([]);
-      mostrarAlert('Erro ao carregar serviços do Protheus', 'danger');
-    } finally {
-      setLoadingServicos(false);
-    }
-  };
-
-  // Função para carregar serviços de um centro de custo específico
-  const carregarServicosPorCentroCusto = async (centroCusto) => {
-    // Carrega serviços filtrados por centro de custo usando serviço centralizado
-    if (!centroCusto) {
-      console.warn('Centro de custo não informado para carregamento de serviços');
-      return;
-    }
-    
-    // Evitar requisições duplicadas para o mesmo centro de custo
-    const centroCustoAtual = centroCusto.trim();
-    
-    // Verificar se já estamos carregando serviços
-    if (loadingServicos) {
-      return;
-    }
-    
-    setLoadingServicos(true);
-    
-    try {
-      // Usar a função consultarServicosProtheus com o parâmetro centroCusto
-      const dados = await consultarServicosProtheus({ centroCusto: centroCustoAtual });
-
-      // A função já retorna diretamente o array de dados
-      if (Array.isArray(dados)) {
-        setTodosServicos(dados);
-      } else {
-        console.warn('Resposta da API não é um array:', dados);
-        setTodosServicos([]);
-        mostrarAlert('Nenhum serviço encontrado para o centro de custo selecionado', 'warning');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar serviços:', error);
-      setTodosServicos([]);
-      mostrarAlert('Erro ao carregar serviços do centro de custo', 'danger');
-    } finally {
-      setLoadingServicos(false);
-    }
-  };
-
-  // Função para filtrar serviços localmente
-  const filtrarServicos = (termo) => {
-  // Filtra serviços localmente pelo termo informado
-// Dica para iniciantes:
-// - Sempre use os serviços de src/services para chamadas à API.
-// - Use useEffect para carregar dados apenas quando necessário.
-// - Use estados de loading para evitar múltiplas chamadas simultâneas.
-// - Separe funções de busca/lógica dos componentes de UI.
-    if (!termo || termo.length < 2) {
-      return [];
-    }
-
-    const termoLower = termo.toLowerCase().trim();
-
-    return todosServicos.filter(servico => {
-      const idServico = servico.idServico?.toLowerCase() || '';
-      const descricao = servico.descricaoServico?.toLowerCase() || '';
-      const codServico = servico.codServico?.toLowerCase() || '';
-      const siglaUp = servico.siglaUp?.toLowerCase() || '';
-
-      return idServico.includes(termoLower) ||
-        descricao.includes(termoLower) ||
-        codServico.includes(termoLower) ||
-        siglaUp.includes(termoLower);
-    }).slice(0, 20); // Limitar a 20 resultados
-  };
-
-  // Função para buscar serviços do Protheus
+  // Função para buscar serviços do Protheus (OTIMIZADA COM CACHE)
   const buscarServicos = async (termo, index) => {
+    // OTIMIZADO: Usa sempre cache global, sem filtro por centro de custo
     if (!termo || termo.length < 2) {
       setServicosOpcoes([]);
       setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
       return;
     }
 
-    // Verificar se um centro de custo foi selecionado
-    if (!centroCustoSelecionado) {
-      mostrarAlert('É obrigatório selecionar um centro de custo antes de pesquisar serviços', 'warning');
+    try {
+      // Buscar em todos os serviços do cache global (sem filtro por centro de custo)
+      const servicosFiltrados = await servicosCacheService.filtrarServicos(termo, 10);
+
+      setServicosOpcoes(servicosFiltrados);
+      setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: true }));
+      setServicoSelectedIndex(prev => ({ ...prev, [ index ]: -1 }));
+    } catch (error) {
+      console.error('Erro ao buscar serviços:', error);
       setServicosOpcoes([]);
       setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
-      return;
     }
-
-    // Se não há serviços carregados para este centro de custo, carregá-los primeiro
-    if (todosServicos.length === 0) {
-      await carregarServicosPorCentroCusto(centroCustoSelecionado);
-    }
-
-    // Filtrar localmente
-    const servicosFiltrados = filtrarServicos(termo);
-    setServicosOpcoes(servicosFiltrados);
-    setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: true }));
-    setServicoSelectedIndex(prev => ({ ...prev, [ index ]: -1 }));
   };
 
   // Debounce para busca de serviços
@@ -1592,17 +1463,9 @@ const ServicosModal = ({
   const aplicarMudancaCentroCusto = async (valor) => {
     setCentroCustoSelecionado(valor);
 
-    // Encontrar o objeto completo do centro de custo selecionado
-    const centroCusto = centroCustoOpcoes.find(cc => cc.centroCusto === valor);
-
-    // Limpar os serviços anteriores
-    setTodosServicos([]);
+    // Cache de serviços é global - não precisa recarregar por centro de custo
+    // Apenas limpar seleções de autocomplete
     setServicosOpcoes([]);
-    
-    // Se um centro de custo foi selecionado, carregar os serviços desse centro
-    if (valor && valor.trim()) {
-      await carregarServicosPorCentroCusto(valor.trim());
-    }
   };
 
   // Função para confirmar a troca do centro de custo
@@ -1721,6 +1584,349 @@ const ServicosModal = ({
 
     setEquipeDropdownVisivel(false);
     setEquipeSelectedIndex(-1);
+  };
+
+  // Função unificada para submissão (criar/atualizar)
+  const handleSubmit = async () => {
+    // Funções auxiliares para edição
+    const construirUsuariosParaEdicao = () => {
+      const usuariosEdicao = [];
+      const usuariosOriginais = dadosOcorrencia.usuarios || [];
+      
+      usuariosOriginais.forEach(usuarioOriginal => {
+        const usuarioExiste = usuarios.find(u => 
+          u.cpf === usuarioOriginal.cpf && u.matricula === usuarioOriginal.matricula
+        );
+        
+        if (!usuarioExiste) {
+          usuariosEdicao.push({
+            acao: "DELETE",
+            itemUsuario: usuarioOriginal.itemUsuario || "001"
+          });
+        }
+      });
+      
+      usuarios.forEach(usuarioAtual => {
+        const usuarioOriginal = usuariosOriginais.find(u => 
+          u.cpf === usuarioAtual.cpf && u.matricula === usuarioAtual.matricula
+        );
+        
+        if (!usuarioOriginal) {
+          usuariosEdicao.push({
+            acao: "POST",
+            cpf: usuarioAtual.cpf,
+            matricula: usuarioAtual.matricula,
+            lider: usuarioAtual.lider ? 'S' : 'N'
+          });
+        } else {
+          const liderOriginal = usuarioOriginal.lider === 'S' || usuarioOriginal.lider === true;
+          const liderAtual = usuarioAtual.lider === true;
+          
+          if (liderOriginal !== liderAtual) {
+            usuariosEdicao.push({
+              acao: "PUT",
+              itemUsuario: usuarioOriginal.itemUsuario || "001",
+              cpf: usuarioAtual.cpf,
+              matricula: usuarioAtual.matricula,
+              lider: usuarioAtual.lider ? 'S' : 'N'
+            });
+          }
+        }
+      });
+      
+      return usuariosEdicao;
+    };
+
+    const construirServicosParaEdicao = async () => {
+      const servicosEdicao = [];
+      const servicosOriginais = dadosOcorrencia.servicos || [];
+      
+      servicosOriginais.forEach(servicoOriginal => {
+        const servicoExiste = servicos.find(s => 
+          (s.servicoSelecionado?.idServico || s.servico) === servicoOriginal.idServico
+        );
+        
+        if (!servicoExiste) {
+          servicosEdicao.push({
+            acao: "DELETE",
+            itemServico: servicoOriginal.itemOcorrencia || "001"
+          });
+        }
+      });
+      
+      for (const servicoAtual of servicos) {
+        let idServicoAtual = '';
+        if (servicoAtual.servicoSelecionado?.idServico) {
+          idServicoAtual = servicoAtual.servicoSelecionado.idServico;
+        } else {
+          const servicoOriginalTexto = servicoAtual.servico?.split(' - ')[0]?.trim();
+          const servicoEncontrado = await buscarServicoNoCachePorIdOuCodigo(servicoOriginalTexto);
+          idServicoAtual = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginalTexto;
+        }
+        
+        const servicoOriginal = servicosOriginais.find(s => s.idServico === idServicoAtual);
+        
+        if (!servicoOriginal) {
+          servicosEdicao.push({
+            acao: "POST",
+            idServico: idServicoAtual,
+            observacao: servicoAtual.observacao || '',
+            quantidade: Number(servicoAtual.quantidade) || 0,
+            valPontos: parseFloat(servicoAtual.valorServico) || 0,
+            valGrupo: parseFloat(servicoAtual.valorGrupo) || 0,
+            fotos: (servicoAtual.fotos || []).map(foto => ({ 
+              acao: "POST", 
+              base64: foto.base64 
+            }))
+          });
+        } else {
+          const obsOriginal = (servicoOriginal.observacao || '').trim();
+          const obsAtual = (servicoAtual.observacao || '').trim();
+          const qtdOriginal = Math.round(Number(servicoOriginal.quantidade || 0));
+          const qtdAtual = Math.round(Number(servicoAtual.quantidade || 0));
+          const pontosOriginal = Number(Number(servicoOriginal.valPontos || 0).toFixed(6));
+          const pontosAtual = Number(Number(servicoAtual.valorServico || 0).toFixed(6));
+          const grupoOriginal = Number(Number(servicoOriginal.valGrupo || 0).toFixed(6));
+          const grupoAtual = Number(Number(servicoAtual.valorGrupo || 0).toFixed(6));
+
+          const temAlteracao = obsOriginal !== obsAtual || qtdOriginal !== qtdAtual || 
+                             Math.abs(pontosOriginal - pontosAtual) > 0.000001 || 
+                             Math.abs(grupoOriginal - grupoAtual) > 0.000001;
+          
+          if (temAlteracao) {
+            const fotosEdicao = [];
+            const fotosOriginais = servicoOriginal.fotos || [];
+            const fotosAtuais = servicoAtual.fotos || [];
+            
+            fotosOriginais.forEach((fotoOriginal, index) => {
+              if (index < fotosAtuais.length) {
+                fotosEdicao.push({
+                  acao: "PUT",
+                  itemFoto: fotoOriginal.itemFoto || (index + 1).toString().padStart(3, '0'),
+                  base64: fotosAtuais[index].base64
+                });
+              } else {
+                fotosEdicao.push({
+                  acao: "DELETE",
+                  itemFoto: fotoOriginal.itemFoto || (index + 1).toString().padStart(3, '0')
+                });
+              }
+            });
+            
+            fotosAtuais.forEach((fotoAtual, index) => {
+              if (index >= fotosOriginais.length) {
+                fotosEdicao.push({
+                  acao: "POST",
+                  base64: fotoAtual.base64
+                });
+              }
+            });
+            
+            servicosEdicao.push({
+              acao: "PUT",
+              itemServico: servicoOriginal.itemOcorrencia || "001",
+              idServico: idServicoAtual,
+              observacao: servicoAtual.observacao || '',
+              quantidade: Number(servicoAtual.quantidade) || 0,
+              valPontos: parseFloat(servicoAtual.valorServico) || 0,
+              valGrupo: parseFloat(servicoAtual.valorGrupo) || 0,
+              fotos: fotosEdicao
+            });
+          }
+        }
+      }
+      
+      return servicosEdicao;
+    };
+
+    // Validação unificada
+    const validarCampos = () => {
+      const erros = {};
+      setCamposComErro({});
+
+      const numeroOs = document.getElementById('numeroOS').value.trim();
+      const unConsumidora = document.getElementById('unConsumidora').value.trim();
+      const status = document.getElementById('status').value;
+      const data = document.getElementById('data').value;
+      const dataConclusao = document.getElementById('dataConclusao').value;
+      const numeroOperacional = document.getElementById('numeroOperacional').value.trim();
+      const municipio = document.getElementById('municipio').value.trim();
+      const hrInicialDeslocamento = document.getElementById('hrInicialDeslocamento').value;
+      const hrInicioAtividade = document.getElementById('hrInicioAtividade').value;
+      const hrFimAtividade = document.getElementById('hrFimAtividade').value;
+      const hrFimDeslocamento = document.getElementById('hrFimDeslocamento').value;
+
+      if (!numeroOs && !unConsumidora) {
+        erros.numeroOS = 'Preencha pelo menos um dos campos: Número OS ou UN. Consumidora';
+        erros.unConsumidora = 'Preencha pelo menos um dos campos: Número OS ou UN. Consumidora';
+      }
+
+      if (!status) erros.status = 'Este campo é obrigatório';
+      if (!data) erros.data = 'Este campo é obrigatório';
+      if (!dataConclusao) erros.dataConclusao = 'Este campo é obrigatório';
+      if (!numeroOperacional) erros.numeroOperacional = 'Este campo é obrigatório';
+      if (!municipio) erros.municipio = 'Este campo é obrigatório';
+      if (!centroCustoSelecionado) erros.centroDeCustos = 'Este campo é obrigatório';
+      if (!hrInicialDeslocamento) erros.hrInicialDeslocamento = 'Este campo é obrigatório';
+      if (!hrInicioAtividade) erros.hrInicioAtividade = 'Este campo é obrigatório';
+      if (!hrFimAtividade) erros.hrFimAtividade = 'Este campo é obrigatório';
+      if (!hrFimDeslocamento) erros.hrFimDeslocamento = 'Este campo é obrigatório';
+
+      if (!ocorrenciaSemEndereco) {
+        const endereco = document.getElementById('endereco').value.trim();
+        const bairro = document.getElementById('bairro').value.trim();
+        if (!endereco) erros.endereco = 'Este campo é obrigatório';
+        if (!bairro) erros.bairro = 'Este campo é obrigatório';
+      }
+
+      if (usuarios.length === 0) {
+        erros.usuarios = 'Pelo menos um usuário deve ser adicionado';
+      }
+
+      if (servicos.length === 0) {
+        erros.servicos = 'Pelo menos um serviço deve ser adicionado';
+      }
+
+      const temLider = usuarios.some(u => u.lider);
+      if (usuarios.length > 0 && !temLider) {
+        erros.lider = 'Pelo menos um usuário deve ser marcado como líder';
+      }
+
+      if (Object.keys(erros).length > 0) {
+        setCamposComErro(erros);
+      }
+
+      return Object.keys(erros).length > 0;
+    };
+
+    setIsSubmitting(true);
+    if (setLoadingParent) setLoadingParent(true);
+
+    try {
+      if (validarCampos()) {
+        mostrarAlert('Por favor, corrija os campos destacados em vermelho.', 'danger');
+        return;
+      }
+
+      // Coleta dos dados
+      const numeroOs = document.getElementById('numeroOS').value.trim();
+      const unidadeConsumidora = document.getElementById('unConsumidora').value.trim();
+      const status = document.getElementById('status').value;
+      const data = document.getElementById('data').value.replace(/-/g, '');
+      const endereco = ocorrenciaSemEndereco ? '' : document.getElementById('endereco').value.trim();
+      const bairro = ocorrenciaSemEndereco ? '' : document.getElementById('bairro').value.trim();
+      const codMunicipio = document.getElementById('municipio').value.trim().split('-')[0];
+      const cep = ocorrenciaSemEndereco ? '' : document.getElementById('cep').value.trim().replace(/-/g, '');
+      const latitude = ocorrenciaSemEndereco ? '' : document.getElementById('latitude').value.trim();
+      const longitude = ocorrenciaSemEndereco ? '' : document.getElementById('longitude').value.trim();
+      const dataConclusao = document.getElementById('dataConclusao').value.replace(/-/g, '');
+      const centroCusto = centroCustoSelecionado;
+      const numOperacional = document.getElementById('numeroOperacional').value.trim().split('-')[0];
+      
+      const osSgm = document.getElementById('osSgm')?.value.trim() || '';
+      const osAcionamentoEmergencial = document.getElementById('osAcionamentoEmergencial')?.value.trim() || '';
+      const osTablet = document.getElementById('osTablet')?.value.trim() || '';
+      
+      const hrInicialDeslocamento = document.getElementById('hrInicialDeslocamento').value + ':00';
+      const hrInicioAtividade = document.getElementById('hrInicioAtividade').value + ':00';
+      const hrInicioIntervalo = document.getElementById('hrInicioIntervalo').value ? document.getElementById('hrInicioIntervalo').value + ':00' : '';
+      const hrFimIntervalo = document.getElementById('hrFimIntervalo').value ? document.getElementById('hrFimIntervalo').value + ':00' : '';
+      const hrPrimeiroContatoCoi = document.getElementById('hrPrimeiroContatoCoi').value ? document.getElementById('hrPrimeiroContatoCoi').value + ':00' : '';
+      const hrAutorizacaoCoi = document.getElementById('hrAutorizacaoCoi').value ? document.getElementById('hrAutorizacaoCoi').value + ':00' : '';
+      const hrFechamentoCoi = document.getElementById('hrFechamentoCoi').value ? document.getElementById('hrFechamentoCoi').value + ':00' : '';
+      const hrFimAtividade = document.getElementById('hrFimAtividade').value + ':00';
+      const hrFimDeslocamento = document.getElementById('hrFimDeslocamento').value + ':00';
+
+      const cpfInclusao = localStorage.getItem('cpf');
+      const matInclusao = localStorage.getItem('matricula');
+
+      const usuariosReq = usuarios.map(u => ({
+        cpf: u.cpf,
+        matricula: u.matricula,
+        lider: u.lider ? 'S' : 'N'
+      }));
+
+      const servicosReq = [];
+      for (const s of servicos) {
+        let idServico = '';
+        if (s.servicoSelecionado?.idServico) {
+          idServico = s.servicoSelecionado.idServico;
+        } else {
+          const servicoOriginal = s.servico?.split(' - ')[0]?.trim();
+          const servicoEncontrado = await buscarServicoNoCachePorIdOuCodigo(servicoOriginal);
+          idServico = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginal;
+        }
+        
+        servicosReq.push({
+          idServico: idServico,
+          observacao: s.observacao || '',
+          quantidade: Number(s.quantidade) || 0,
+          valPontos: Number(s.valorServico) || 0,
+          valGrupo: Number(s.valorGrupo) || 0,
+          fotos: s.fotos || []
+        });
+      }
+
+      const baseBody = {
+        numeroOs,
+        unidadeConsumidora,
+        status,
+        data,
+        semEndereco: ocorrenciaSemEndereco ? 'S' : 'N',
+        endereco,
+        bairro,
+        codMunicipio,
+        cep,
+        latitude,
+        longitude,
+        dataConclusao,
+        centroCusto,
+        numOperacional,
+        cpfInclusao,
+        matInclusao,
+        hrInicialDeslocamento,
+        hrInicioAtividade,
+        hrInicioIntervalo,
+        hrFimIntervalo,
+        hrPrimeiroContatoCoi,
+        hrAutorizacaoCoi,
+        osSgm,
+        osAcionamentoEmergencial,
+        osTablet,
+        hrFechamentoCoi,
+        hrFimAtividade,
+        hrFimDeslocamento,
+        usuarios: modoEdicao ? construirUsuariosParaEdicao() : usuariosReq,
+        servicos: modoEdicao ? await construirServicosParaEdicao() : servicosReq,
+        incrementos: []
+      };
+
+      if (modoEdicao && dadosOcorrencia) {
+        const bodyEdicao = { ...baseBody, idOcorrencia: dadosOcorrencia.idOcorrencia };
+        await ocorrenciasService.alterarOcorrencia(bodyEdicao);
+        mostrarAlert('Ordem de serviço atualizada com sucesso!', 'success');
+      } else {
+        await ocorrenciasService.incluirOcorrencia(baseBody);
+        mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
+      }
+
+      if (onSuccess && typeof onSuccess === 'function') {
+        onSuccess();
+      }
+
+      setTimeout(() => {
+        limparCampos();
+        setVisible(false);
+      }, 1000);
+
+    } catch (error) {
+      console.error('Erro na operação:', error);
+      const operacao = modoEdicao ? 'atualizar' : 'registrar';
+      mostrarAlert(`Erro ao ${operacao}: ${error.message || 'Falha na operação'}`, 'danger');
+    } finally {
+      setIsSubmitting(false);
+      if (setLoadingParent) setLoadingParent(false);
+    }
   };
 
   // Navegação por teclado para equipes
@@ -2872,8 +3078,8 @@ const ServicosModal = ({
                           readOnly
                           className="bg-light"
                         />
-                      ) : modoEdicao && dadosVisualizacao.servicosNomes && dadosVisualizacao.servicosNomes[index] ? (
-                        // Em modo edição, mostrar valor formatado se disponível
+                      ) : (
+                        // Input unificado para cadastro e edição
                         <div
                           className="position-relative"
                           ref={el => servicosRefs.current[ `ref_${index}` ] = el}
@@ -2883,13 +3089,11 @@ const ServicosModal = ({
                             onChange={(e) => handleServicoChange(e, index)}
                             onKeyDown={(e) => handleServicoKeyDown(e, index)}
                             size="sm"
-                            placeholder={centroCustoSelecionado ? "Digite ID ou descrição do serviço..." : "Selecione um centro de custo primeiro"}
+                            placeholder="Digite ID ou descrição do serviço..."
                             autoComplete="off"
-                            disabled={!centroCustoSelecionado}
-                            readOnly={false}
                             style={{
-                              backgroundColor: !centroCustoSelecionado ? '#f8f9fa' : 'white',
-                              cursor: !centroCustoSelecionado ? 'not-allowed' : 'text'
+                              backgroundColor: 'white',
+                              cursor: 'text'
                             }}
                           />
                           {loadingServicos && servicoDropdownVisivel[ index ] && (
@@ -2907,105 +3111,6 @@ const ServicosModal = ({
                                 maxHeight: '400px',
                                 overflowY: 'auto',
                                 top: '100%'
-                              }}
-                            >
-                              <CListGroup flush>
-                                {servicosOpcoes.slice(0, 10).map((servicoOpcao, opcaoIndex) => (
-                                  <CListGroupItem
-                                    key={opcaoIndex}
-                                    className={`cursor-pointer py-1 px-2 ${servicoSelectedIndex[ index ] === opcaoIndex ? 'bg-light' : ''}`}
-                                    style={{
-                                      cursor: 'pointer',
-                                      transition: 'background-color 0.2s',
-                                      backgroundColor: servicoSelectedIndex[ index ] === opcaoIndex ? '#f8f9fa' : 'white',
-                                      fontSize: '0.8rem'
-                                    }}
-                                    onClick={() => selecionarServico(servicoOpcao, index)}
-                                    onMouseEnter={(e) => {
-                                      if (servicoSelectedIndex[ index ] !== opcaoIndex) {
-                                        e.target.style.backgroundColor = '#f8f9fa';
-                                      }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      if (servicoSelectedIndex[ index ] !== opcaoIndex) {
-                                        e.target.style.backgroundColor = 'white';
-                                      }
-                                    }}
-                                  >
-                                    <div>
-                                      <strong>{servicoOpcao.idServico?.trim()}</strong>
-                                      {servicoOpcao.siglaUp && (
-                                        <div className="text-primary small fw-bold">Sigla UP: {servicoOpcao.siglaUp.trim()}</div>
-                                      )}
-                                      {servicoOpcao.descricaoServico && (
-                                        <div className="text-muted small">
-                                          {servicoOpcao.descricaoServico.trim()}
-                                        </div>
-                                      )}
-                                      {servicoOpcao.valorGrupo > 0 && (
-                                        <small className="text-success">
-                                          Valor: R$ {servicoOpcao.valorGrupo.toFixed(2)}
-                                        </small>
-                                      )}
-                                    </div>
-                                  </CListGroupItem>
-                                ))}
-                                {servicosOpcoes.length >= 20 && (
-                                  <CListGroupItem className="text-center text-muted py-1">
-                                    <small style={{ fontSize: '0.7rem' }}>Mostrando 20 primeiros resultados. Digite mais caracteres para refinar.</small>
-                                  </CListGroupItem>
-                                )}
-                              </CListGroup>
-                            </div>
-                          )}
-                          {servicoDropdownVisivel[ index ] && servicosOpcoes.length === 0 && !loadingServicos && servico.servico.length >= 2 && (
-                            <div
-                              className="position-absolute w-100 bg-white border border-top-0 shadow-sm"
-                              style={{
-                                zIndex: 1050,
-                                top: '100%'
-                              }}
-                            >
-                              <div className="p-2 text-muted text-center" style={{ fontSize: '0.8rem' }}>
-                                Nenhum serviço encontrado
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div
-                          className="dropdown-wrapper"
-                          ref={el => servicosRefs.current[ `ref_${index}` ] = el}
-                        >
-                          <CFormInput
-                            value={servico.servico}
-                            onChange={(e) => handleServicoChange(e, index)}
-                            onKeyDown={(e) => handleServicoKeyDown(e, index)}
-                            size="sm"
-                            placeholder={centroCustoSelecionado ? "Digite ID ou descrição do serviço..." : "Selecione um centro de custo primeiro"}
-                            autoComplete="off"
-                            disabled={!centroCustoSelecionado || modoVisualizacao}
-                            readOnly={modoVisualizacao}
-                            style={{
-                              backgroundColor: !centroCustoSelecionado ? '#f8f9fa' : 'white',
-                              cursor: !centroCustoSelecionado ? 'not-allowed' : 'text'
-                            }}
-                          />
-                          {loadingServicos && servicoDropdownVisivel[ index ] && (
-                            <div className="position-absolute" style={{ right: '5px', top: '50%', transform: 'translateY(-50%)' }}>
-                              <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '12px', height: '12px' }}>
-                                <span className="visually-hidden">Carregando...</span>
-                              </div>
-                            </div>
-                          )}
-                          {servicoDropdownVisivel[ index ] && servicosOpcoes.length > 0 && (
-                            <div
-                              id={`servico-dropdown-${index}`}
-                              className="dropdown-menu-service bg-white border border-top-0"
-                              style={{
-                                top: servicosRefs.current[`ref_${index}`]?.getBoundingClientRect().bottom + 'px',
-                                left: servicosRefs.current[`ref_${index}`]?.getBoundingClientRect().left + 'px',
-                                width: servicosRefs.current[`ref_${index}`]?.offsetWidth + 'px'
                               }}
                             >
                               <CListGroup flush>
@@ -3331,596 +3436,7 @@ const ServicosModal = ({
         {(!modoVisualizacao) && (
           <CButton
             color="primary"
-            onClick={async () => {
-            // Funções auxiliares para edição
-            const construirUsuariosParaEdicao = () => {
-              const usuariosEdicao = [];
-              const usuariosOriginais = dadosOcorrencia.usuarios || [];
-              
-              // Marcar usuários removidos
-              usuariosOriginais.forEach(usuarioOriginal => {
-                const usuarioExiste = usuarios.find(u => 
-                  u.cpf === usuarioOriginal.cpf && u.matricula === usuarioOriginal.matricula
-                );
-                
-                if (!usuarioExiste) {
-                  usuariosEdicao.push({
-                    acao: "DELETE",
-                    itemUsuario: usuarioOriginal.itemUsuario || "001"
-                  });
-                }
-              });
-              
-              // Marcar usuários novos
-              usuarios.forEach(usuarioAtual => {
-                const usuarioOriginal = usuariosOriginais.find(u => 
-                  u.cpf === usuarioAtual.cpf && u.matricula === usuarioAtual.matricula
-                );
-                
-                if (!usuarioOriginal) {
-                  // Novo usuário
-                  usuariosEdicao.push({
-                    acao: "POST",
-                    cpf: usuarioAtual.cpf || '00000000000',
-                    matricula: usuarioAtual.matricula || '000000',
-                    lider: usuarioAtual.lider ? 'S' : 'N'
-                  });
-                } else {
-                  // Usuario existente - verificar se foi alterado
-                  const liderOriginal = usuarioOriginal.lider === 'S' || usuarioOriginal.lider === true;
-                  const liderAtual = usuarioAtual.lider === true;
-                  
-                  if (liderOriginal !== liderAtual) {
-                    usuariosEdicao.push({
-                      acao: "PUT",
-                      itemUsuario: usuarioOriginal.itemUsuario || "001",
-                      cpf: usuarioAtual.cpf || '00000000000',
-                      matricula: usuarioAtual.matricula || '000000',
-                      lider: usuarioAtual.lider ? 'S' : 'N'
-                    });
-                  }
-                }
-              });
-              
-              return usuariosEdicao;
-            };
-
-            const construirServicosParaEdicao = () => {
-              const servicosEdicao = [];
-              const servicosOriginais = dadosOcorrencia.servicos || [];
-              
-              // Marcar serviços removidos
-              servicosOriginais.forEach(servicoOriginal => {
-                const servicoExiste = servicos.find(s => 
-                  (s.servicoSelecionado?.idServico || s.servico) === servicoOriginal.idServico
-                );
-                
-                if (!servicoExiste) {
-                  servicosEdicao.push({
-                    acao: "DELETE",
-                    itemServico: servicoOriginal.itemOcorrencia || "001"
-                  });
-                }
-              });
-              
-              // Marcar serviços novos e alterados
-              servicos.forEach(servicoAtual => {
-                // Garantir que estamos usando o idServico para API, mesmo que o display mostre codServico
-                let idServicoAtual = '';
-                if (servicoAtual.servicoSelecionado?.idServico) {
-                  // Se temos o objeto completo do serviço, usar seu idServico
-                  idServicoAtual = servicoAtual.servicoSelecionado.idServico;
-                } else {
-                  // Caso contrário, tentar extrair do campo servico (que pode conter o codServico formatado)
-                  const servicoOriginalTexto = servicoAtual.servico?.split(' - ')[0]?.trim();
-                  
-                  // Verificar se servicoOriginalTexto é um idServico ou codServico
-                  const servicoEncontrado = todosServicos.find(serv => 
-                    serv.idServico?.trim() === servicoOriginalTexto || serv.codServico?.trim() === servicoOriginalTexto
-                  );
-                  
-                  // Se encontrou o serviço, usar seu idServico, caso contrário usar o valor original
-                  idServicoAtual = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginalTexto;
-                }
-                
-                const servicoOriginal = servicosOriginais.find(s => s.idServico === idServicoAtual);
-                
-                if (!servicoOriginal) {
-                  // Novo serviço
-                  servicosEdicao.push({
-                    acao: "POST",
-                    idServico: idServicoAtual,
-                    observacao: servicoAtual.observacao || '',
-                    quantidade: Number(servicoAtual.quantidade) || 0,
-                    valPontos: parseFloat(servicoAtual.valorServico) || 0,
-                    valGrupo: parseFloat(servicoAtual.valorGrupo) || 0,
-                    fotos: (servicoAtual.fotos || []).map(foto => ({ 
-                      acao: "POST", 
-                      base64: foto.base64 
-                    }))
-                  });
-                } else {
-                  // Serviço existente - verificar alterações com maior precisão
-                  // Convertendo valores para string com precisão fixa para comparação mais consistente
-                  // Tratando valores nulos ou indefinidos para evitar erros
-                  const obsOriginal = (servicoOriginal.observacao || '').trim();
-                  const obsAtual = (servicoAtual.observacao || '').trim();
-                  
-                  // Para quantidades, usamos precisão 0 (números inteiros)
-                  const qtdOriginal = Math.round(Number(servicoOriginal.quantidade || 0));
-                  const qtdAtual = Math.round(Number(servicoAtual.quantidade || 0));
-                  
-                  // Para valores decimais, fixamos a precisão em 6 casas decimais
-                  // mas usando número para comparação, não string
-                  const pontosOriginal = Number(Number(servicoOriginal.valPontos || 0).toFixed(6));
-                  const pontosAtual = Number(Number(servicoAtual.valorServico || 0).toFixed(6));
-                  
-                  const grupoOriginal = Number(Number(servicoOriginal.valGrupo || 0).toFixed(6));
-                  const grupoAtual = Number(Number(servicoAtual.valorGrupo || 0).toFixed(6));
-
-                  
-                  // Verificar cada campo individualmente para identificar alterações específicas
-                  const obsModificada = obsOriginal !== obsAtual;
-                  const qtdModificada = qtdOriginal !== qtdAtual;
-                  const pontosModificados = Math.abs(pontosOriginal - pontosAtual) > 0.000001; // Tolerância para ponto flutuante
-                  const grupoModificado = Math.abs(grupoOriginal - grupoAtual) > 0.000001;     // Tolerância para ponto flutuante
-                  const temAlteracao = obsModificada || qtdModificada || pontosModificados || grupoModificado;
-                  
-                  if (temAlteracao) {
-                    const fotosEdicao = [];
-                    const fotosOriginais = servicoOriginal.fotos || [];
-                    const fotosAtuais = servicoAtual.fotos || [];
-                    
-                    // Processar fotos existentes para atualização
-                    fotosOriginais.forEach((fotoOriginal, index) => {
-                      if (index < fotosAtuais.length) {
-                        // Foto mantida ou alterada
-                        fotosEdicao.push({
-                          acao: "PUT",
-                          itemFoto: fotoOriginal.itemFoto || (index + 1).toString().padStart(3, '0'),
-                          base64: fotosAtuais[index].base64
-                        });
-                      } else {
-                        // Foto removida
-                        fotosEdicao.push({
-                          acao: "DELETE",
-                          itemFoto: fotoOriginal.itemFoto || (index + 1).toString().padStart(3, '0')
-                        });
-                      }
-                    });
-                    
-                    // Adicionar fotos novas
-                    fotosAtuais.forEach((fotoAtual, index) => {
-                      if (index >= fotosOriginais.length) {
-                        fotosEdicao.push({
-                          acao: "POST",
-                          base64: fotoAtual.base64
-                        });
-                      }
-                    });
-                    
-                    servicosEdicao.push({
-                      acao: "PUT",
-                      itemServico: servicoOriginal.itemOcorrencia || "001",
-                      idServico: idServicoAtual,
-                      observacao: servicoAtual.observacao || '',
-                      quantidade: Number(servicoAtual.quantidade) || 0,
-                      valPontos: parseFloat(servicoAtual.valorServico) || 0,
-                      valGrupo: parseFloat(servicoAtual.valorGrupo) || 0,
-                      fotos: fotosEdicao
-                    });
-                  }
-                }
-              });
-              
-              return servicosEdicao;
-            };
-
-            // Ativar loading
-            setIsSubmitting(true);
-            if (setLoadingParent) setLoadingParent(true);
-
-            try {
-              // Função para validar campos obrigatórios
-              const validarCampos = () => {
-                const erros = {};
-
-                // Limpar erros anteriores
-                setCamposComErro({});
-
-                // Campos sempre obrigatórios
-                const numeroOs = document.getElementById('numeroOS').value.trim();
-                const unConsumidora = document.getElementById('unConsumidora').value.trim();
-                const status = document.getElementById('status').value;
-                const data = document.getElementById('data').value;
-                const dataConclusao = document.getElementById('dataConclusao').value;
-                const numeroOperacional = document.getElementById('numeroOperacional').value.trim();
-                const municipio = document.getElementById('municipio').value.trim();
-                const hrInicialDeslocamento = document.getElementById('hrInicialDeslocamento').value;
-                const hrInicioAtividade = document.getElementById('hrInicioAtividade').value;
-                const hrFimAtividade = document.getElementById('hrFimAtividade').value;
-                const hrFimDeslocamento = document.getElementById('hrFimDeslocamento').value;
-
-                // Validar campos sempre obrigatórios
-                // Pelo menos um dos campos deve ser preenchido
-                if (!numeroOs && !unConsumidora) {
-                  erros.numeroOS = 'Preencha pelo menos um dos campos: Número OS ou UN. Consumidora';
-                  erros.unConsumidora = 'Preencha pelo menos um dos campos: Número OS ou UN. Consumidora';
-                }
-
-                if (!status) erros.status = 'Este campo é obrigatório';
-                if (!data) erros.data = 'Este campo é obrigatório';
-                if (!dataConclusao) erros.dataConclusao = 'Este campo é obrigatório';
-                if (!numeroOperacional) erros.numeroOperacional = 'Este campo é obrigatório';
-                if (!municipio) erros.municipio = 'Este campo é obrigatório';
-                if (!centroCustoSelecionado) erros.centroDeCustos = 'Este campo é obrigatório';
-                if (!hrInicialDeslocamento) erros.hrInicialDeslocamento = 'Este campo é obrigatório';
-                if (!hrInicioAtividade) erros.hrInicioAtividade = 'Este campo é obrigatório';
-                if (!hrFimAtividade) erros.hrFimAtividade = 'Este campo é obrigatório';
-                if (!hrFimDeslocamento) erros.hrFimDeslocamento = 'Este campo é obrigatório';
-
-                // Campos condicionais - só obrigatórios se NÃO for ocorrência sem endereço
-                if (!ocorrenciaSemEndereco) {
-                  const endereco = document.getElementById('endereco').value.trim();
-                  const bairro = document.getElementById('bairro').value.trim();
-
-                  if (!endereco) erros.endereco = 'Este campo é obrigatório';
-                  if (!bairro) erros.bairro = 'Este campo é obrigatório';
-                }
-
-                // Validar se tem pelo menos um usuário
-                if (usuarios.length === 0) {
-                  erros.usuarios = 'Pelo menos um usuário deve ser adicionado';
-                }
-
-                // Validar se tem pelo menos um serviço
-                if (servicos.length === 0) {
-                  erros.servicos = 'Pelo menos um serviço deve ser adicionado';
-                }
-
-                // Validar se pelo menos um usuário é líder
-                const temLider = usuarios.some(u => u.lider);
-                if (usuarios.length > 0 && !temLider) {
-                  erros.lider = 'Pelo menos um usuário deve ser marcado como líder';
-                }
-
-                // Definir erros nos campos
-                if (Object.keys(erros).length > 0) {
-                  setCamposComErro(erros);
-                }
-
-                return Object.keys(erros).length > 0;
-              };
-
-              // Executar validação
-              const temErros = validarCampos();
-
-              if (temErros) {
-                mostrarAlert('Por favor, corrija os campos destacados em vermelho.', 'danger');
-                setIsSubmitting(false);
-                if (setLoadingParent) setLoadingParent(false);
-                return;
-              }
-
-              // Coleta dos dados dos inputs (após validação)
-              const numeroOs = document.getElementById('numeroOS').value.trim();
-              const unidadeConsumidora = document.getElementById('unConsumidora').value.trim();
-              const status = document.getElementById('status').value;
-              const data = document.getElementById('data').value.replace(/-/g, '');
-              const endereco = ocorrenciaSemEndereco ? '' : document.getElementById('endereco').value.trim();
-              const bairro = ocorrenciaSemEndereco ? '' : document.getElementById('bairro').value.trim();
-              const codMunicipio = document.getElementById('municipio').value.trim().split('-')[ 0 ];
-              const cep = ocorrenciaSemEndereco ? '' : document.getElementById('cep').value.trim().replace(/-/g, '');
-              const latitude = ocorrenciaSemEndereco ? '' : document.getElementById('latitude').value.trim();
-              const longitude = ocorrenciaSemEndereco ? '' : document.getElementById('longitude').value.trim();
-              const dataConclusao = document.getElementById('dataConclusao').value.replace(/-/g, '');
-              const centroCusto = centroCustoSelecionado;
-              const numOperacional = document.getElementById('numeroOperacional').value.trim().split('-')[ 0 ];
-              
-              // Coleta dos novos campos
-              const osSgm = document.getElementById('osSgm')?.value.trim() || '';
-              const osAcionamentoEmergencial = document.getElementById('osAcionamentoEmergencial')?.value.trim() || '';
-              const osTablet = document.getElementById('osTablet')?.value.trim() || '';
-              
-              // Novos campos de horário - conversão para formato 00:00:00
-              const hrInicialDeslocamento = document.getElementById('hrInicialDeslocamento').value + ':00';
-              const hrInicioAtividade = document.getElementById('hrInicioAtividade').value + ':00';
-              const hrInicioIntervalo = document.getElementById('hrInicioIntervalo').value ? document.getElementById('hrInicioIntervalo').value + ':00' : '';
-              const hrFimIntervalo = document.getElementById('hrFimIntervalo').value ? document.getElementById('hrFimIntervalo').value + ':00' : '';
-              const hrPrimeiroContatoCoi = document.getElementById('hrPrimeiroContatoCoi').value ? document.getElementById('hrPrimeiroContatoCoi').value + ':00' : '';
-              const hrAutorizacaoCoi = document.getElementById('hrAutorizacaoCoi').value ? document.getElementById('hrAutorizacaoCoi').value + ':00' : '';
-              const hrFechamentoCoi = document.getElementById('hrFechamentoCoi').value ? document.getElementById('hrFechamentoCoi').value + ':00' : '';
-              const hrFimAtividade = document.getElementById('hrFimAtividade').value + ':00';
-              const hrFimDeslocamento = document.getElementById('hrFimDeslocamento').value + ':00';
-
-              // Pega o CPF e matrícula do usuário logado do localStorage
-              const cpfInclusao = localStorage.getItem('cpf') || '00000000000';
-              const matInclusao = localStorage.getItem('matricula') || '000000';
-
-              // Monta array de usuários
-              const usuariosReq = usuarios.map(u => ({
-                cpf: u.cpf || '00000000000',
-                matricula: u.matricula || '000000',
-                lider: u.lider ? 'S' : 'N'
-              }));
-
-              // Monta array de serviços
-              const servicosReq = servicos.map(s => {
-                // Garantir que estamos usando o idServico para API, mesmo que o display mostre codServico
-                let idServico = '';
-                if (s.servicoSelecionado?.idServico) {
-                  // Se temos o objeto completo do serviço, usar seu idServico
-                  idServico = s.servicoSelecionado.idServico;
-                } else {
-                  // Caso contrário, tentar extrair do campo servico (que pode conter o codServico formatado)
-                  const servicoOriginal = s.servico?.split(' - ')[0]?.trim();
-                  
-                  // Verificar se servicoOriginal é um idServico ou codServico
-                  const servicoEncontrado = todosServicos.find(serv => 
-                    serv.idServico?.trim() === servicoOriginal || serv.codServico?.trim() === servicoOriginal
-                  );
-                  
-                  // Se encontrou o serviço, usar seu idServico, caso contrário usar o valor original
-                  idServico = servicoEncontrado ? servicoEncontrado.idServico : servicoOriginal;
-                }
-                
-                return {
-                  idServico: idServico,
-                  observacao: s.observacao || '',
-                  quantidade: Number(s.quantidade) || 0,
-                  valPontos: Number(s.valorServico) || 0,
-                  valGrupo: Number(s.valorGrupo) || 0,
-                  fotos: s.fotos || []
-                };
-              });
-
-              const body = {
-                numeroOs,
-                unidadeConsumidora,
-                status,
-                data,
-                semEndereco: ocorrenciaSemEndereco ? 'S' : 'N',
-                endereco,
-                bairro,
-                codMunicipio,
-                cep,
-                latitude,
-                longitude,
-                dataConclusao,
-                centroCusto,
-                numOperacional,
-                cpfInclusao,
-                matInclusao,
-                hrInicialDeslocamento,
-                hrInicioAtividade,
-                hrInicioIntervalo,
-                hrFimIntervalo,
-                hrPrimeiroContatoCoi,
-                hrAutorizacaoCoi,
-                osSgm,
-                osAcionamentoEmergencial,
-                osTablet,
-                hrFechamentoCoi,
-                hrFimAtividade,
-                hrFimDeslocamento,
-                usuarios: usuariosReq,
-                servicos: servicosReq,
-                incrementos: []
-              };
-
-              // Função para construir incrementos para edição
-              const construirIncrementosParaEdicao = () => {
-                const incrementosEdicao = [];
-                const incrementosOriginais = dadosOcorrencia.incrementos || [];
-                const incrementosAtuais = []; // Aqui você pode adicionar a lógica para pegar os incrementos do formulário
-                
-                // Marcar incrementos removidos
-                incrementosOriginais.forEach(incrementoOriginal => {
-                  const incrementoExiste = incrementosAtuais.find(i => 
-                    i.idIncremento === incrementoOriginal.idIncremento
-                  );
-                  
-                  if (!incrementoExiste) {
-                    incrementosEdicao.push({
-                      acao: "DELETE",
-                      itemIncremento: incrementoOriginal.itemIncremento || "001"
-                    });
-                  }
-                });
-                
-                // Marcar incrementos novos e alterados
-                incrementosAtuais.forEach(incrementoAtual => {
-                  const incrementoOriginal = incrementosOriginais.find(i => 
-                    i.idIncremento === incrementoAtual.idIncremento
-                  );
-                  
-                  if (!incrementoOriginal) {
-                    // Novo incremento
-                    incrementosEdicao.push({
-                      acao: "POST",
-                      idIncremento: incrementoAtual.idIncremento,
-                      valPercentual: Number(incrementoAtual.valPercentual) || 0
-                    });
-                  } else {
-                    // Incremento existente - verificar alterações
-                    const temAlteracao = 
-                      Number(incrementoOriginal.valPercentual) !== Number(incrementoAtual.valPercentual);
-                    
-                    if (temAlteracao) {
-                      incrementosEdicao.push({
-                        acao: "PUT",
-                        itemIncremento: incrementoOriginal.itemIncremento || "001",
-                        idIncremento: incrementoAtual.idIncremento,
-                        valPercentual: Number(incrementoAtual.valPercentual) || 0
-                      });
-                    }
-                  }
-                });
-                
-                return incrementosEdicao;
-              };
-
-              // Determinar se é edição ou criação
-              if (modoEdicao && dadosOcorrencia) {
-                // Montagem do payload para edição - incluindo todos os campos possíveis de serem modificados
-                const bodyEdicao = {
-                  idOcorrencia: dadosOcorrencia.idOcorrencia,
-                  numeroOs,
-                  unidadeConsumidora,
-                  status,
-                  data,
-                  semEndereco: ocorrenciaSemEndereco ? 'S' : 'N',
-                  endereco,
-                  bairro,
-                  codMunicipio,
-                  cep,
-                  latitude,
-                  longitude,
-                  dataConclusao,
-                  centroCusto,
-                  numOperacional,
-                  cpfInclusao,
-                  matInclusao,
-                  // Adicionar todos os campos de horários que foram modificados
-                  hrInicialDeslocamento,
-                  hrInicioAtividade,
-                  hrInicioIntervalo,
-                  hrFimIntervalo,
-                  hrPrimeiroContatoCoi,
-                  hrAutorizacaoCoi,
-                  hrFechamentoCoi,
-                  hrFimAtividade,
-                  hrFimDeslocamento,
-                  // Novos campos adicionados
-                  osSgm,
-                  osAcionamentoEmergencial,
-                  osTablet,
-                  
-                  // Comparar usuários existentes com novos para determinar ações
-                  usuarios: construirUsuariosParaEdicao(),
-                  
-                  // Comparar serviços existentes com novos para determinar ações
-                  servicos: construirServicosParaEdicao(),
-                  
-                  // Construir incrementos para edição
-                  incrementos: construirIncrementosParaEdicao()
-                };
-
-                try {
-                  // Verificando e formatando os dados para garantir precisão dos valores decimais
-                  if (bodyEdicao.servicos) {
-                    bodyEdicao.servicos.forEach(servico => {
-                      if (servico.valPontos) {
-                        servico.valPontos = Number(parseFloat(servico.valPontos).toFixed(6));
-                      }
-                      if (servico.valGrupo) {
-                        servico.valGrupo = Number(parseFloat(servico.valGrupo).toFixed(6));
-                      }
-                    });
-                  }
-                  
-                  if (bodyEdicao.incrementos) {
-                    bodyEdicao.incrementos.forEach(incremento => {
-                      if (incremento.valPercentual) {
-                        incremento.valPercentual = Number(parseFloat(incremento.valPercentual).toFixed(1));
-                      }
-                    });
-                  }
-                  
-                  // Verificando se há serviços que não foram modificados para removê-los do payload
-                  if (bodyEdicao.servicos && bodyEdicao.servicos.length > 0) {
-                    // Usar os dados da ocorrência original para comparação
-                    const servicosOriginais = dadosOcorrencia.servicos || [];
-                    
-                    // Filtrar apenas serviços com ações reais (POST, DELETE) ou PUT com alterações reais
-                    const servicosFiltrados = bodyEdicao.servicos.filter(servico => {
-                      // Sempre manter POST ou DELETE
-                      if (servico.acao === "POST" || servico.acao === "DELETE") {
-                        return true;
-                      }
-                      
-                      // Para PUT, verificar se realmente houve alteração
-                      if (servico.acao === "PUT") {
-                        const servicoOriginal = servicosOriginais.find(s => s.itemOcorrencia === servico.itemServico);
-                        
-                        if (!servicoOriginal) {
-                          return true; // Se não encontrar o serviço original, manter por segurança
-                        }
-                        
-                        // Comparar valores com conversão para precisão fixa
-                        const obsOriginal = servicoOriginal.observacao || '';
-                        const obsAtual = servico.observacao || '';
-                        
-                        const qtdOriginal = Number(servicoOriginal.quantidade || 0).toFixed(0);
-                        const qtdAtual = Number(servico.quantidade || 0).toFixed(0);
-                        
-                        const pontosOriginal = Number(servicoOriginal.valPontos || 0).toFixed(6);
-                        const pontosAtual = Number(servico.valPontos || 0).toFixed(6);
-                        
-                        const grupoOriginal = Number(servicoOriginal.valGrupo || 0).toFixed(6);
-                        const grupoAtual = Number(servico.valGrupo || 0).toFixed(6);
-                        
-                        return obsOriginal !== obsAtual || 
-                               qtdOriginal !== qtdAtual || 
-                               pontosOriginal !== pontosAtual || 
-                               grupoOriginal !== grupoAtual;
-                      }
-                      
-                      return false;
-                    });
-                                        
-                    bodyEdicao.servicos = servicosFiltrados;
-                  }
-                  
-                  await ocorrenciasService.alterarOcorrencia(bodyEdicao);
-                  // Resultado positivo
-                  mostrarAlert('Ordem de serviço atualizada com sucesso!', 'success');
-
-                  if (onSuccess && typeof onSuccess === 'function') {
-                    onSuccess();
-                  }
-                  
-                  setTimeout(() => {
-                    limparCampos();
-                    setVisible(false);
-                  }, 1000);
-                } catch (error) {
-                  // Tratamento de erro centralizado
-                  console.error('Erro ao atualizar ocorrência:', error);
-                  mostrarAlert(`Erro ao atualizar: ${error.message || 'Falha na operação'}`, 'danger');
-                }
-              } else {
-                // Lógica para criação usando serviço centralizado
-                try {
-                  // Usando serviço centralizado para inclusão da ocorrência
-                  await ocorrenciasService.incluirOcorrencia(body);
-                  
-                  // Resultado positivo
-                  mostrarAlert('Ordem de serviço registrada com sucesso!', 'success');
-
-                  if (onSuccess && typeof onSuccess === 'function') {
-                    onSuccess();
-                  }
-
-                  setTimeout(() => {
-                    limparCampos();
-                    setVisible(false);
-                  }, 1000);
-                } catch (error) {
-                  // Tratamento de erro centralizado
-                  console.error('Erro ao incluir ocorrência:', error);
-                  mostrarAlert(`Erro ao registrar: ${error.message || 'Falha na operação'}`, 'danger');
-                }
-              }
-            } catch (err) {
-              console.error('Erro:', err);
-              mostrarAlert('Erro de conexão. Verifique sua internet e tente novamente.', 'danger');
-            } finally {
-              // Desativar loading
-              setIsSubmitting(false);
-              if (setLoadingParent) setLoadingParent(false);
-            }
-          }}
+            onClick={handleSubmit}
           disabled={isSubmitting}
         >
           {isSubmitting ? (
