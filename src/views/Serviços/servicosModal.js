@@ -32,6 +32,7 @@ import {
 import CIcon from '@coreui/icons-react';
 import { cilX, cilCheckAlt, cilWarning, cilCamera } from '@coreui/icons';
 import { consultarCentroCusto } from '../../services/centroCustoService';
+import centroCustoCacheService from '../../services/centroCustoCacheService';
 import servicosService, { consultarServicosProtheus } from '../../services/servicosService';
 import servicosCacheService from '../../services/servicosCacheService';
 import { consultarEquipes } from '../../services/equipesService';
@@ -201,17 +202,13 @@ const ServicosModal = ({
     }
   }, [todosMunicipios.length]);
 
-  // Funções para buscar dados por ID para visualização
+  // Funções para buscar dados por ID para visualização (OTIMIZADA COM CACHE)
   const buscarCentroCustoPorId = async (centroCustoId) => {
-  // Busca o nome do centro de custo pelo ID usando o serviço centralizado
+  // Busca o nome do centro de custo pelo ID usando cache
     try {
-      const response = await consultarCentroCusto({
-        retornaInativos: 'N',
-        numCCusto: centroCustoId
-      });
+      const centroCusto = await centroCustoCacheService.buscarCentroCustoPorCodigo(centroCustoId);
       
-      if (response?.status && response?.data && response.data.length > 0) {
-        const centroCusto = response.data[0];
+      if (centroCusto) {
         return `${centroCusto.centroCusto?.trim()} - ${centroCusto.descricaoCCusto?.trim()}`;
       }
       return centroCustoId; // Retorna o ID se não encontrar
@@ -257,13 +254,21 @@ const ServicosModal = ({
   }, []);
 
   const buscarServicosPorIds = async (servicosArray) => {
-  // OTIMIZADO: Usa cache global em vez de múltiplas requisições
-  // Antes: 300 serviços = 300 requisições → Agora: 1 cache + busca local
+  // OTIMIZADO: Usa cache por centro de custo em vez de múltiplas requisições
+  // OBRIGATÓRIO: Centro de custo deve estar selecionado
     if (!servicosArray || !Array.isArray(servicosArray)) return [];
     
+    if (!centroCustoSelecionado) {
+      console.warn('Centro de custo não selecionado para buscar serviços');
+      return servicosArray.map(servico => ({
+        ...servico,
+        servicoNome: servico.servico || servico.idServico || 'Centro de custo necessário'
+      }));
+    }
+    
     try {
-      // Usar o serviço de cache otimizado
-      return await servicosCacheService.buscarServicosPorIds(servicosArray);
+      // Usar o serviço de cache otimizado com centro de custo
+      return await servicosCacheService.buscarServicosPorIds(servicosArray, centroCustoSelecionado);
     } catch (error) {
       console.error('Erro ao buscar serviços por IDs:', error);
       return servicosArray.map(servico => ({
@@ -546,17 +551,14 @@ const ServicosModal = ({
     }
   };
 
-  // Função para carregar todos os centros de custo
+  // Função para carregar todos os centros de custo (OTIMIZADA COM CACHE)
   const carregarTodosCentrosCusto = async () => {
     setLoadingCentroCusto(true);
     try {
-      const response = await consultarCentroCusto({
-        retornaInativos: 'N' // Retorna apenas ativos
-      });
-
-      // A API retorna um objeto com status, message e data
-      const dados = response?.data && Array.isArray(response.data) ? response.data : [];
+      // Usar cache em vez de requisição direta
+      const dados = await centroCustoCacheService.obterTodosCentrosCusto();
       setCentroCustoOpcoes(dados);
+      console.log(`✅ Centros de custo carregados do cache: ${dados.length} itens`);
     } catch (error) {
       console.error('Erro ao carregar centros de custo:', error);
       setCentroCustoOpcoes([]);
@@ -593,16 +595,21 @@ const ServicosModal = ({
     setCamposComErro({});
   };
 
-  // Função auxiliar para buscar serviço por ID ou código usando cache
+  // Função auxiliar para buscar serviço por ID ou código usando cache (COM CENTRO DE CUSTO)
   const buscarServicoNoCachePorIdOuCodigo = async (idOuCodigo) => {
+    if (!centroCustoSelecionado) {
+      console.warn('Centro de custo não selecionado para buscar serviço');
+      return null;
+    }
+
     try {
-      // Primeiro buscar no cache por ID
-      let servico = await servicosCacheService.buscarServicoPorId(idOuCodigo);
+      // Primeiro buscar no cache por ID com centro de custo
+      let servico = await servicosCacheService.buscarServicoPorId(idOuCodigo, centroCustoSelecionado);
       
       if (!servico) {
-        // Se não encontrou por ID, buscar por código no cache completo
-        const todosServicosCache = await servicosCacheService.obterTodosServicos();
-        servico = todosServicosCache.find(s => 
+        // Se não encontrou por ID, buscar por código no cache do centro de custo
+        const servicosDoCentroCusto = await servicosCacheService.obterServicosPorCentroCusto(centroCustoSelecionado);
+        servico = servicosDoCentroCusto.find(s => 
           s.codServico?.trim() === idOuCodigo?.trim()
         );
       }
@@ -614,7 +621,29 @@ const ServicosModal = ({
     }
   };
 
-  // UseEffect removido - cache será inicializado na página principal de serviços
+  // UseEffect removido - cache será inicializado quando centro de custo for selecionado
+
+  // UseEffect para pré-carregar cache de centros de custo quando modal abrir
+  useEffect(() => {
+    if (visible) {
+      // Pré-carregar cache de centros de custo em background
+      centroCustoCacheService.carregarTodosCentrosCusto().catch(error => {
+        console.error('Erro ao pré-carregar cache de centros de custo:', error);
+      });
+    }
+  }, [visible]);
+
+  // UseEffect para carregar cache de serviços quando centro de custo for selecionado
+  useEffect(() => {
+    if (centroCustoSelecionado && visible) {
+      console.log(`🔄 Carregando cache de serviços para centro de custo: ${centroCustoSelecionado}`);
+      
+      // Carregar serviços em background para este centro de custo
+      servicosCacheService.carregarServicosPorCentroCusto(centroCustoSelecionado).catch(error => {
+        console.error('Erro ao carregar cache de serviços:', error);
+      });
+    }
+  }, [centroCustoSelecionado, visible]);
 
   // UseEffect para resetar campos quando modal fechar
   useEffect(() => {
@@ -1337,9 +1366,16 @@ const ServicosModal = ({
     }
   };
 
-  // Função para buscar serviços do Protheus (OTIMIZADA COM CACHE)
+  // Função para buscar serviços do Protheus (OTIMIZADA COM CACHE E CENTRO DE CUSTO)
   const buscarServicos = async (termo, index) => {
-    // OTIMIZADO: Usa sempre cache global, sem filtro por centro de custo
+    // OBRIGATÓRIO: Centro de custo deve estar selecionado
+    if (!centroCustoSelecionado) {
+      console.warn('Centro de custo não selecionado para buscar serviços');
+      setServicosOpcoes([]);
+      setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
+      return;
+    }
+
     if (!termo || termo.length < 2) {
       setServicosOpcoes([]);
       setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: false }));
@@ -1347,8 +1383,8 @@ const ServicosModal = ({
     }
 
     try {
-      // Buscar em todos os serviços do cache global (sem filtro por centro de custo)
-      const servicosFiltrados = await servicosCacheService.filtrarServicos(termo, 10);
+      // Buscar serviços filtrando por centro de custo e termo
+      const servicosFiltrados = await servicosCacheService.filtrarServicos(termo, centroCustoSelecionado, 10);
 
       setServicosOpcoes(servicosFiltrados);
       setServicoDropdownVisivel(prev => ({ ...prev, [ index ]: true }));

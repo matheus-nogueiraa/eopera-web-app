@@ -1,88 +1,100 @@
-/**
- * Serviço de Cache Global para Serviços Protheus
- * 
- * Este serviço implementa um cache inteligente para evitar múltiplas
- * requisições à API de serviços, otimizando drasticamente a performance.
- * 
- * Funcionalidades:
- * - Cache global de todos os serviços
- * - Busca local por ID, código ou descrição
- * - Refresh automático em caso de erro
- * - Gerenciamento de estado de loading
- */
+
 
 import { consultarServicosProtheus } from './servicosService';
+import centroCustoCacheService from './centroCustoCacheService';
 
 class ServicosCacheService {
   constructor() {
-    this.servicos = []; // Cache global de serviços
-    this.isLoading = false;
-    this.lastLoadTime = null;
+    this.cachesPorCentroCusto = new Map(); // Cache organizado por centro de custo
+    this.loadingStates = new Map(); // Estados de loading por centro de custo
+    this.loadPromises = new Map(); // Promises de carregamento por centro de custo
     this.CACHE_DURATION = 30 * 60 * 1000; // 30 minutos em ms
-    this.loadPromise = null; // Para evitar múltiplas chamadas simultâneas
   }
 
   /**
-   * Carrega todos os serviços uma única vez e mantém em cache
+   * Carrega todos os serviços de um centro de custo específico
+   * OBRIGATÓRIO: Centro de custo deve ser fornecido e validado
    */
-  async carregarTodosServicos(forceReload = false) {
-    // Se já está carregando, retorna a promise em andamento
-    if (this.isLoading && this.loadPromise) {
-      return this.loadPromise;
+  async carregarServicosPorCentroCusto(centroCusto, forceReload = false) {
+    if (!centroCusto) {
+      throw new Error('Centro de custo é obrigatório para carregar serviços');
     }
 
-    // Verifica se o cache ainda é válido
-    if (!forceReload && this.isCacheValid()) {
-      return this.servicos;
+    const centroCustoKey = centroCusto.trim();
+
+    // Validar se o centro de custo existe
+    const centroCustoValido = await centroCustoCacheService.validarCentroCusto(centroCustoKey);
+    if (!centroCustoValido) {
+      throw new Error(`Centro de custo "${centroCustoKey}" não encontrado ou inativo`);
     }
 
-    console.log('🔄 Carregando todos os serviços do Protheus...');
-    this.isLoading = true;
+    // Se já está carregando este centro de custo, retorna a promise em andamento
+    if (this.loadingStates.get(centroCustoKey) && this.loadPromises.get(centroCustoKey)) {
+      return this.loadPromises.get(centroCustoKey);
+    }
+
+    // Verifica se o cache ainda é válido para este centro de custo
+    if (!forceReload && this.isCacheValidForCentroCusto(centroCustoKey)) {
+      return this.cachesPorCentroCusto.get(centroCustoKey).servicos;
+    }
+
+    console.log(`🔄 Carregando serviços para centro de custo: ${centroCustoKey}`);
+    this.loadingStates.set(centroCustoKey, true);
 
     // Cria uma promise para evitar múltiplas chamadas
-    this.loadPromise = this._executarCarregamento();
+    const loadPromise = this._executarCarregamentoPorCentroCusto(centroCustoKey);
+    this.loadPromises.set(centroCustoKey, loadPromise);
 
     try {
-      const result = await this.loadPromise;
+      const result = await loadPromise;
       return result;
     } finally {
-      this.isLoading = false;
-      this.loadPromise = null;
+      this.loadingStates.set(centroCustoKey, false);
+      this.loadPromises.delete(centroCustoKey);
     }
   }
 
   /**
-   * Executa o carregamento efetivo dos dados
+   * Executa o carregamento efetivo dos dados por centro de custo
    */
-  async _executarCarregamento() {
+  async _executarCarregamentoPorCentroCusto(centroCusto) {
     try {
-      const dados = await consultarServicosProtheus();
+      const dados = await consultarServicosProtheus({ centroCusto });
       
       if (Array.isArray(dados)) {
-        this.servicos = dados.map(servico => ({
+        const servicosProcessados = dados.map(servico => ({
           ...servico,
           // Normalizar campos para busca mais eficiente
           idServico: servico.idServico?.trim() || '',
           codServico: servico.codServico?.trim() || '',
           descricaoServico: servico.descricaoServico?.trim() || '',
           siglaUp: servico.siglaUp?.trim() || '',
+          centroCusto: servico.centroCusto?.trim() || centroCusto,
           searchText: this._createSearchText(servico)
         }));
         
-        this.lastLoadTime = Date.now();
-        console.log(`✅ Cache carregado com ${this.servicos.length} serviços`);
-        return this.servicos;
+        // Armazenar no cache com timestamp
+        this.cachesPorCentroCusto.set(centroCusto, {
+          servicos: servicosProcessados,
+          lastLoadTime: Date.now()
+        });
+        
+        console.log(`✅ Cache carregado para centro de custo ${centroCusto} com ${servicosProcessados.length} serviços`);
+        return servicosProcessados;
       } else {
         throw new Error('Resposta da API não é um array válido');
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar serviços:', error);
+      console.error(`❌ Erro ao carregar serviços para centro de custo ${centroCusto}:`, error);
+      
       // Em caso de erro, manter cache anterior se existir
-      if (this.servicos.length === 0) {
-        throw error;
+      const cacheExistente = this.cachesPorCentroCusto.get(centroCusto);
+      if (cacheExistente && cacheExistente.servicos.length > 0) {
+        console.warn(`⚠️ Mantendo cache anterior para centro de custo ${centroCusto} devido ao erro`);
+        return cacheExistente.servicos;
       }
-      console.warn('⚠️ Mantendo cache anterior devido ao erro');
-      return this.servicos;
+      
+      throw error;
     }
   }
 
@@ -99,25 +111,33 @@ class ServicosCacheService {
   }
 
   /**
-   * Verifica se o cache ainda é válido
+   * Verifica se o cache ainda é válido para um centro de custo específico
    */
-  isCacheValid() {
-    return this.servicos.length > 0 && 
-           this.lastLoadTime && 
-           (Date.now() - this.lastLoadTime) < this.CACHE_DURATION;
+  isCacheValidForCentroCusto(centroCusto) {
+    const cache = this.cachesPorCentroCusto.get(centroCusto);
+    return cache && 
+           cache.servicos.length > 0 && 
+           cache.lastLoadTime && 
+           (Date.now() - cache.lastLoadTime) < this.CACHE_DURATION;
   }
 
   /**
-   * Busca um serviço por ID (muito mais rápido que API)
+   * Busca um serviço por ID em um centro de custo específico
+   * OBRIGATÓRIO: Centro de custo deve ser fornecido
    */
-  async buscarServicoPorId(idServico) {
-    if (!idServico) return null;
+  async buscarServicoPorId(idServico, centroCusto) {
+    if (!idServico || !centroCusto) {
+      throw new Error('ID do serviço e centro de custo são obrigatórios');
+    }
 
-    // Garantir que o cache está carregado
-    await this.carregarTodosServicos();
+    // Garantir que o cache está carregado para este centro de custo
+    await this.carregarServicosPorCentroCusto(centroCusto);
+
+    const cache = this.cachesPorCentroCusto.get(centroCusto.trim());
+    if (!cache) return null;
 
     // Busca local no cache
-    const servicoEncontrado = this.servicos.find(s => 
+    const servicoEncontrado = cache.servicos.find(s => 
       s.idServico === idServico.trim() || 
       s.codServico === idServico.trim()
     );
@@ -126,13 +146,20 @@ class ServicosCacheService {
   }
 
   /**
-   * Busca múltiplos serviços por IDs (OTIMIZADO!)
+   * Busca múltiplos serviços por IDs em um centro de custo específico
+   * OBRIGATÓRIO: Centro de custo deve ser fornecido
    */
-  async buscarServicosPorIds(servicosArray) {
-    if (!servicosArray || !Array.isArray(servicosArray)) return [];
+  async buscarServicosPorIds(servicosArray, centroCusto) {
+    if (!servicosArray || !Array.isArray(servicosArray) || !centroCusto) {
+      console.warn('servicosArray ou centroCusto não fornecidos adequadamente');
+      return [];
+    }
 
-    // Garantir que o cache está carregado
-    await this.carregarTodosServicos();
+    // Garantir que o cache está carregado para este centro de custo
+    await this.carregarServicosPorCentroCusto(centroCusto);
+
+    const cache = this.cachesPorCentroCusto.get(centroCusto.trim());
+    if (!cache) return [];
 
     const servicosComNomes = servicosArray.map(servico => {
       // Se já tem o objeto completo, retorna direto
@@ -145,7 +172,7 @@ class ServicosCacheService {
 
       // Busca local no cache
       const servicoId = servico.servico || servico.idServico;
-      const servicoEncontrado = this.servicos.find(s => 
+      const servicoEncontrado = cache.servicos.find(s => 
         s.idServico === servicoId || s.codServico === servicoId
       );
 
@@ -167,83 +194,186 @@ class ServicosCacheService {
   }
 
   /**
-   * Filtra serviços localmente para autocomplete
+   * Filtra serviços localmente para autocomplete em um centro de custo específico
+   * OBRIGATÓRIO: Centro de custo deve ser fornecido
    */
-  async filtrarServicos(termo, limite = 20) {
+  async filtrarServicos(termo, centroCusto, limite = 20) {
+    if (!centroCusto) {
+      throw new Error('Centro de custo é obrigatório para filtrar serviços');
+    }
+
     if (!termo || termo.length < 2) return [];
 
-    // Garantir que o cache está carregado
-    await this.carregarTodosServicos();
+    // Garantir que o cache está carregado para este centro de custo
+    await this.carregarServicosPorCentroCusto(centroCusto);
+
+    const cache = this.cachesPorCentroCusto.get(centroCusto.trim());
+    if (!cache) return [];
 
     const termoLower = termo.toLowerCase().trim();
 
-    return this.servicos.filter(servico => 
+    return cache.servicos.filter(servico => 
       servico.searchText.includes(termoLower)
     ).slice(0, limite);
   }
 
   /**
-   * Filtra serviços por centro de custo
+   * Obtém todos os serviços de um centro de custo específico
+   * OBRIGATÓRIO: Centro de custo deve ser fornecido
    */
-  async filtrarPorCentroCusto(centroCusto, termo = '', limite = 20) {
-    if (!centroCusto) return [];
-
-    // Garantir que o cache está carregado
-    await this.carregarTodosServicos();
-
-    let servicosFiltrados = this.servicos.filter(servico => 
-      servico.centroCusto?.trim() === centroCusto.trim()
-    );
-
-    // Se tem termo de busca, aplicar filtro adicional
-    if (termo && termo.length >= 2) {
-      const termoLower = termo.toLowerCase().trim();
-      servicosFiltrados = servicosFiltrados.filter(servico => 
-        servico.searchText.includes(termoLower)
-      );
+  async obterServicosPorCentroCusto(centroCusto) {
+    if (!centroCusto) {
+      throw new Error('Centro de custo é obrigatório');
     }
 
-    return servicosFiltrados.slice(0, limite);
+    await this.carregarServicosPorCentroCusto(centroCusto);
+    
+    const cache = this.cachesPorCentroCusto.get(centroCusto.trim());
+    return cache ? cache.servicos : [];
   }
 
   /**
-   * Obtém todos os serviços do cache
+   * Força o recarregamento do cache para um centro de custo específico
    */
-  async obterTodosServicos() {
-    await this.carregarTodosServicos();
-    return this.servicos;
+  async recarregarCacheCentroCusto(centroCusto) {
+    if (!centroCusto) {
+      throw new Error('Centro de custo é obrigatório para recarregar cache');
+    }
+
+    console.log(`🔄 Forçando recarregamento do cache para centro de custo: ${centroCusto}`);
+    return this.carregarServicosPorCentroCusto(centroCusto, true);
   }
 
   /**
-   * Força o recarregamento do cache
+   * Limpa o cache de um centro de custo específico
    */
-  async recarregarCache() {
-    console.log('🔄 Forçando recarregamento do cache...');
-    return this.carregarTodosServicos(true);
+  limparCacheCentroCusto(centroCusto) {
+    if (!centroCusto) return;
+
+    this.cachesPorCentroCusto.delete(centroCusto.trim());
+    this.loadingStates.delete(centroCusto.trim());
+    this.loadPromises.delete(centroCusto.trim());
+    console.log(`�️ Cache limpo para centro de custo: ${centroCusto}`);
   }
 
   /**
-   * Limpa o cache
+   * Limpa todo o cache
    */
-  limparCache() {
-    this.servicos = [];
-    this.lastLoadTime = null;
-    this.isLoading = false;
-    this.loadPromise = null;
-    console.log('🗑️ Cache de serviços limpo');
+  limparTodoCache() {
+    this.cachesPorCentroCusto.clear();
+    this.loadingStates.clear();
+    this.loadPromises.clear();
+    console.log('🗑️ Todo o cache de serviços foi limpo');
   }
 
   /**
    * Obtém estatísticas do cache
    */
   getStats() {
-    return {
-      totalServicos: this.servicos.length,
-      isLoading: this.isLoading,
-      isCacheValid: this.isCacheValid(),
-      lastLoadTime: this.lastLoadTime,
-      cacheAge: this.lastLoadTime ? Date.now() - this.lastLoadTime : null
+    const stats = {
+      totalCentrosCusto: this.cachesPorCentroCusto.size,
+      cachesPorCentroCusto: {},
+      centrosCustoCarregando: []
     };
+
+    // Estatísticas por centro de custo
+    for (const [centroCusto, cache] of this.cachesPorCentroCusto) {
+      stats.cachesPorCentroCusto[centroCusto] = {
+        totalServicos: cache.servicos.length,
+        isCacheValid: this.isCacheValidForCentroCusto(centroCusto),
+        lastLoadTime: cache.lastLoadTime,
+        cacheAge: cache.lastLoadTime ? Date.now() - cache.lastLoadTime : null
+      };
+    }
+
+    // Centros de custo sendo carregados
+    for (const [centroCusto, isLoading] of this.loadingStates) {
+      if (isLoading) {
+        stats.centrosCustoCarregando.push(centroCusto);
+      }
+    }
+
+    return stats;
+  }
+
+  /**
+   * Obtém lista de centros de custo disponíveis
+   */
+  async obterCentrosCustoDisponiveis() {
+    return await centroCustoCacheService.obterTodosCentrosCusto();
+  }
+
+  /**
+   * Filtra centros de custo para autocomplete
+   */
+  async filtrarCentrosCusto(termo, limite = 20) {
+    return await centroCustoCacheService.filtrarCentrosCusto(termo, limite);
+  }
+
+  /**
+   * Valida se um centro de custo existe e está ativo
+   */
+  async validarCentroCusto(centroCusto) {
+    return await centroCustoCacheService.validarCentroCusto(centroCusto);
+  }
+
+  /**
+   * Obtém descrição de um centro de custo
+   */
+  async obterDescricaoCentroCusto(centroCusto) {
+    return await centroCustoCacheService.obterDescricaoCentroCusto(centroCusto);
+  }
+
+  /**
+   * Pré-carrega cache para centros de custo mais utilizados
+   */
+  async preCarregarCachesComunsAsync(centrosCustoComuns = []) {
+    if (!Array.isArray(centrosCustoComuns) || centrosCustoComuns.length === 0) return;
+
+    console.log(`🚀 Pré-carregando caches para ${centrosCustoComuns.length} centros de custo...`);
+
+    // Carregar em paralelo (sem await para não bloquear)
+    centrosCustoComuns.forEach(centroCusto => {
+      this.carregarServicosPorCentroCusto(centroCusto).catch(error => {
+        console.warn(`Erro ao pré-carregar cache para centro de custo ${centroCusto}:`, error);
+      });
+    });
+  }
+
+  /**
+   * Método legado - DEPRECATED
+   * Use carregarServicosPorCentroCusto() em vez disso
+   */
+  async carregarTodosServicos(forceReload = false) {
+    console.warn('⚠️ DEPRECATED: carregarTodosServicos() foi descontinuado. Use carregarServicosPorCentroCusto() com um centro de custo específico.');
+    throw new Error('Método descontinuado. Centro de custo é obrigatório para carregar serviços.');
+  }
+
+  /**
+   * Método legado - DEPRECATED  
+   * Use obterServicosPorCentroCusto() em vez disso
+   */
+  async obterTodosServicos() {
+    console.warn('⚠️ DEPRECATED: obterTodosServicos() foi descontinuado. Use obterServicosPorCentroCusto() com um centro de custo específico.');
+    throw new Error('Método descontinuado. Centro de custo é obrigatório para obter serviços.');
+  }
+
+  /**
+   * Método legado - DEPRECATED
+   * Use recarregarCacheCentroCusto() em vez disso
+   */
+  async recarregarCache() {
+    console.warn('⚠️ DEPRECATED: recarregarCache() foi descontinuado. Use recarregarCacheCentroCusto() com um centro de custo específico.');
+    throw new Error('Método descontinuado. Centro de custo é obrigatório para recarregar cache.');
+  }
+
+  /**
+   * Método legado - DEPRECATED
+   * Use limparCacheCentroCusto() ou limparTodoCache() em vez disso
+   */
+  limparCache() {
+    console.warn('⚠️ DEPRECATED: limparCache() foi descontinuado. Use limparCacheCentroCusto() ou limparTodoCache().');
+    this.limparTodoCache();
   }
 }
 
