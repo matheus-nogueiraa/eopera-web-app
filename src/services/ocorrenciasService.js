@@ -160,6 +160,11 @@ const ocorrenciasService = {
       throw new Error('ID da ocorrência é obrigatório');
     }
 
+    const cpf = localStorage.getItem('cpf');
+    if (!cpf) {
+      throw new Error('CPF do usuário não encontrado');
+    }
+
     try {
       const response = await httpRequest('/deletarOcorrencia', {
         method: 'DELETE',
@@ -168,7 +173,7 @@ const ocorrenciasService = {
           'Authorization': `Bearer ${import.meta.env.VITE_API_TOKEN}`,
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify({ idOcorrencia })
+        body: JSON.stringify({ idOcorrencia, cpfUserExclusao: cpf })
       });
       
       if (!response.ok) {
