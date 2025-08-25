@@ -1,10 +1,14 @@
 import httpRequest from '../utils/httpRequests';
 
 export const servicosService = {
-  // Buscar todos os cadastros de serviços do Protheus
-  async buscarServicos() {
+  // Buscar todos os cadastros de serviços do Protheus (OBRIGATÓRIO: Centro de custo)
+  async buscarServicos(centroCusto) {
+    if (!centroCusto) {
+      throw new Error('Centro de custo é obrigatório para buscar serviços');
+    }
+
     try {
-      const response = await httpRequest('/consultaServicosProtheus', {
+      const response = await httpRequest(`/consultaServicosProtheus?centroCusto=${centroCusto}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -30,15 +34,25 @@ export const servicosService = {
     }
   },
 
-  // Buscar serviços com filtros (incluindo por idServico)
+  // Buscar serviços com filtros (OBRIGATÓRIO: Centro de custo)
   async buscarServicosComFiltros(filtros = {}) {
+    if (!filtros.centroCusto) {
+      throw new Error('Centro de custo é obrigatório nos filtros');
+    }
+
     try {
       let endpoint = '/consultaServicosProtheus';
+      const queryParams = [];
+
+      // Centro de custo é sempre obrigatório
+      queryParams.push(`centroCusto=${filtros.centroCusto}`);
       
       // Se tiver idServico, adicionar como query param
       if (filtros.idServico) {
-        endpoint += `?idServico=${filtros.idServico}`;
+        queryParams.push(`idServico=${filtros.idServico}`);
       }
+
+      endpoint += `?${queryParams.join('&')}`;
 
       const response = await httpRequest(endpoint, {
         method: 'GET',
@@ -66,9 +80,13 @@ export const servicosService = {
     }
   },
 
-  async buscarServicoPorId(idServico) {
+  async buscarServicoPorId(idServico, centroCusto) {
+    if (!idServico || !centroCusto) {
+      throw new Error('ID do serviço e centro de custo são obrigatórios');
+    }
+
     try {
-      const response = await httpRequest(`/consultaServicosProtheus?idServico=${idServico}`, {
+      const response = await httpRequest(`/consultaServicosProtheus?centroCusto=${centroCusto}&idServico=${idServico}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -137,16 +155,19 @@ export const servicosService = {
 
 export default servicosService;
 
-// Função para consultar serviços do Protheus (compatibilidade)
+// Função para consultar serviços do Protheus (OBRIGATÓRIO: Centro de custo)
 export const consultarServicosProtheus = async (params = {}) => {
+  // VALIDAÇÃO OBRIGATÓRIA: Centro de custo deve estar presente
+  if (!params.centroCusto) {
+    throw new Error('Centro de custo é obrigatório para consultar serviços do Protheus');
+  }
+
   try {
     let endpoint = '/consultaServicosProtheus';
     const queryParams = [];
     
-    // Adicionar parâmetro centroCusto se fornecido
-    if (params.centroCusto) {
-      queryParams.push(`centroCusto=${params.centroCusto}`);
-    }
+    // Adicionar parâmetro centroCusto (OBRIGATÓRIO)
+    queryParams.push(`centroCusto=${params.centroCusto}`);
     
     // Adicionar parâmetro idServico se fornecido
     if (params.idServico) {
@@ -154,9 +175,9 @@ export const consultarServicosProtheus = async (params = {}) => {
     }
     
     // Montar a URL com os parâmetros
-    if (queryParams.length > 0) {
-      endpoint += `?${queryParams.join('&')}`;
-    }
+    endpoint += `?${queryParams.join('&')}`;
+
+    console.log(`🔄 Consultando serviços Protheus para centro de custo: ${params.centroCusto}`);
 
     const response = await httpRequest(endpoint, {
       method: 'GET',
@@ -174,12 +195,13 @@ export const consultarServicosProtheus = async (params = {}) => {
     const result = await response.json();
     
     if (result.status && result.data) {
+      console.log(`✅ Serviços carregados para centro de custo ${params.centroCusto}: ${result.data.length} itens`);
       return result.data;
     } else {
       throw new Error(result.messsage || 'Nenhum dado disponível');
     }
   } catch (error) {
-    console.error('Erro ao consultar serviços do Protheus:', error);
+    console.error(`❌ Erro ao consultar serviços do Protheus para centro de custo ${params.centroCusto}:`, error);
     throw error;
   }
 };

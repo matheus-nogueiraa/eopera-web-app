@@ -1,0 +1,11 @@
+
+
+/* OU */
+
+html {
+  scrollbar-gutter: stable; /* Reserva espaço para barra de rolagem (CSS mais moderno) */
+}
+
+.card-body {
+  overflow: hidden;
+}

@@ -8,19 +8,27 @@ import {
   CSidebarFooter,
   CSidebarHeader,
   CSidebarToggler,
-  CCardImage
+  CCardImage,
+  CSpinner
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 
 import { AppSidebarNav } from './AppSidebarNav'
+import { usePermissoesContext } from '../contexts/PermissoesContext'
 
 // sidebar nav config
-import navigation from '../_nav'
+import navigation, { filterNavigationByPermissions } from '../_nav'
 
 const AppSidebar = () => {
   const dispatch = useDispatch()
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
+  
+  // Hook para gerenciar permissões
+  const { rotasPermitidas, loading: loadingPermissoes } = usePermissoesContext()
+  
+  // Obter navegação filtrada baseada nas permissões
+  const navegacaoFiltrada = filterNavigationByPermissions(navigation, rotasPermitidas)
 
   return (
     <CSidebar
@@ -50,7 +58,13 @@ const AppSidebar = () => {
           onClick={() => dispatch({ type: 'set', sidebarShow: false })}
         />
       </CSidebarHeader>
-      <AppSidebarNav items={navigation} />
+      {loadingPermissoes ? (
+        <div className="d-flex justify-content-center align-items-center p-4">
+          <CSpinner color="light" />
+        </div>
+      ) : (
+        <AppSidebarNav items={navegacaoFiltrada} />
+      )}
     </CSidebar>
   )
 }

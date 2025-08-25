@@ -102,16 +102,23 @@ const ConsultaAtestados = () => {
       }
     }
 
+    // Função para ajustar a data para o fuso horário local
+    const ajustarParaFusoHorarioLocal = (data) => {
+      if (!data) return null;
+      const dataUTC = new Date(data);
+      return new Date(dataUTC.getTime() + dataUTC.getTimezoneOffset() * 60000);
+    };
+
     return {
       id: atestadoAPI.numFluig || Math.random().toString(36).substr(2, 9),
       status: mapearStatus(atestadoAPI.statusAtestado),
       tipificacao: 'Atestado de Saúde', // Valor padrão baseado no CID
       especificacao: atestadoAPI.motivo || 'Doença',
       dias: calcularDias(atestadoAPI.dtInicio, atestadoAPI.dtFim),
-      dataInicio: atestadoAPI.dtInicio,
-      dataFim: atestadoAPI.dtFim,
-      dataInicial: atestadoAPI.dtInicio, // Compatibilidade
-      dataFinal: atestadoAPI.dtFim, // Compatibilidade
+      dataInicio: ajustarParaFusoHorarioLocal(atestadoAPI.dtInicio),
+      dataFim: ajustarParaFusoHorarioLocal(atestadoAPI.dtFim),
+      dataInicial: ajustarParaFusoHorarioLocal(atestadoAPI.dtInicio), // Compatibilidade
+      dataFinal: ajustarParaFusoHorarioLocal(atestadoAPI.dtFim), // Compatibilidade
       motivo: mapearMotivo(
         atestadoAPI.statusAtestado,
         atestadoAPI.statusRecebimento,
@@ -134,7 +141,6 @@ const ConsultaAtestados = () => {
 
     try {
       const response = await atestadosService.consultarAtestados(matriculaUsuario)
-      console.log('Dados da API:', response)
 
       if (response && response.success !== false) {
         // Normalizar os dados da API
@@ -159,17 +165,7 @@ const ConsultaAtestados = () => {
         localStorage.getItem('nome') ||
         localStorage.getItem('userName')
 
-      console.log('Verificação de login:')
-      console.log('Matrícula:', matriculaUsuario)
-      console.log('Nome:', nomeUsuario)
-
       // Listar todos os itens do localStorage para debug
-      console.log('Todos os itens do localStorage:')
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        const value = localStorage.getItem(key)
-        console.log(`${key}: ${value}`)
-      }
 
       if (!matriculaUsuario) {
         // Verificar se há informações de login em outras chaves
@@ -179,20 +175,12 @@ const ConsultaAtestados = () => {
         for (const chave of chavesAlternativas) {
           const valor = localStorage.getItem(chave)
           if (valor) {
-            console.log(`Matrícula encontrada na chave ${chave}:`, valor)
             localStorage.setItem('matricula', valor)
             encontrouMatricula = true
             break
           }
         }
 
-        if (!encontrouMatricula) {
-          setErro('Usuário não está logado. Redirecionando para login...')
-          setTimeout(() => {
-            window.location.href = '/login'
-          }, 3000)
-          return
-        }
       }
 
       // Carregar e consultar atestados automaticamente ao montar o componente
@@ -204,7 +192,6 @@ const ConsultaAtestados = () => {
           setAtestadosFiltrados(resultados)
           setBuscaRealizada(true)
           setPaginaAtual(1)
-          console.log(`Consulta inicial concluída. ${resultados.length} atestados encontrados.`)
         })
         .catch((error) => {
           console.error('Erro detalhado:', error)
@@ -301,7 +288,6 @@ const ConsultaAtestados = () => {
   }
 
   const buscarAtestados = async (filtros) => {
-    console.log('Buscando atestados com filtros:', filtros)
 
     setCarregando(true)
     setBuscaRealizada(false)
@@ -313,7 +299,7 @@ const ConsultaAtestados = () => {
       const matriculaUsuario = localStorage.getItem('matricula')
 
       if (!matriculaUsuario) {
-        throw new Error('Usuário não está logado. Faça login novamente.')
+        throw new Error('Matricula não encontrada.')
       }
 
       // Buscar dados frescos da API
@@ -339,10 +325,6 @@ const ConsultaAtestados = () => {
       setPaginaAtual(1)
 
       // Não limpar os filtros após busca bem-sucedida
-
-      console.log(
-        `Busca concluída. ${resultados.length} atestados encontrados com os filtros aplicados.`,
-      )
     } catch (error) {
       console.error('Erro durante a busca:', error)
       setErro(error.message || 'Erro ao realizar a busca. Tente novamente.')
@@ -357,7 +339,7 @@ const ConsultaAtestados = () => {
   const recarregarDados = async () => {
     try {
       const dadosFrescos = await buscarAtestadosAPI()
-      
+
       // Limpar filtros
       const filtrosLimpos = {
         dataInicio: '',
@@ -367,13 +349,13 @@ const ConsultaAtestados = () => {
         especificacao: '',
       }
       setFiltros(filtrosLimpos)
-      
+
       // Aplicar busca automaticamente com filtros limpos
       const resultados = filtrarAtestados(dadosFrescos, filtrosLimpos)
       setAtestadosFiltrados(resultados)
       setBuscaRealizada(true)
       setPaginaAtual(1)
-      
+
     } catch (error) {
       console.error('Erro ao recarregar dados:', error)
       setErro('Erro ao recarregar dados: ' + error.message)
@@ -468,10 +450,23 @@ const ConsultaAtestados = () => {
           <h1 className="h3 mb-0 text-gray-800">Consultar Atestados Enviados</h1>
           {/* Debug info - remover em produção */}
           <small className="text-muted">
-            Matrícula: {localStorage.getItem('matricula') || 'NÃO ENCONTRADA'} | Nome:{' '}
-            {localStorage.getItem('nomeUsuario') ||
-              localStorage.getItem('nome') ||
-              'NÃO ENCONTRADO'}
+            {localStorage.getItem('matricula') ? (
+              <>
+                Matrícula: {localStorage.getItem('matricula') || ''} | Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }
+              </>
+            ) : (
+              <span>Nome:{' '}
+                {
+                  localStorage.getItem('nomeUsuario') ||
+                  localStorage.getItem('nome') ||
+                  'NÃO ENCONTRADO'
+                }</span>
+            )}
           </small>
         </div>
       </div>

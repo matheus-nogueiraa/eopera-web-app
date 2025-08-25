@@ -15,23 +15,37 @@ import {
   cilCommentSquare,
   cilEnvelopeOpen,
   cilFile,
-  cilLockLocked,
+  cilArrowLeft,
   cilSettings,
   cilTask,
   cilUser,
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
+import { sessionManager } from '../../utils/GerenciarSessao'
+import { useNavigate } from 'react-router-dom'
 
 // Avatar dinâmico, não precisa importar imagem
 
 const AppHeaderDropdown = () => {
   const nomeUsuario = localStorage.getItem('nomeUsuario') || '';
   const primeiraLetra = nomeUsuario.charAt(0).toUpperCase();
-  const navigate = window.location ? null : undefined;
+  const navigate = useNavigate(); // <--- usar useNavigate corretamente
+
   const handleLogout = () => {
-  localStorage.removeItem('nomeUsuario'); // Limpa nome do usuário
-  window.location.href = '/login';
-}
+    try {
+      // Limpa sessão centralizada (sessionStorage + localStorage compat)
+      sessionManager.clearSession();
+
+      // Mantive remoção explícita por segurança/compatibilidade
+      localStorage.removeItem('dadosLogin');
+      // redireciona para login via router (sem reload completo)
+      navigate('/login');
+    } catch (err) {
+      // fallback: garante redirect mesmo em erro
+      window.location.href = '/login';
+    }
+  }
+
 
   return (
     <CDropdown variant="nav-item">
@@ -72,7 +86,7 @@ const AppHeaderDropdown = () => {
       </CDropdownToggle>
       <CDropdownMenu className="pt-0" placement="bottom-end">
         <CDropdownItem onClick={handleLogout} style={{ cursor: 'pointer' }}>
-          <CIcon icon={cilLockLocked} className="me-2" />
+          <CIcon icon={cilArrowLeft} className="me-2" />
           Sair
         </CDropdownItem>
       </CDropdownMenu>
